@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "govscape"
+version = "0.1.0"
+description = ""
+authors = ["kylebd99 <kdeeds@cs.washington.edu>"]
+readme = "README.md"
+packages = [{include = "govscape", from = "src"}]
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
