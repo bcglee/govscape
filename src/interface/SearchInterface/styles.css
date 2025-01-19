@@ -1,0 +1,53 @@
+/* Styles specific to the SearchInterface component */
+.search-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.results-grid {
+    margin-top: 2rem;
+}
+
+.grid-item {
+    width: calc(33.333% - 20px);
+    margin: 10px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.grid-item:hover {
+    transform: translateY(-5px);
+}
+
+.grid-item img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.filter-sidebar {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.filter-section {
+    margin-top: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .grid-item {
+        width: calc(50% - 20px);
+    }
+}
+
+@media (max-width: 576px) {
+    .grid-item {
+        width: calc(100% - 20px);
+    }
+} 
