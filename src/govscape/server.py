@@ -15,7 +15,7 @@ def main():
     index_config = IndexConfig()
     server_config = ServerConfig(index_config, EmbeddingModel)
 
-    # builds a preliminary index
+    # builds a preliminary fake index with 1-10 random .npy corresponding .pdf files
     list_of_arrays = []
     index = {}
     directory = 'data/embeddings/'
@@ -33,7 +33,8 @@ def main():
     s.serve(3)
 
 class Server:
-    # commented out to do searching with preliminary index
+    # commented out to do searching with placeholder index
+    #
     # def __init__(self, config : ServerConfig):
     #     self.pdf_directory = config.pdf_directory
     #     self.embedding_directory = config.embedding_directory
@@ -46,14 +47,12 @@ class Server:
         self.index_directory = index
         pass
 
-    # This function accepts a query to search and returns a List object of
-    # file names that it believes serves the user's request
+    # Accepts a Query -> Prints out k closest arrays with distance
     def serve(self, k):
         print("Welcome to End-Of-Term PDF Search Server")
 
         # Creating Faiss model
-        d = 5                           # dimension
-        nq = 1                      # nb of queries
+        d = 5  # dimension
         faiss_index = faiss.IndexFlatL2(d)
         print(faiss_index.is_trained)
         faiss_index.add(self.embedding_directory)
@@ -63,10 +62,12 @@ class Server:
         try:
             while True:
                 query = input("Search: ")
-                #EOF detected
+                # EOF detected
                 if query == "":
                     break
+                # Create random array embedding
                 query_embedding = em.embed_query(query)
+                # Search for the three closest arrays
                 D, I = faiss_index.search(query_embedding, k)
                 print(f"This queries' embedding {query_embedding}\n")
                 for i in range(I.shape[0]):
@@ -74,12 +75,10 @@ class Server:
                          pdf_file = self.index_directory[I[i][j]]
                          print(f"{pdf_file} is at distance {D[i][j]}")
                 print()
-
         except EOFError:
             print("\nThank you for using!")
 
-# This class represents our embedding model, as a placeholder it returns
-# a random vector
+# Our embedding model, right now returns a random vector
 class EmbeddingModel:
     def __init__(self):
         pass
