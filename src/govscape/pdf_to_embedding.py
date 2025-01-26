@@ -129,8 +129,40 @@ class PDFsToEmbeddings:
                 output_path = os.path.join(embedding_dir, file_name)
                 np.save(output_path, embedding.cpu().numpy())
 
-    # 1 + 2
+    
+    
+    #takes in a string and converts it into an embedding. 
+    def text_to_embeddings(self, text):
+        #tokenize text
+        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
+        tokenized_text = inputs['input_ids'][0]
+        
+        #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
+        max_chunk_len = 77
+        text_chunks = []
 
+        for i in range(0,len(tokenized_text), max_chunk_len):
+            text_chunks.append(tokenized_text[i:i+max_chunk_len])
+
+        #stack them all into a single batch so we can compute them all at the same time
+        chunk_tensors = [] 
+        for chunk in text_chunks:
+            chunk_tensors.append(chunk.unsqueeze(0))
+        batch_input_ids = torch.cat(chunk_tensors, dim=0)  
+        batch_attention_mask = torch.ones_like(batch_input_ids)
+
+        with torch.no_grad():
+            batch_embeddings = self.model.get_text_features(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
+
+        embeddings = batch_embeddings.split(1, dim=0) 
+
+        #decision: average embedding to create one embedding per PDF 
+        final_embedding = torch.mean(torch.stack(embeddings), dim=0)
+
+        return final_embedding
+    
+    # 1 + 2
+    
     def pdfs_to_embeddings(self):
         self._convert_pdfs_to_txt()
         self._convert_txts_to_embeddings()
@@ -144,4 +176,10 @@ embeddings_directory = ""
 
 processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory)
 processor.pdfs_to_embeddings()
+'''
+
+#test:
+'''
+test = PDFsToEmbeddings("", "", "")
+print(test.text_to_embeddings("hello"))
 '''
