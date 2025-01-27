@@ -14,7 +14,8 @@ from pdf_to_embedding import PDFsToEmbeddings
 
 def main():
     index_config = IndexConfig()
-    server_config = ServerConfig(index_config, PDFsToEmbeddings('data/pdfs', 'data/index', 'data/embeddings'))
+    server_config = ServerConfig(index_config, PDFsToEmbeddings('test_data/pdfs', 'test_data/text', 'test_data/embeddings'))
+    server_config.model.pdfs_to_embeddings()
     # array serving
     s = Server(server_config)
     s.serve()
@@ -33,6 +34,8 @@ class Server:
 
         # define k for top-k
         k = 3
+
+        self.model.pdfs_to_embeddings()
 
         # Creating Faiss model
         d = 512  # dimension
