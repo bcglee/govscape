@@ -64,7 +64,7 @@ class Server:
                 query = input("Search: ")
                 # EOF detected
                 if query == "":
-                    break
+                    continue
                 # Create random array embedding
                 query_embedding = em.embed_query(query)
                 # Search for the three closest arrays
