@@ -15,29 +15,24 @@ from pdf_to_embedding import PDFsToEmbeddings
 def main():
     index_config = IndexConfig()
     server_config = ServerConfig(index_config, PDFsToEmbeddings('data/pdfs', 'data/index', 'data/embeddings'))
-
     # array serving
     s = Server(server_config)
-    s.serve(3)
+    s.serve()
 
 class Server:
     def __init__(self, config : ServerConfig):
         self.pdf_directory = config.pdf_directory
         self.embedding_directory = config.embedding_directory
-        print(self.embedding_directory)
         self.index_directory = config.index_directory
         self.model = config.model
         pass
 
-    # def __init__(self, config : ServerConfig, arrays, index):
-    #     self.pdf_directory = config.pdf_directory
-    #     self.embedding_directory = arrays
-    #     self.index_directory = index
-    #     pass
-
     # Accepts a Query -> Prints out k closest arrays with distance
-    def serve(self, k):
+    def serve(self):
         print("Welcome to End-Of-Term PDF Search Server")
+
+        # define k for top-k
+        k = 3
 
         # Creating Faiss model
         d = 512  # dimension
@@ -75,15 +70,6 @@ class Server:
                 print()
         except EOFError:
             print("\nThank you for using!")
-
-# Our embedding model, right now returns a random vector
-class EmbeddingModel:
-    def __init__(self):
-        pass
-
-    def embed_query(self, query: str) -> np.array:
-        random_embedding = np.array([np.random.rand(5)])
-        return random_embedding
 
 if __name__ == '__main__':
          main()
