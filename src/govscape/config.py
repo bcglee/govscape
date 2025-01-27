@@ -1,5 +1,6 @@
 # These classes should contain all the configuration information necessary for
 # starting the server and serving queries, respectively.
+from pdf_to_embedding import PDFsToEmbeddings
 
 class IndexConfig:
     def __init__(self, pdf_directory = "data/pdfs", embedding_directory="data/embeddings", index_directory="data/index"):

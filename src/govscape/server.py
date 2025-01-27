@@ -5,6 +5,7 @@ from config import IndexConfig
 import numpy as np
 import faiss
 import os
+from pdf_to_embedding import PDFsToEmbeddings
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -13,52 +14,50 @@ import os
 
 def main():
     index_config = IndexConfig()
-    server_config = ServerConfig(index_config, EmbeddingModel)
-
-    # builds a preliminary fake index with 1-10 random .npy corresponding .pdf files
-    list_of_arrays = []
-    index = {}
-    directory = 'data/embeddings/'
-    for filename in os.listdir(directory):
-        if filename.endswith('.npy'):
-            file_path = os.path.join(directory, filename)
-            array = np.load(file_path)
-        index[len(list_of_arrays)] = file_path
-        list_of_arrays.append(array)
-    arrays = np.vstack(list_of_arrays)
-    print(arrays)
+    server_config = ServerConfig(index_config, PDFsToEmbeddings('data/pdfs', 'data/index', 'data/embeddings'))
 
     # array serving
-    s = Server(server_config, arrays, index)
+    s = Server(server_config)
     s.serve(3)
 
 class Server:
-    # commented out to do searching with placeholder index
-    #
-    # def __init__(self, config : ServerConfig):
-    #     self.pdf_directory = config.pdf_directory
-    #     self.embedding_directory = config.embedding_directory
-    #     self.index_directory = config.index_directory
-    #     pass
-
-    def __init__(self, config : ServerConfig, arrays, index):
+    def __init__(self, config : ServerConfig):
         self.pdf_directory = config.pdf_directory
-        self.embedding_directory = arrays
-        self.index_directory = index
+        self.embedding_directory = config.embedding_directory
+        print(self.embedding_directory)
+        self.index_directory = config.index_directory
+        self.model = config.model
         pass
+
+    # def __init__(self, config : ServerConfig, arrays, index):
+    #     self.pdf_directory = config.pdf_directory
+    #     self.embedding_directory = arrays
+    #     self.index_directory = index
+    #     pass
 
     # Accepts a Query -> Prints out k closest arrays with distance
     def serve(self, k):
         print("Welcome to End-Of-Term PDF Search Server")
 
         # Creating Faiss model
-        d = 5  # dimension
+        d = 512  # dimension
         faiss_index = faiss.IndexFlatL2(d)
         print(faiss_index.is_trained)
-        faiss_index.add(self.embedding_directory)
-        print("Searching against " + str(faiss_index.ntotal) + " embeddings\n")
 
-        em = EmbeddingModel()
+        # Train model on test vectors
+        npy_files = []
+        for root, _, files in os.walk('data/embeddings'):
+            for file in files:
+                if file.endswith('.npy'):  # Check for .npy extension
+                    npy_files.append(os.path.join(root, file))
+        
+        arrays = [np.load(file) for file in npy_files]  # Load each .npy file into an array
+        for array in arrays:
+            print(array.shape)
+        stacked_array = np.vstack(arrays) 
+        faiss_index.add(stacked_array)
+    
+        print("Searching against " + str(faiss_index.ntotal) + " embeddings\n")
         try:
             while True:
                 query = input("Search: ")
@@ -66,14 +65,13 @@ class Server:
                 if query == "":
                     continue
                 # Create random array embedding
-                query_embedding = em.embed_query(query)
+                query_embedding = self.model.text_to_embeddings(query)
                 # Search for the three closest arrays
                 D, I = faiss_index.search(query_embedding, k)
                 print(f"This queries' embedding {query_embedding}\n")
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
-                         pdf_file = self.index_directory[I[i][j]]
-                         print(f"{pdf_file} is at distance {D[i][j]}")
+                         print(f"{npy_files[I[i][j]]} is at distance {D[i][j]}")
                 print()
         except EOFError:
             print("\nThank you for using!")
