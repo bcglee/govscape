@@ -29,7 +29,7 @@ class PDFsToEmbeddings:
     #1. PDF -> TXT 
 
     # converts a single pdf file to text
-    def _convert_pdf_to_text(self, pdf_path):
+    def convert_pdf_to_text(self, pdf_path):
         with pdfplumber.open(pdf_path) as pdf:
             text = []
             for page in pdf.pages:
@@ -37,7 +37,7 @@ class PDFsToEmbeddings:
         return text
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
-    def _convert_pdfs_to_txt(self):
+    def convert_pdfs_to_txt(self):
         if not os.path.exists(self.txts_path):
             os.makedirs(self.txts_path)
         
@@ -62,7 +62,7 @@ class PDFsToEmbeddings:
 
     # takes in a single txt file and converts it into an embedding
     # added in some batch processing to make it faster
-    def _convert_txt_to_embedding(self,txt_path):
+    def convert_txt_to_embedding(self,txt_path):
         # need to convert .txt to text
         with open(txt_path, 'r') as file:
             text = file.read()
@@ -76,6 +76,7 @@ class PDFsToEmbeddings:
         text_chunks = []
 
         for i in range(0,len(tokenized_text), max_chunk_len):
+            #make sure they are all the same size so they can be torch.cat later on
             if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
                 text_chunks.append(tokenized_text[i:i+max_chunk_len])
 
@@ -97,7 +98,7 @@ class PDFsToEmbeddings:
         return final_embedding
 
     # converts a dir of subdirs for each pdf of txts for each page into a dir of subdir of embeddings in .npy
-    def _convert_txts_to_embeddings(self):
+    def convert_txts_to_embeddings(self):
         if not os.path.exists(self.embeddings_path):
             os.makedirs(self.embeddings_path)
 
@@ -144,7 +145,8 @@ class PDFsToEmbeddings:
         text_chunks = []
 
         for i in range(0,len(tokenized_text), max_chunk_len):
-            text_chunks.append(tokenized_text[i:i+max_chunk_len])
+            if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
+                text_chunks.append(tokenized_text[i:i+max_chunk_len])
 
         #stack them all into a single batch so we can compute them all at the same time
         chunk_tensors = [] 
@@ -164,25 +166,20 @@ class PDFsToEmbeddings:
         return final_embedding
     
     # 1 + 2
-    
+    #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
         self._convert_pdfs_to_txt()
         self._convert_txts_to_embeddings()
 
 #test:
-script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Print the directory
-print("Current script is located at:", script_dir)
-
-#please write your file paths 
-#C:\Users\clair\govscape\govscape\src\govscape
-pdf_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_pdf"
-txt_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_txt"
-embeddings_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_embed"
+#please write your file paths - don't forget \\ instead of \
+'''pdf_directory = ""
+txt_directory = ""
+embeddings_directory = ""
 
 processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory)
-processor.pdfs_to_embeddings()
+processor.pdfs_to_embeddings()'''
 
 
 #test:
