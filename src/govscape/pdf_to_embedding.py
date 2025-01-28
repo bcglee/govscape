@@ -168,8 +168,8 @@ class PDFsToEmbeddings:
     # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
-        self._convert_pdfs_to_txt()
-        self._convert_txts_to_embeddings()
+        self.convert_pdfs_to_txt()
+        self.convert_txts_to_embeddings()
 
 #test:
 
