@@ -76,11 +76,9 @@ class PDFsToEmbeddings:
         text_chunks = []
 
         for i in range(0,len(tokenized_text), max_chunk_len):
-            #print(len(tokenized_text[i:i+max_chunk_len]))
             if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
                 text_chunks.append(tokenized_text[i:i+max_chunk_len])
 
-        print(text_chunks)
         #stack them all into a single batch so we can compute them all at the same time
         chunk_tensors = [] 
         for chunk in text_chunks:
