@@ -51,7 +51,7 @@ class PDFsToEmbeddings:
             if not os.path.exists(pdf_subdir):
                 os.makedirs(pdf_subdir)
 
-            text = self._convert_pdf_to_text(pdf_path)
+            text = self.convert_pdf_to_text(pdf_path)
 
             for page_num, page_text in enumerate(text):
                 txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
@@ -126,7 +126,7 @@ class PDFsToEmbeddings:
                 if os.stat(txt_path).st_size == 0:
                     continue
 
-                embedding = self._convert_txt_to_embedding(txt_path)
+                embedding = self.convert_txt_to_embedding(txt_path)
 
                 file_name = os.path.splitext(txt_file)[0] + ".npy"
                 output_path = os.path.join(embedding_dir, file_name)

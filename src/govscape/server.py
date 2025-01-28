@@ -14,7 +14,7 @@ from pdf_to_embedding import PDFsToEmbeddings
 
 def main():
     index_config = IndexConfig()
-    server_config = ServerConfig(index_config, PDFsToEmbeddings('test_data/pdfs', 'test_data/text', 'test_data/embeddings'))
+    server_config = ServerConfig(index_config, PDFsToEmbeddings('data/data_short_pdf', 'data/data_short_txt', 'data/data_short_embed'))
     server_config.model.pdfs_to_embeddings()
     # array serving
     s = Server(server_config)
@@ -44,7 +44,7 @@ class Server:
 
         # Train model on test vectors
         npy_files = []
-        for root, _, files in os.walk('data/embeddings'):
+        for root, _, files in os.walk('data/data_short_embed'):
             for file in files:
                 if file.endswith('.npy'):  # Check for .npy extension
                     npy_files.append(os.path.join(root, file))
