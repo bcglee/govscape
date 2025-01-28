@@ -57,8 +57,33 @@ class Server:
     
         print("Searching against " + str(faiss_index.ntotal) + " embeddings\n")
         try:
-            while True:
-                query = input("Search: ")
+            queries = ['nature', 'green', 'gold', 'leaf', 'flower', 'hour', 
+                'federal', 'government', 'majority', 'territories', 'island', 'district', 
+                'biden', 'administration', 'paris', 'global', 'climate', 'pandemic', 
+                'seattle', 'academic', 'universities', 'resaerch', 'campus']
+            with open('short_pdf_benchmark.txt', 'a') as file:
+                for query in queries:
+                    file.write(query)
+                    file.write("\n")
+                    query_embedding = self.model.text_to_embeddings(query)
+                    D, I = faiss_index.search(query_embedding, k)
+                    #print(I.shape[0])
+                    #print(I.shape[1])
+
+                    min_dist = np.inf
+                    file_min = ""
+                    
+                    for i in range(I.shape[0]):
+                        for j in range(I.shape[1]):
+                            print(f"{npy_files[I[i][j]]} is at distance {D[i][j]}")
+                            if D[i][j] < min_dist:
+                                file_min = npy_files[I[i][j]]
+                                min_dist = D[i][j]
+                    file.write(file_min)
+                    file.write("\n")
+                    print()
+            #while True:
+                '''query = input("Search: ")
                 # EOF detected
                 if query == "":
                     continue
@@ -66,11 +91,14 @@ class Server:
                 query_embedding = self.model.text_to_embeddings(query)
                 # Search for the three closest arrays
                 D, I = faiss_index.search(query_embedding, k)
-                print(f"This queries' embedding {query_embedding}\n")
+                #print(f"This queries' embedding {query_embedding}\n")
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
                          print(f"{npy_files[I[i][j]]} is at distance {D[i][j]}")
-                print()
+                print()'''
+                
+
+
         except EOFError:
             print("\nThank you for using!")
 
