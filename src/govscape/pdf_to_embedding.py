@@ -9,6 +9,7 @@ import os
 # for CLIP
 from transformers import CLIPProcessor, CLIPModel
 import torch
+import torch.nn.functional as F
 #for saving embeddings
 import numpy as np
 
@@ -75,8 +76,11 @@ class PDFsToEmbeddings:
         text_chunks = []
 
         for i in range(0,len(tokenized_text), max_chunk_len):
-            text_chunks.append(tokenized_text[i:i+max_chunk_len])
+            #print(len(tokenized_text[i:i+max_chunk_len]))
+            if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
+                text_chunks.append(tokenized_text[i:i+max_chunk_len])
 
+        print(text_chunks)
         #stack them all into a single batch so we can compute them all at the same time
         chunk_tensors = [] 
         for chunk in text_chunks:
@@ -168,15 +172,20 @@ class PDFsToEmbeddings:
         self._convert_txts_to_embeddings()
 
 #test:
-'''
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Print the directory
+print("Current script is located at:", script_dir)
+
 #please write your file paths 
-pdf_directory = ""
-txt_directory = ""
-embeddings_directory = ""
+#C:\Users\clair\govscape\govscape\src\govscape
+pdf_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_pdf"
+txt_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_txt"
+embeddings_directory = "C:\\Users\\clair\\govscape\\govscape\\src\\govscape\\data\\data_short_embed"
 
 processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory)
 processor.pdfs_to_embeddings()
-'''
+
 
 #test:
 '''
