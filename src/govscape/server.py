@@ -44,7 +44,7 @@ class Server:
 
         # Train model on test vectors
         npy_files = []
-        for root, _, files in os.walk('data/embeddings'):
+        for root, _, files in os.walk(self.embedding_directory):
             for file in files:
                 if file.endswith('.npy'):  # Check for .npy extension
                     npy_files.append(os.path.join(root, file))

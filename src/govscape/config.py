@@ -3,7 +3,7 @@
 from pdf_to_embedding import PDFsToEmbeddings
 
 class IndexConfig:
-    def __init__(self, pdf_directory = "data/pdfs", embedding_directory="data/embeddings", index_directory="data/index"):
+    def __init__(self, pdf_directory = "test_data/pdfs", embedding_directory="test_data/embeddings", index_directory="test_data/index"):
         self.pdf_directory = pdf_directory
         self.embedding_directory = embedding_directory
         self.index_directory = index_directory
