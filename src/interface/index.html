@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GovScope: Searching millions of .gov PDFs</title>
+    <title>GovScape: Searching millions of .gov PDFs</title>
     <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
@@ -17,8 +17,81 @@
             <button class="btn-close" id="closeFilter"></button>
         </div>
         <div class="filter-content">
+            <!-- Date Range Filter -->
             <div class="filter-section">
-                <!-- TODO: Filter options will be added -->
+                <h6>Date Range</h6>
+                <div class="date-inputs">
+                    <div class="form-group">
+                        <label>From</label>
+                        <input type="date" class="form-control" id="dateFrom">
+                    </div>
+                    <div class="form-group">
+                        <label>To</label>
+                        <input type="date" class="form-control" id="dateTo">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Subdomain Filter -->
+            <div class="filter-section">
+                <h6>Subdomain</h6>
+                <div class="subdomain-options">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="gov" id="govDomain" checked>
+                        <label class="form-check-label" for="govDomain">.gov</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="mil" id="milDomain">
+                        <label class="form-check-label" for="milDomain">.mil</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="edu" id="eduDomain">
+                        <label class="form-check-label" for="eduDomain">.edu</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pages Range Filter -->
+            <div class="filter-section">
+                <h6>Number of Pages</h6>
+                <div class="range-slider">
+                    <div class="range-values">
+                        <span id="pagesMin">0</span>
+                        <span>to</span>
+                        <span id="pagesMax">500</span>
+                    </div>
+                    <div class="range-inputs">
+                        <div class="range-track"></div>
+                        <div class="range-selected"></div>
+                        <input type="range" id="pagesRangeMin" min="0" max="500" value="0">
+                        <input type="range" id="pagesRangeMax" min="0" max="500" value="500">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- File Size Filter -->
+            <div class="filter-section">
+                <h6>PDF Size</h6>
+                <div class="size-options">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="0-5" id="size1">
+                        <label class="form-check-label" for="size1">0-5 MB</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="5-10" id="size2">
+                        <label class="form-check-label" for="size2">5-10 MB</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="10+" id="size3">
+                        <label class="form-check-label" for="size3">10+ MB</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Apply Filters Button -->
+            <div class="filter-actions">
+                <button class="btn btn-primary w-100" id="applyFilters">Apply Filters</button>
+                <button class="btn btn-outline-secondary w-100" id="resetFilters">Reset</button>
             </div>
         </div>
     </div>
@@ -27,7 +100,7 @@
 
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">GovScope</a>
+            <a class="navbar-brand" href="#">GovScape</a>
             <div class="navbar-nav ms-auto">
                 <a class="nav-link" href="#about">About</a>
                 <a class="nav-link" href="#faq">FAQ</a>
@@ -43,27 +116,70 @@
                 
                 <!-- Search Form -->
                 <div class="search-container mb-4">
-                    <div class="search-mode-toggle mb-3">
-                        <div class="btn-group" role="group" aria-label="Search mode">
+                    <div class="search-box">
+                        <div class="search-tabs" role="group" aria-label="Search mode">
                             <input type="radio" class="btn-check" name="searchMode" id="keywordMode" value="keyword" checked>
-                            <label class="btn btn-outline-primary" for="keywordMode">Keyword Search</label>
+                            <label class="tab-label" for="keywordMode">Keyword Search</label>
                             
                             <input type="radio" class="btn-check" name="searchMode" id="naturalMode" value="natural">
-                            <label class="btn btn-outline-primary" for="naturalMode">Natural Language</label>
+                            <label class="tab-label" for="naturalMode">Natural Language</label>
                         </div>
-                    </div>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="searchInput" placeholder="Enter keywords to search...">
-                        <button class="btn btn-outline-secondary" type="button" id="toggleFilter">
-                            <i class="bi bi-funnel"></i>
-                        </button>
-                        <button class="btn btn-primary" type="button" id="searchBtn">Search</button>
+                        <div class="search-input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Enter keywords to search...">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleFilter">
+                                <i class="bi bi-funnel"></i>
+                            </button>
+                            <button class="btn btn-primary" type="button" id="searchBtn">Search</button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Results Grid -->
                 <div class="results-grid" id="resultsGrid">
                     <!-- Results will be dynamically added here -->
+                </div>
+
+                <!-- PDF Preview Modal -->
+                <div class="modal fade" id="pdfPreviewModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="pdf-preview-container">
+                                    <div class="pdf-details">
+                                        <div class="pdf-metadata">
+                                            <!-- Metadata will be inserted here -->
+                                        </div>
+                                        <div class="pdf-text">
+                                            <!-- PDF text content will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div class="pdf-pages">
+                                        <div class="page-navigation">
+                                            <button class="carousel-nav prev">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </button>
+                                            <span class="page-number">Page <span class="current-page">1</span> of <span class="total-pages">5</span></span>
+                                            <button class="carousel-nav next">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                        <div class="page-carousel">
+                                            <!-- Page thumbnails will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <a href="#" class="btn btn-primary download-pdf" target="_blank">
+                                    <i class="bi bi-download"></i> Download PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
