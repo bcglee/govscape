@@ -3,6 +3,7 @@
 from config import ServerConfig
 from config import IndexConfig
 import numpy as np
+import json
 import faiss
 import os
 from pdf_to_embedding import PDFsToEmbeddings
@@ -46,12 +47,14 @@ class Server:
                 # Search for the three closest arrays
                 D, I = self.faiss_index.search(query_embedding, self.k)
 
+                search_results = []
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
                         pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
                         page, _, _ = page.rpartition('.')
-                        print(f"{pdf_name}.pdf page {page} is at distance {D[i][j]}")
-                print()
+                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j])})
+                json_object = json.dumps({"results": search_results}, indent=4)
+                print(json_object)
         except EOFError:
             print("\nThank you for using!")
 
