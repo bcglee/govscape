@@ -29,7 +29,6 @@ class Server:
         self.d = self.config.d
         self.faiss_index = self.config.faiss_index
         self.npy_files = self.config.npy_files
-        pass
 
     # Accepts a Query -> Prints out k closest arrays with distance
     def serve(self):
@@ -46,10 +45,12 @@ class Server:
                 query_embedding = self.model.text_to_embeddings(query)
                 # Search for the three closest arrays
                 D, I = self.faiss_index.search(query_embedding, self.k)
-                print(f"This queries' embedding {query_embedding}\n")
+
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
-                         print(f"{self.npy_files[I[i][j]]} is at distance {D[i][j]}")
+                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                        page, _, _ = page.rpartition('.')
+                        print(f"{pdf_name}.pdf page {page} is at distance {D[i][j]}")
                 print()
         except EOFError:
             print("\nThank you for using!")
