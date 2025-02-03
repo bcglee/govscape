@@ -12,19 +12,67 @@ import torch
 import torch.nn.functional as F
 #for saving embeddings
 import numpy as np
+#abstract method
+from abc import ABC, abstractmethod
 
-# 1. extract text of PDF files -> and outputs them to .txt 
+# 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
 # 2. Plug in .txt files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
 
+def main():
+    pdf_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_pdf"
+    txt_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_txt"
+    embeddings_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_embed"
+
+    processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, CLIPEmbeddingModel())
+    processor.pdfs_to_embeddings()
+
+class EmbeddingModel(ABC):
+    @abstractmethod
+    def encode_text(self, text):
+        pass
+
+class CLIPEmbeddingModel(EmbeddingModel):
+    def __init__(self):
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    
+    def encode_text(self, text):
+        #tokenize text
+        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
+        tokenized_text = inputs['input_ids'][0]
+        
+        #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
+        max_chunk_len = 77
+        text_chunks = []
+        for i in range(0,len(tokenized_text), max_chunk_len):
+            if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
+                text_chunks.append(tokenized_text[i:i+max_chunk_len])
+
+        #stack them all into a single batch so we can compute them all at the same time
+        chunk_tensors = [] 
+        for chunk in text_chunks:
+            chunk_tensors.append(chunk.unsqueeze(0))
+        batch_input_ids = torch.cat(chunk_tensors, dim=0)  
+        batch_attention_mask = torch.ones_like(batch_input_ids)
+
+        with torch.no_grad():
+            batch_embeddings = self.model.get_text_features(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
+        embeddings = batch_embeddings.split(1, dim=0) 
+
+        #decision: average embedding to create one embedding per PDF 
+        final_embedding = torch.mean(torch.stack(embeddings), dim=0)
+
+        return final_embedding
+
+
 class PDFsToEmbeddings:
-    def __init__(self, pdf_directory, txt_directory, embeddings_dir):
+    def __init__(self, pdf_directory, txt_directory, embeddings_dir, embedding_model):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.embedding_model = embedding_model
 
     #1. PDF -> TXT 
 
@@ -38,18 +86,16 @@ class PDFsToEmbeddings:
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
     def convert_pdfs_to_txt(self):
-        if not os.path.exists(self.txts_path):
-            os.makedirs(self.txts_path)
+        self.ensure_dir(self.txts_path)
         
         pdf_files = os.listdir(self.pdfs_path)
 
         for pdf_file in pdf_files:
             pdf_path = os.path.join(self.pdfs_path, pdf_file)
-            
+
             #subdir for each pdf 
             pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
-            if not os.path.exists(pdf_subdir):
-                os.makedirs(pdf_subdir)
+            self.ensure_dir(pdf_subdir)
 
             text = self.convert_pdf_to_text(pdf_path)
 
@@ -60,47 +106,21 @@ class PDFsToEmbeddings:
 
     #2. TXT -> CLIP EMBEDDINGS
 
+    #takes in a string and converts it into an embedding. 
+    def text_to_embeddings(self, text):
+        return self.embedding_model.encode_text(text)
+
     # takes in a single txt file and converts it into an embedding
     # added in some batch processing to make it faster
     def convert_txt_to_embedding(self,txt_path):
         # need to convert .txt to text
         with open(txt_path, 'r') as file:
             text = file.read()
-        
-        #tokenize text
-        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
-        tokenized_text = inputs['input_ids'][0]
-        
-        #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
-        max_chunk_len = 77
-        text_chunks = []
-
-        for i in range(0,len(tokenized_text), max_chunk_len):
-            #make sure they are all the same size so they can be torch.cat later on
-            if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
-                text_chunks.append(tokenized_text[i:i+max_chunk_len])
-
-        #stack them all into a single batch so we can compute them all at the same time
-        chunk_tensors = [] 
-        for chunk in text_chunks:
-            chunk_tensors.append(chunk.unsqueeze(0))
-        batch_input_ids = torch.cat(chunk_tensors, dim=0)  
-        batch_attention_mask = torch.ones_like(batch_input_ids)
-
-        with torch.no_grad():
-            batch_embeddings = self.model.get_text_features(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
-
-        embeddings = batch_embeddings.split(1, dim=0) 
-
-        #decision: average embedding to create one embedding per PDF 
-        final_embedding = torch.mean(torch.stack(embeddings), dim=0)
-
-        return final_embedding
+        return self.embedding_model.encode_text(text)
 
     # converts a dir of subdirs for each pdf of txts for each page into a dir of subdir of embeddings in .npy
     def convert_txts_to_embeddings(self):
-        if not os.path.exists(self.embeddings_path):
-            os.makedirs(self.embeddings_path)
+        self.ensure_dir(self.embeddings_path)
 
         txt_subdirs_paths = []
         for txt_subdir in os.scandir(self.txts_path):
@@ -112,9 +132,8 @@ class PDFsToEmbeddings:
             #making the subdir that will hold the embeddings for each PDF 
             embed_name = os.path.basename(txt_subdir_path)
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
-
-            if not os.path.exists(embedding_dir):
-                os.makedirs(embedding_dir)
+            
+            self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir input 
             txt_files = os.listdir(txt_subdir_path)
@@ -131,59 +150,19 @@ class PDFsToEmbeddings:
                 file_name = os.path.splitext(txt_file)[0] + ".npy"
                 output_path = os.path.join(embedding_dir, file_name)
                 np.save(output_path, embedding.cpu().numpy())
-
     
-    
-    #takes in a string and converts it into an embedding. 
-    def text_to_embeddings(self, text):
-        #tokenize text
-        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
-        tokenized_text = inputs['input_ids'][0]
-        
-        #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
-        max_chunk_len = 77
-        text_chunks = []
 
-        for i in range(0,len(tokenized_text), max_chunk_len):
-            if len(tokenized_text[i:i+max_chunk_len]) == max_chunk_len or len(text_chunks) == 0:
-                text_chunks.append(tokenized_text[i:i+max_chunk_len])
-
-        #stack them all into a single batch so we can compute them all at the same time
-        chunk_tensors = [] 
-        for chunk in text_chunks:
-            chunk_tensors.append(chunk.unsqueeze(0))
-        batch_input_ids = torch.cat(chunk_tensors, dim=0)  
-        batch_attention_mask = torch.ones_like(batch_input_ids)
-
-        with torch.no_grad():
-            batch_embeddings = self.model.get_text_features(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
-
-        embeddings = batch_embeddings.split(1, dim=0) 
-
-        #decision: average embedding to create one embedding per PDF 
-        final_embedding = torch.mean(torch.stack(embeddings), dim=0)
-
-        return final_embedding
-    
-    # 1 + 2
+     # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
         self.convert_pdfs_to_txt()
         self.convert_txts_to_embeddings()
 
-#test:
+    #helper functions
+    #makes sure that the directory specified is created
+    def ensure_dir(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-#please write your file paths - don't forget \\ instead of \
-'''pdf_directory = ""
-txt_directory = ""
-embeddings_directory = ""
-
-processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory)
-processor.pdfs_to_embeddings()'''
-
-
-#test:
-'''
-test = PDFsToEmbeddings("", "", "")
-print(test.text_to_embeddings("hello"))
-'''
+if __name__ == "__main__":
+    main()
