@@ -32,10 +32,11 @@ class ServerConfig:
         self.npy_files = []
         for root, _, files in os.walk(self.embedding_directory):
             for file in files:
-                if file.endswith('.npy'):  # Check for .npy extension
+                if file.endswith('.npy'):
                     self.npy_files.append(os.path.join(root, file))
         
-        self.arrays = [np.load(file) for file in self.npy_files]  # Load each .npy file into an array
+        # Load each .npy file into an array
+        self.arrays = [np.load(file) for file in self.npy_files]
         for array in self.arrays:
             print(array.shape)
         stacked_array = np.vstack(self.arrays) 
