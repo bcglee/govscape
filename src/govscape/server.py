@@ -22,6 +22,7 @@ def main():
 
 class Server:
     def __init__(self, config : ServerConfig):
+        self.config = config
         self.pdf_directory = config.pdf_directory
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
@@ -33,12 +34,12 @@ class Server:
         print("Welcome to End-Of-Term PDF Search Server")
 
         # define k for top-k
-        k = 3
+        k = self.config.k
 
         self.model.pdfs_to_embeddings()
 
         # Creating Faiss model
-        d = 512  # dimension
+        d = self.config.d
         faiss_index = faiss.IndexFlatL2(d)
         print(faiss_index.is_trained)
 

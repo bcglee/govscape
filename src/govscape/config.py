@@ -10,8 +10,10 @@ class IndexConfig:
 
         
 class ServerConfig:
-    def __init__(self, index_config : IndexConfig, embedding_model):
+    def __init__(self, index_config : IndexConfig, embedding_model, k=3, d = 512):
         self.pdf_directory = index_config.pdf_directory
         self.embedding_directory = index_config.embedding_directory
         self.index_directory = index_config.index_directory
         self.model = embedding_model
+        self.k = k
+        self.d = 512
