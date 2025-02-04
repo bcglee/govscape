@@ -21,9 +21,9 @@ from abc import ABC, abstractmethod
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
 
 def main():
-    pdf_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_pdf"
-    txt_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_txt"
-    embeddings_directory = "/homes/gws/cgong16/govscape/src/govscape/data/data_short_embed"
+    pdf_directory = ""
+    txt_directory = ""
+    embeddings_directory = ""
 
     processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, CLIPEmbeddingModel())
     processor.pdfs_to_embeddings()
