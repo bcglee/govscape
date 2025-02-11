@@ -84,7 +84,6 @@ class Server:
                         # parse file information for page
                         pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
                         page, _, _ = page.rpartition('.')
-
                         # create jpeg name
                         jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
 
