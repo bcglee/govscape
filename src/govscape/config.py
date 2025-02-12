@@ -1,11 +1,13 @@
 # These classes should contain all the configuration information necessary for
 # starting the server and serving queries, respectively.
+import numpy as np
 
 class IndexConfig:
     def __init__(self, pdf_directory = "data/pdfs", embedding_directory="data/embeddings", index_directory="data/index"):
         self.pdf_directory = pdf_directory
         self.embedding_directory = embedding_directory
         self.index_directory = index_directory
+        self.dtype = np.float32
 
         
 class ServerConfig:
