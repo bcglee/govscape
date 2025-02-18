@@ -6,6 +6,7 @@ import json
 import faiss
 import os
 from pdf_to_embedding import PDFsToEmbeddings
+from urllib.parse import urlparse, parse_qs
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -41,22 +42,39 @@ class Server:
 
     # Accepts a Query -> Returns JSON with closest results
     # Sample:
+    # (1, 512)
+    # (1, 512)
+    # (1, 512)
+    # (1, 512)
+    # Welcome to End-Of-Term PDF Search Server
+    # Searching against 4 embeddings
+
+    # Search: /static?pdf_name=gold.pdf
+    # {
+    #     "pdf": [
+    #         "gold.pdf"
+    #     ]
+    # }
+    # Search: /search?query=joe
     # {
     #     "results": [
     #         {
     #             "pdf": "test_data/embeddings/gold/gold",
     #             "page": "0",
-    #             "distance": 59.212852478027344
+    #             "distance": 61.45836639404297,
+    #             "jpeg": "test_data/imagesgold/gold_0"
     #         },
     #         {
     #             "pdf": "test_data/embeddings/government/government",
     #             "page": "0",
-    #             "distance": 68.0333251953125
+    #             "distance": 62.02237319946289,
+    #             "jpeg": "test_data/imagesgovernment/government_0"
     #         },
     #         {
     #             "pdf": "test_data/embeddings/joebiden/joebiden",
     #             "page": "0",
-    #             "distance": 68.0333251953125
+    #             "distance": 62.02237319946289,
+    #             "jpeg": "test_data/imagesjoebiden/joebiden_0"
     #         }
     #     ]
     # }
@@ -67,29 +85,39 @@ class Server:
         print("Searching against " + str(self.faiss_index.ntotal) + " embeddings\n")
         try:
             while True:
-                query = input("Search: ")
+                request = input("Search: ")
                 # EOF detected
-                if query == "":
+                if request == "":
                     continue
 
-                # Create random array embedding
-                query_embedding = self.model.text_to_embeddings(query)
+                parsed_url = urlparse(request)
+                # Extract path and query parameters
+                path = parsed_url.path
+                query_params = parse_qs(parsed_url.query)
 
-                # Search for the three closest arrays
-                D, I = self.faiss_index.search(query_embedding, self.k)
+                json_object = json.dumps({})
+                if 'static' in path:
+                    json_object = json.dumps({"pdf": query_params['pdf_name']}, indent=4)
 
-                search_results = []
-                for i in range(I.shape[0]):
-                    for j in range(I.shape[1]):
-                        # parse file information for page
-                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
+                elif 'search' in path:
+                    # Create random array embedding
+                    query_embedding = self.model.text_to_embeddings(query_params['query'])
 
-                        # add results onto file
-                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                json_object = json.dumps({"results": search_results}, indent=4)
+                    # Search for the three closest arrays
+                    D, I = self.faiss_index.search(query_embedding, self.k)
+
+                    search_results = []
+                    for i in range(I.shape[0]):
+                        for j in range(I.shape[1]):
+                            # parse file information for page
+                            pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                            page, _, _ = page.rpartition('.')
+                            # create jpeg name
+                            jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
+
+                            # add results onto file
+                            search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
+                    json_object = json.dumps({"results": search_results}, indent=4)
 
                 # print for testing
                 print(json_object)
