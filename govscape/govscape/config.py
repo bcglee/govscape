@@ -1,7 +1,6 @@
 # These classes should contain all the configuration information necessary for
 # starting the server and serving queries, respectively.
 import numpy as np
-import faiss
 import os
 
 class IndexConfig:
