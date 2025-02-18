@@ -20,14 +20,6 @@ from abc import ABC, abstractmethod
 # 2. Plug in .txt files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
 
-def main():
-    pdf_directory = ""
-    txt_directory = ""
-    embeddings_directory = ""
-
-    processor = PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, CLIPEmbeddingModel())
-    processor.pdfs_to_embeddings()
-
 class EmbeddingModel(ABC):
     @abstractmethod
     def encode_text(self, text):
@@ -42,7 +34,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         #tokenize text
         inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
         tokenized_text = inputs['input_ids'][0]
-        
+
         #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
         max_chunk_len = 77
         text_chunks = []
@@ -62,7 +54,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         embeddings = batch_embeddings.split(1, dim=0) 
 
         #decision: average embedding to create one embedding per PDF 
-        final_embedding = torch.mean(torch.stack(embeddings), dim=0)
+        final_embedding = torch.mean(torch.stack(embeddings), dim=0).numpy()
 
         return final_embedding
 
@@ -92,9 +84,13 @@ class PDFsToEmbeddings:
 
         for pdf_file in pdf_files:
             pdf_path = os.path.join(self.pdfs_path, pdf_file)
-
             #subdir for each pdf 
             pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
+
+            # If the subdir already exists, we assume that this step has already been done.
+            if os.path.exists(pdf_subdir):
+                continue
+
             self.ensure_dir(pdf_subdir)
 
             text = self.convert_pdf_to_text(pdf_path)
@@ -133,6 +129,10 @@ class PDFsToEmbeddings:
             embed_name = os.path.basename(txt_subdir_path)
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
             
+            # If the subdir already exists, we assume that this step has already been done.
+            if os.path.exists(embedding_dir):
+                continue
+
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir input 
@@ -149,7 +149,7 @@ class PDFsToEmbeddings:
 
                 file_name = os.path.splitext(txt_file)[0] + ".npy"
                 output_path = os.path.join(embedding_dir, file_name)
-                np.save(output_path, embedding.cpu().numpy())
+                np.save(output_path, embedding)
     
 
      # 1 + 2
@@ -163,6 +163,3 @@ class PDFsToEmbeddings:
     def ensure_dir(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
-
-if __name__ == "__main__":
-    main()
