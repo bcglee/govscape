@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "govscape"
+version = "0.1.0"
+description = ""
+authors = ["kylebd99 <kdeeds@cs.washington.edu>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^2.2.3"
+faiss-cpu = "^1.10.0"
+pdf2image = "^1.17.0"
+pdfplumber = "^0.11.5"
+transformers = "^4.49.0"
+torch = "^2.6.0"
+argparse = "^1.4.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
