@@ -6,7 +6,7 @@ import faiss
 import os
 
 class IndexConfig:
-    def __init__(self, pdf_directory = "test_data/pdfs", embedding_directory="test_data/embeddings", index_directory="test_data/index", image_directory="test_data/images"):
+    def __init__(self, pdf_directory = "test_data/pdfs", embedding_directory="test_data/embedding", index_directory="test_data/index", image_directory="test_data/images"):
         self.pdf_directory = pdf_directory
         self.embedding_directory = embedding_directory
         self.index_directory = index_directory
@@ -20,7 +20,7 @@ class ServerConfig:
         self.index_directory = index_config.index_directory
         self.image_directory = index_config.image_directory
         self.model = embedding_model
-        self.model.pdfs_to_embeddings()
+        # self.model.pdfs_to_embeddings()
 
         # define k for top-k
         self.k = k

@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs
 
 def main():
     index_config = IndexConfig()
-    server_config = ServerConfig(index_config, PDFsToEmbeddings('test_data/pdfs', 'test_data/text', 'test_data/embeddings'))
+    server_config = ServerConfig(index_config, PDFsToEmbeddings('test_data/pdfs', 'test_data/text', 'test_data/embedding'))
     s = Server(server_config)
     s.serve()
 
@@ -126,3 +126,25 @@ class Server:
 
 if __name__ == '__main__':
          main()
+
+'''
+Test: EOF
+end of file input (^D)
+
+Test: empty input in url
+/
+
+Test: empty input in params
+/static?pdf_name=
+/search?
+
+Test: regular input in search
+/search?query=joe
+
+Test: regular input in static
+/static?pdf_name=gold.pdf
+
+Test: non existent pdf in static
+/static?pdf_name=fake.pdf
+
+'''
