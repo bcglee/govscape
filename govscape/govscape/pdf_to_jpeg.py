@@ -3,35 +3,44 @@
 
 from pdf2image import convert_from_path
 import os
+from multiprocessing import Pool
 
 # wrapper class
 class PdfToJpeg:
     def __init__(self):
         pass
 
+    def convert_pdf_to_jpeg(self, pdf_filename):
+
+        print("Creating JPEG Thumbnails: " + pdf_filename)
+        # converts each pdf into a page with 50 dots per inch
+        pages = convert_from_path(pdf_filename, dpi=50)
+
+        # creates a new directory for this pdf in save_directory
+        pdf_basename = os.path.splitext(os.path.basename(pdf_filename))[0]
+        pdf_directory = os.path.join(self.save_directory, pdf_basename)
+        os.makedirs(pdf_directory, exist_ok=True)
+
+        # saves each page into created directory
+        for i, page in enumerate(pages):
+            output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{i}.jpg")
+            page.save(output_path, "JPEG")
+
+
     # pdf_directory -> directory to source pdfs
     # save_directory -> directory to save images
-    def convert(self, pdf_directory, save_directory):
+    def convert_directory_to_jpegs(self, pdf_directory, save_directory):
 
         # recursively finds the pdfs in pdf_directory
-        pdfs = []
+        pdf_files = []
         for root, _, files in os.walk(pdf_directory):
             for filename in files:
-                pdfs.append(os.path.join(root, filename))
+                pdf_files.append(os.path.join(root, filename))
+        
+        self.save_directory = save_directory
 
-        for pdf in pdfs:
-            # converts each pdf into a page with 50 dots per inch
-            pages = convert_from_path(pdf, dpi=50)
-
-            # creates a new directory for this pdf in save_directory
-            pdf_basename = os.path.splitext(os.path.basename(pdf))[0]
-            pdf_directory = os.path.join(save_directory, pdf_basename)
-            os.makedirs(pdf_directory, exist_ok=True)
-
-            # saves each page into created directory
-            for i, page in enumerate(pages):
-                output_path = os.path.join(save_directory, f"{pdf_basename}/{pdf_basename}_{i}.jpg")
-                page.save(output_path, "JPEG")
+        with Pool(processes=48) as pool:
+            pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
 
 
