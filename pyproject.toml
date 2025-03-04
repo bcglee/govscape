@@ -1,14 +1,14 @@
+# src/pyproject.toml
 [tool.poetry]
-name = "govscape"
+name = "scripts"
 version = "0.1.0"
 description = ""
-authors = ["kylebd99 <kdeeds@cs.washington.edu>"]
-readme = "README.md"
-packages = [{include = "govscape", from = "src"}]
-
+authors = ["Your Name <your@name.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
+govscape = { path = "govscape", develop = true }
 
 
 [build-system]

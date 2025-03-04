@@ -1,1 +1,4 @@
 dist
+govscape/govscape/__pycache__
+data/test_data
+poetry.lock
