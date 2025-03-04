@@ -4,11 +4,6 @@
 from pdf2image import convert_from_path
 import os
 
-# testing
-def main():
-    pdftojpeg = PdfToJpeg()
-    pdftojpeg.convert('test_data/pdfs', 'test_data/images')
-
 # wrapper class
 class PdfToJpeg:
     def __init__(self):

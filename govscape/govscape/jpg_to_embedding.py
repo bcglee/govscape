@@ -19,10 +19,6 @@ import numpy as np
 # 2. Plug in .jpg files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
 
-def main():
-    processor = JPGsToEmbeddings("test_data/pdfs", "test_data/jpgs", "test_data/embedding")
-    processor.pdfs_to_embeddings()
-
 class JPGsToEmbeddings:
     def __init__(self, pdf_directory, jpg_directory, embeddings_dir):
         self.jpgs_path = jpg_directory
@@ -135,6 +131,3 @@ processor.pdfs_to_embeddings()'''
 test = PDFsToEmbeddings("", "", "")
 print(test.text_to_embeddings("hello"))
 '''
-
-if __name__=="__main__":
-    main()
