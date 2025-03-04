@@ -10,10 +10,12 @@ import os
 from transformers import CLIPProcessor, CLIPModel
 import torch
 import torch.nn.functional as F
-#for saving embeddings
+# for saving embeddings
 import numpy as np
-#abstract method
+# abstract method
 from abc import ABC, abstractmethod
+# for json
+import json
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
@@ -113,6 +115,15 @@ class PDFsToEmbeddings:
         with open(txt_path, 'r') as file:
             text = file.read()
         return self.embedding_model.encode_text(text)
+    
+    # creates a json file specifying page_nums in the embedding_dir with file_name
+    def json_page_nums(self, page_nums, embedding_dir, file_name):
+        data = {"page_nums" : page_nums}
+
+        json_file_path = os.path.join(embedding_dir, file_name + ".json")
+
+        with open(json_file_path, "w") as json_file:
+            json.dump(data, json_file, indent=4)
 
     # converts a dir of subdirs for each pdf of txts for each page into a dir of subdir of embeddings in .npy
     def convert_txts_to_embeddings(self):
@@ -138,20 +149,17 @@ class PDFsToEmbeddings:
             #all txt files in the txt subdir input 
             txt_files = os.listdir(txt_subdir_path)
 
+            self.json_page_nums(len(txt_files), embedding_dir, os.path.basename(embedding_dir))
+
             for txt_file in txt_files:
                 txt_path = os.path.join(txt_subdir_path, txt_file)
                 
-                #check if file is empty; just skip to next if true 
-                if os.stat(txt_path).st_size == 0:
-                    continue
-
                 embedding = self.convert_txt_to_embedding(txt_path)
 
                 file_name = os.path.splitext(txt_file)[0] + ".npy"
                 output_path = os.path.join(embedding_dir, file_name)
                 np.save(output_path, embedding)
     
-
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
