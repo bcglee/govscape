@@ -10,6 +10,7 @@ import os
 from transformers import CLIPProcessor, CLIPModel
 import torch
 import torch.nn.functional as F
+from multiprocessing import Pool, TimeoutError
 #for saving embeddings
 import numpy as np
 #abstract method
@@ -69,12 +70,31 @@ class PDFsToEmbeddings:
     #1. PDF -> TXT 
 
     # converts a single pdf file to text
-    def convert_pdf_to_text(self, pdf_path):
-        with pdfplumber.open(pdf_path) as pdf:
-            text = []
-            for page in pdf.pages:
-                text.append(page.extract_text())
-        return text
+    def convert_pdf_to_text(self, pdf_file):
+        print("Paginating & Scraping Text: " + pdf_file)
+        pdf_path = os.path.join(self.pdfs_path, pdf_file)
+        #subdir for each pdf 
+        pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
+
+        # If the subdir already exists, we assume that this step has already been done.
+        if os.path.exists(pdf_subdir):
+            return
+
+        self.ensure_dir(pdf_subdir)
+
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                text = []
+                for page in pdf.pages:
+                    text.append(page.extract_text())
+        except:
+            text = ["",]
+            
+
+        for page_num, page_text in enumerate(text):
+            txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
+            with open(txt_file_path, 'w', encoding='utf-8') as text_file:
+                text_file.write(page_text)
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
     def convert_pdfs_to_txt(self):
@@ -82,23 +102,8 @@ class PDFsToEmbeddings:
         
         pdf_files = os.listdir(self.pdfs_path)
 
-        for pdf_file in pdf_files:
-            pdf_path = os.path.join(self.pdfs_path, pdf_file)
-            #subdir for each pdf 
-            pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
-
-            # If the subdir already exists, we assume that this step has already been done.
-            if os.path.exists(pdf_subdir):
-                continue
-
-            self.ensure_dir(pdf_subdir)
-
-            text = self.convert_pdf_to_text(pdf_path)
-
-            for page_num, page_text in enumerate(text):
-                txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
-                with open(txt_file_path, 'w', encoding='utf-8') as text_file:
-                    text_file.write(page_text)
+        with Pool(processes=48) as pool:
+            pool.map(self.convert_pdf_to_text, pdf_files)
 
     #2. TXT -> CLIP EMBEDDINGS
 
@@ -108,11 +113,39 @@ class PDFsToEmbeddings:
 
     # takes in a single txt file and converts it into an embedding
     # added in some batch processing to make it faster
-    def convert_txt_to_embedding(self,txt_path):
+    def convert_txt_to_embedding(self, txt_path):
         # need to convert .txt to text
         with open(txt_path, 'r') as file:
             text = file.read()
         return self.embedding_model.encode_text(text)
+    
+    def convert_subdir_to_embeddings(self, txt_subdir_path):
+        print("Embedding PDF: " + txt_subdir_path)
+        #making the subdir that will hold the embeddings for each PDF 
+        embed_name = os.path.basename(txt_subdir_path)
+        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+        
+        # If the subdir already exists, we assume that this step has already been done.
+        if os.path.exists(embedding_dir):
+            return
+
+        self.ensure_dir(embedding_dir)
+
+        #all txt files in the txt subdir input 
+        txt_files = os.listdir(txt_subdir_path)
+
+        for txt_file in txt_files:
+            txt_path = os.path.join(txt_subdir_path, txt_file)
+            
+            #check if file is empty; just skip to next if true 
+            if os.stat(txt_path).st_size == 0:
+                continue
+
+            embedding = self.convert_txt_to_embedding(txt_path)
+
+            file_name = os.path.splitext(txt_file)[0] + ".npy"
+            output_path = os.path.join(embedding_dir, file_name)
+            np.save(output_path, embedding)
 
     # converts a dir of subdirs for each pdf of txts for each page into a dir of subdir of embeddings in .npy
     def convert_txts_to_embeddings(self):
@@ -123,33 +156,8 @@ class PDFsToEmbeddings:
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
         
-        for txt_subdir_path in txt_subdirs_paths:
-
-            #making the subdir that will hold the embeddings for each PDF 
-            embed_name = os.path.basename(txt_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_path, embed_name)
-            
-            # If the subdir already exists, we assume that this step has already been done.
-            if os.path.exists(embedding_dir):
-                continue
-
-            self.ensure_dir(embedding_dir)
-
-            #all txt files in the txt subdir input 
-            txt_files = os.listdir(txt_subdir_path)
-
-            for txt_file in txt_files:
-                txt_path = os.path.join(txt_subdir_path, txt_file)
-                
-                #check if file is empty; just skip to next if true 
-                if os.stat(txt_path).st_size == 0:
-                    continue
-
-                embedding = self.convert_txt_to_embedding(txt_path)
-
-                file_name = os.path.splitext(txt_file)[0] + ".npy"
-                output_path = os.path.join(embedding_dir, file_name)
-                np.save(output_path, embedding)
+        with Pool(processes=1) as pool:
+            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
     
 
      # 1 + 2
