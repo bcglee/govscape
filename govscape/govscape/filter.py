@@ -31,3 +31,5 @@ class Filter:
                             filtered_results.append(sr)
         return filtered_results
        
+
+       #TODO: just get the json on filter query 
