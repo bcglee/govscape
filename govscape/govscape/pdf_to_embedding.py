@@ -21,6 +21,7 @@ import json
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
 # 2. Plug in .txt files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
+# Note: this version supports creating a json metadata file for number of pages in a pdf.
 
 class EmbeddingModel(ABC):
     @abstractmethod

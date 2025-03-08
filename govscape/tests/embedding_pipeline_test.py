@@ -3,11 +3,12 @@
 
 import pytest 
 import sys  # to find pdf_to_embedding.py
-sys.path.append('/homes/gws/cgong16/govscape/govscape/govscape/') # insert path to the pdf_to_embedding.py file here
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../govscape'))) # for finding the pdf_to_embedding file
 from reportlab.pdfgen import canvas
 from pdf_to_embedding import * 
 from reportlab.lib.pagesizes import letter
-import os
+import shutil  # for deleting test_files/text, test_files/embeddings after pytest has finished running 
 
 model = CLIPEmbeddingModel()
 embed_pipeline = PDFsToEmbeddings('test_files/pdfs', 'test_files/text', 'test_files/embeddings', model)
@@ -88,5 +89,8 @@ def test_pdfs_to_embeddings():
         npy_count = sum(1 for filename in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, filename)))
         assert(npy_count >= 2)
 
-
-#TODO: add functionality that deletes the embedding and txt directories when finished
+# deletes the embedding and txt directories when finished
+def pytest_sessionfinish(session, exitstatus):
+    dirs_to_remove = [txt_directory, embed_directory]
+    for directory in dirs_to_remove:
+        shutil.rmtree(directory, ignore_errors=True)
