@@ -16,6 +16,8 @@ pdf_directory = 'test_files/pdfs'
 txt_directory = 'test_files/text'
 embed_directory = 'test_files/embeddings'
 
+# Note: txt and embed directory will be deleted (see conftest.py) after running the pytests.
+
 # checks that the text outputs an embedding of type np.ndarray
 def test_encode_text_CLIP():
     text = "test"
@@ -23,9 +25,12 @@ def test_encode_text_CLIP():
     assert isinstance(embedding, np.ndarray)
 
 # checks that the pdf text matches the text outputted
-def test_convert_pdf_to_text():
-    text = embed_pipeline.convert_pdf_to_text('test_files/pdfs/govscape_intro.pdf')
-    assert text == ["hello my name is govscape"]
+def test_convert_pdf_to_txt():
+    embed_pipeline.convert_pdf_to_txt('govscape_intro.pdf')
+
+    with open("test_files/text/govscape_intro/govscape_intro_0.txt", "r", encoding="utf-8") as file:
+        text = file.read()
+        assert text == "hello my name is govscape"
 
 # makes sure the number of subdirs are equal to each other, 
 # also that there are more than one txt file per subdir
@@ -65,7 +70,6 @@ def test_convert_txt_to_embedding():
 # checks for the same file structure with txt and embed and that they have the same number of embeddings and txt files
 def test_convert_txts_to_embeddings():
     embed_pipeline.convert_txts_to_embeddings()
-
     subdirs_txt = [os.path.join(txt_directory, d) for d in os.listdir(txt_directory) if os.path.isdir(os.path.join(txt_directory, d))]
     subdirs_npy = [os.path.join(embed_directory, d) for d in os.listdir(embed_directory) if os.path.isdir(os.path.join(embed_directory, d))]
     assert(len(subdirs_txt) == len(subdirs_npy))
@@ -89,8 +93,3 @@ def test_pdfs_to_embeddings():
         npy_count = sum(1 for filename in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, filename)))
         assert(npy_count >= 2)
 
-# deletes the embedding and txt directories when finished
-def pytest_sessionfinish(session, exitstatus):
-    dirs_to_remove = [txt_directory, embed_directory]
-    for directory in dirs_to_remove:
-        shutil.rmtree(directory, ignore_errors=True)
