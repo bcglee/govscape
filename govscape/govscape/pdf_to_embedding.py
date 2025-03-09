@@ -15,11 +15,14 @@ from multiprocessing import Pool, TimeoutError
 import numpy as np
 #abstract method
 from abc import ABC, abstractmethod
+import json
+import sys
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
 # 2. Plug in .txt files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
+# Note: this version supports creating a json metadata file for each pdf. So far it contains number of pages.
 
 class EmbeddingModel(ABC):
     @abstractmethod
@@ -69,8 +72,8 @@ class PDFsToEmbeddings:
 
     #1. PDF -> TXT 
 
-    # converts a single pdf file to text
-    def convert_pdf_to_text(self, pdf_file):
+    # converts a single pdf file to a txt file
+    def convert_pdf_to_txt(self, pdf_file):
         print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(self.pdfs_path, pdf_file)
         #subdir for each pdf 
@@ -103,7 +106,7 @@ class PDFsToEmbeddings:
         pdf_files = os.listdir(self.pdfs_path)
 
         with Pool(processes=48) as pool:
-            pool.map(self.convert_pdf_to_text, pdf_files)
+            pool.map(self.convert_pdf_to_txt, pdf_files)
 
     #2. TXT -> CLIP EMBEDDINGS
 
@@ -118,6 +121,13 @@ class PDFsToEmbeddings:
         with open(txt_path, 'r') as file:
             text = file.read()
         return self.embedding_model.encode_text(text)
+
+    # creates a json file specifying page_nums in the embedding_dir with file_name
+    def json_page_nums(self, page_nums, embedding_dir, file_name):
+        data = {"page_nums" : page_nums}
+        json_file_path = os.path.join(embedding_dir, file_name + ".json")
+        with open(json_file_path, "w") as json_file:
+            json.dump(data, json_file, indent=4)
     
     def convert_subdir_to_embeddings(self, txt_subdir_path):
         print("Embedding PDF: " + txt_subdir_path)
@@ -134,12 +144,10 @@ class PDFsToEmbeddings:
         #all txt files in the txt subdir input 
         txt_files = os.listdir(txt_subdir_path)
 
+        self.json_page_nums(len(txt_files), embedding_dir, os.path.basename(embedding_dir))
+
         for txt_file in txt_files:
             txt_path = os.path.join(txt_subdir_path, txt_file)
-            
-            #check if file is empty; just skip to next if true 
-            if os.stat(txt_path).st_size == 0:
-                continue
 
             embedding = self.convert_txt_to_embedding(txt_path)
 
@@ -158,7 +166,6 @@ class PDFsToEmbeddings:
         
         with Pool(processes=1) as pool:
             pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
-    
 
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
