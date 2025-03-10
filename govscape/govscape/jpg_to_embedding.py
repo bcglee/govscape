@@ -13,6 +13,7 @@ import torch
 import torch.nn.functional as F
 #for saving embeddings
 import numpy as np
+from .pdf_to_jpeg import PdfToJpeg
 
 # 1. extract images of PDF files -> and outputs them to .jpg
 #   - has stucture: dir -> subdir for each PDF -> .jpg files of each page 
@@ -58,6 +59,13 @@ class JPGsToEmbeddings:
 
                         img_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}_{img_ind}.jpg')
                         new_jpg.save(img_file_path, "JPEG")
+    
+    def convert_pdfs_to_single_jpg(self):
+        if not os.path.exists(self.jpgs_path):
+            os.makedirs(self.jpgs_path)
+        
+        parser = PdfToJpeg()
+        parser.convert(self.pdfs_path, self.jpgs_path, 300)
 
 
     # takes in a single jpg file and converts it into an embedding
@@ -105,14 +113,17 @@ class JPGsToEmbeddings:
 
                 embedding = self.convert_jpg_to_embedding(jpg_path)
 
-                file_name = os.path.splitext(jpg_file)[0] + ".npy"
+                file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
                 output_path = os.path.join(embedding_dir, file_name)
                 np.save(output_path, embedding.cpu().numpy())
     
     # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
-    def pdfs_to_embeddings(self):
-        self.convert_pdfs_to_jpg()
+    def pdfs_to_embeddings(self, single):
+        if single:
+            self.convert_pdfs_to_single_jpg
+        else:
+            self.convert_pdfs_to_jpg()
         self.convert_imgs_to_embeddings()
 
 #test:
