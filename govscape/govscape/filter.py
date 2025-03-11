@@ -25,10 +25,24 @@ class Filter:
                 filename = sr["pdf"] + ".json"
                 f_val = self.json_get_data(filename, f)
                 # check if within filter
-                if filters[f][0] == filters[f][1]:
-                    if f_val == filters[f][0]:
-                        filtered_results.append(sr)
-                else:
-                    if filters[f][0] <= f_val <= filters[f][1]:
-                        filtered_results.append(sr)
+                if f == "timestamp": #TODO: when add month, day functionality
+                    if f == "timestamp":
+                        f_val = int(f_val[:4])
+                    if filters[f][0] == filters[f][1]:
+                        if f_val == filters[f][0]:
+                            filtered_results.append(sr)
+                    else:
+                        if filters[f][0] <= f_val <= filters[f][1]:
+                            filtered_results.append(sr)
+                elif f == "num_pages":
+                    if filters[f][0] == filters[f][1]:
+                        if f_val == filters[f][0]:
+                            filtered_results.append(sr)
+                    else:
+                        if filters[f][0] <= f_val <= filters[f][1]:
+                            filtered_results.append(sr)
+                else: #then it must be government name. 
+                    if filters[f] == f_val:
+                        filtered_results.append(sr)  
+            search_results = filtered_results
         return filtered_results

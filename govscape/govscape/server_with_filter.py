@@ -89,7 +89,8 @@ class Server:
 
                 filters = {}
                 filter_yes = False # indicates if we want to apply a filter or not
-                input_filter = input("Specify filters: [num_pages] or n for no filter. Ex. \"num_pages\" ")
+                # TODO: !!! implement multiple filters at once
+                input_filter = input("Specify filters: [num_pages, timestamp, gov_name] or n for no filter. Ex. \"num_pages\" ") 
                 if input_filter == "num_pages":
                     filter_yes = True
                     input_lo = int(input("Please specify lower range: "))
@@ -98,6 +99,18 @@ class Server:
                         print("Lower range can't be greater than upper range. Starting over!")
                         continue
                     filters["num_pages"] = (input_lo, input_hi)
+                elif input_filter == "timestamp": # TODO: i'm just going to do year for now. add more complexity later.
+                    filter_yes = True 
+                    input_lo_year = int(input("Please specify starting year (YYYY): "))
+                    input_hi_year = int(input("Please specify ending year (YYYY): "))
+                    if input_lo_year > input_hi_year:
+                        print("Starting year can't be after ending year. Starting over!")
+                        continue
+                    filters["timestamp"] = (input_lo_year, input_hi_year)
+                elif input_filter == "gov_name": # TODO: maybe we can have a list of valid gov_names? add this functionality in later...
+                    filter_yes = True
+                    input_gov_name = input("Please specify valid government name: ")
+                    filters["gov_name"] = input_gov_name
                 elif input_filter != "n":
                     print("Invalid filter input. Starting over!")
                     continue # TODO: hacky approach -- fix later! 

@@ -70,6 +70,22 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embedding_model = embedding_model
 
+        #big json file turn into dictionary
+        self.json_file = "/homes/gws/cgong16/govscape/govscape/tests/test_files/test.json" # input path here, probably want to add to a script later since i assume this will always be there
+        self.json = {}
+        self.convert_json_to_dict(self.json_file)
+
+    def convert_json_to_dict(self, json_file):
+        print(json_file)
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+        for row in data:
+            govname = row['govname']
+            timestamp = row['timestamp']
+            digest = row['digest']
+            self.json[digest] = (govname, timestamp)
+
+
     #1. PDF -> TXT 
 
     # converts a single pdf file to a txt file
@@ -123,8 +139,9 @@ class PDFsToEmbeddings:
         return self.embedding_model.encode_text(text)
 
     # creates a json file specifying page_nums in the embedding_dir with file_name
-    def json_page_nums(self, page_nums, embedding_dir, file_name):
-        data = {"page_nums" : page_nums}
+    def create_json(self, page_nums, embedding_dir, file_name):
+        # probably need to have an exception case where the pdf file name is not found in the self.json...
+        data = {"num_pages" : page_nums, "gov_name" : self.json[file_name][0], "timestamp" : self.json[file_name][1]}
         json_file_path = os.path.join(embedding_dir, file_name + ".json")
         with open(json_file_path, "w") as json_file:
             json.dump(data, json_file, indent=4)
@@ -144,7 +161,7 @@ class PDFsToEmbeddings:
         #all txt files in the txt subdir input 
         txt_files = os.listdir(txt_subdir_path)
 
-        self.json_page_nums(len(txt_files), embedding_dir, os.path.basename(embedding_dir))
+        self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))
 
         for txt_file in txt_files:
             txt_path = os.path.join(txt_subdir_path, txt_file)
