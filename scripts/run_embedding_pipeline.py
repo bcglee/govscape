@@ -17,7 +17,7 @@ def main():
     index_directory =  args.data_directory + '/index'
     image_directory =  args.data_directory + '/images'
 
-    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, gs.CLIPEmbeddingModel())
+    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, gs.CLIPEmbeddingModel())
     processor.pdfs_to_embeddings()
 
     pdftojpeg = gs.PdfToJpeg()
