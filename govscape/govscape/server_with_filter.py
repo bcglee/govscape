@@ -8,6 +8,8 @@ import os
 from .pdf_to_embedding import PDFsToEmbeddings
 from .filter import Filter
 
+# note: to make sure to run this version of the server, add in __init__.py -> from .server_with_filter import Server
+
 # basic pipeline developed:
 # 1. accept a query until EOF detected
 # 2. run an embedding model on the query
@@ -45,6 +47,9 @@ class Server:
             print(array.shape)
         stacked_array = np.vstack(self.arrays) 
         self.faiss_index.add(stacked_array)
+
+        #Filter intilization
+        self.filt = Filter(config)
         
     # Accepts a Query -> Returns JSON with closest results
     # Sample:
@@ -84,15 +89,15 @@ class Server:
 
                 filters = {}
                 filter_yes = False # indicates if we want to apply a filter or not
-                input_filter = input("Specify filters: [page_nums] or n for no filter. Ex. \"page_nums\"")
-                if input_filter == "page_nums":
+                input_filter = input("Specify filters: [num_pages] or n for no filter. Ex. \"num_pages\" ")
+                if input_filter == "num_pages":
                     filter_yes = True
-                    input_lo = input("Please specify lower range: ")
-                    input_hi = input("Please specify upper range: ")
+                    input_lo = int(input("Please specify lower range: "))
+                    input_hi = int(input("Please specify upper range: "))
                     if input_lo > input_hi:
                         print("Lower range can't be greater than upper range. Starting over!")
                         continue
-                    filters["page_nums"] = (input_lo, input_hi)
+                    filters["num_pages"] = (input_lo, input_hi)
                 elif input_filter != "n":
                     print("Invalid filter input. Starting over!")
                     continue # TODO: hacky approach -- fix later! 
@@ -113,9 +118,8 @@ class Server:
 
                         # add results onto file
                         search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                
                 if filter_yes:
-                    search_results = filter(search_results, filters)
+                    search_results = self.filt.filter_results(search_results, filters)
                 json_object = json.dumps({"results": search_results}, indent=4)
 
                 # print for testing
