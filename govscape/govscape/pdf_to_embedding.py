@@ -163,8 +163,8 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         
         pdf_files = os.listdir(self.pdfs_path)
-        ctx = get_context('forkserver')
-        with ctx.Pool(processes=14) as pool:
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=12) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
     #2. TXT -> CLIP EMBEDDINGS
@@ -223,8 +223,8 @@ class PDFsToEmbeddings:
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
         
-        ctx = get_context('forkserver')
-        with ctx.Pool(processes=12) as pool:
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=4) as pool:
             pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
     def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
@@ -262,8 +262,8 @@ class PDFsToEmbeddings:
             if jpg_subdir.is_dir():
                 jpg_subdirs_paths.append(jpg_subdir.path)
         
-        ctx = get_context('forkserver')
-        with ctx.Pool(processes=12) as pool:
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=4) as pool:
             pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
 
 

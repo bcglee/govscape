@@ -3,7 +3,7 @@
 
 from pdf2image import convert_from_path
 import os
-from multiprocessing import Pool
+from torch.multiprocessing import Pool, TimeoutError, get_context
 
 # wrapper class
 class PdfToJpeg:
@@ -20,14 +20,25 @@ class PdfToJpeg:
         # creates a new directory for this pdf in save_directory
         pdf_basename = os.path.splitext(os.path.basename(pdf_filename))[0]
         pdf_directory = os.path.join(self.save_directory, pdf_basename)
+        img_directory = os.path.join(self.save_directory, f"{pdf_basename}/")
         os.makedirs(pdf_directory, exist_ok=True)
 
-        # saves each page into created directory
-        pages = convert_from_path(pdf_filename, dpi=self.dpi)
-        for i, page in enumerate(pages):
-            output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{i}.jpg")
-            page.save(output_path, "JPEG")
+        # converts to images and provides an output_folder to reduce the memory usage
+        convert_from_path(pdf_filename, dpi=self.dpi, output_folder=img_directory )
+
+        # fixes the names of files output from convert_from_path
+        img_files = os.listdir(img_directory)
+        for img_file in img_files:
+            img_basename = os.path.splitext(os.path.basename(img_file))[0]
+            if len(str.split(img_basename, "-")) > 1:
+                page_number = int(str.split(img_basename, "-")[-1])
+            else:
+                page_number = 1
+            output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{page_number}.jpg")
+            os.rename(os.path.join(img_directory, img_file), output_path)
+
         return None
+
 
 
     # pdf_directory -> directory to source pdfs
@@ -39,7 +50,8 @@ class PdfToJpeg:
             for filename in files:
                 pdf_files.append(os.path.join(root, filename))
 
-        with Pool(processes=12) as pool:
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=14) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
 
