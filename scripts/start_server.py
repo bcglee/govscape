@@ -16,7 +16,7 @@ def main():
     index_directory =  args.data_directory + '/index'
     image_directory =  args.data_directory + '/images'
     index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory)
-    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, gs.CLIPEmbeddingModel()))
+    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, gs.CLIPEmbeddingModel()))
     s = gs.Server(server_config)
     s.serve()
 

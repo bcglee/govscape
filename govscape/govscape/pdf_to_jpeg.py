@@ -15,9 +15,7 @@ class PdfToJpeg:
 
     def convert_pdf_to_jpeg(self, pdf_filename):
 
-        print("Creating JPEG (DPI " + self.dpi + "):" + pdf_filename)
-        # converts each pdf into a page with 50 dots per inch
-        pages = convert_from_path(pdf_filename, dpi=self.dpi)
+        print("Creating JPEG (DPI " + str(self.dpi) + "):" + pdf_filename)
 
         # creates a new directory for this pdf in save_directory
         pdf_basename = os.path.splitext(os.path.basename(pdf_filename))[0]
@@ -25,9 +23,11 @@ class PdfToJpeg:
         os.makedirs(pdf_directory, exist_ok=True)
 
         # saves each page into created directory
+        pages = convert_from_path(pdf_filename, dpi=self.dpi)
         for i, page in enumerate(pages):
             output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{i}.jpg")
             page.save(output_path, "JPEG")
+        return None
 
 
     # pdf_directory -> directory to source pdfs
@@ -38,8 +38,8 @@ class PdfToJpeg:
         for root, _, files in os.walk(self.pdf_directory):
             for filename in files:
                 pdf_files.append(os.path.join(root, filename))
-        
-        with Pool(processes=48) as pool:
+
+        with Pool(processes=12) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
 

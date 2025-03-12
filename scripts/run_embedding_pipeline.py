@@ -20,8 +20,8 @@ def main():
     processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, gs.CLIPEmbeddingModel())
     processor.pdfs_to_embeddings()
 
-    pdftojpeg = gs.PdfToJpeg()
-    pdftojpeg.convert_directory_to_jpegs(pdf_directory, image_directory)
+    pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 50)
+    pdftojpeg.convert_directory_to_jpegs()
 
 if __name__ == '__main__':
          main()

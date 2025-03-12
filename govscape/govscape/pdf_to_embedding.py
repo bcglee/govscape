@@ -14,7 +14,8 @@ from io import BytesIO
 from transformers import CLIPProcessor, CLIPModel
 import torch
 import torch.nn.functional as F
-from multiprocessing import Pool, TimeoutError
+from torch.multiprocessing import Pool, TimeoutError, get_context
+
 #for saving embeddings
 import numpy as np
 #abstract method
@@ -36,12 +37,13 @@ class EmbeddingModel(ABC):
 
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     
     def encode_text(self, text):
         #tokenize text
-        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False)
+        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False).to(self.device)
         tokenized_text = inputs['input_ids'][0]
 
         #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
@@ -63,7 +65,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         embeddings = batch_embeddings.split(1, dim=0) 
 
         #decision: average embedding to create one embedding per PDF 
-        final_embedding = torch.mean(torch.stack(embeddings), dim=0).numpy()
+        final_embedding = torch.mean(torch.stack(embeddings), dim=0).to("cpu").numpy()
 
         return final_embedding
 
@@ -71,7 +73,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         image = Image.open(jpg_path)
 
         # preprocess image
-        inputs = self.processor(images = image, return_tensors="pt")
+        inputs = self.processor(images = image, return_tensors="pt").to(self.device)
 
         with torch.no_grad():
             image_embedding = self.model.get_image_features(**inputs)
@@ -153,7 +155,7 @@ class PDFsToEmbeddings:
         if not os.path.exists(self.jpgs_path):
             os.makedirs(self.jpgs_path)
         
-        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 300)
+        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
         parser.convert_directory_to_jpegs()
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
@@ -161,8 +163,8 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         
         pdf_files = os.listdir(self.pdfs_path)
-
-        with Pool(processes=48) as pool:
+        ctx = get_context('forkserver')
+        with ctx.Pool(processes=14) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
     #2. TXT -> CLIP EMBEDDINGS
@@ -221,8 +223,34 @@ class PDFsToEmbeddings:
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
         
-        with Pool(processes=1) as pool:
+        ctx = get_context('forkserver')
+        with ctx.Pool(processes=12) as pool:
             pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+
+    def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
+        print("Embedding PDF Img: " + jpg_subdir_path)
+        #making the subdir that will hold the embeddings for each PDF 
+        embed_name = os.path.basename(jpg_subdir_path)
+        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+
+        if not os.path.exists(embedding_dir):
+            os.makedirs(embedding_dir)
+
+        # all jpg files in the jpg subdir input 
+        jpg_files = os.listdir(jpg_subdir_path)
+
+        for jpg_file in jpg_files:
+            jpg_path = os.path.join(jpg_subdir_path, jpg_file)
+            
+            #check if file is empty; just skip to next if true 
+            if os.stat(jpg_path).st_size == 0:
+                continue
+
+            embedding = self.embedding_model.encode_image(jpg_path)
+
+            file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
+            output_path = os.path.join(embedding_dir, file_name)
+            np.save(output_path, embedding.cpu().numpy())
 
     # converts a dir of subdirs for each image for each page into a dir of subdir of embeddings in .npy
     def convert_imgs_to_embeddings(self):
@@ -234,30 +262,10 @@ class PDFsToEmbeddings:
             if jpg_subdir.is_dir():
                 jpg_subdirs_paths.append(jpg_subdir.path)
         
-        for jpg_subdir_path in jpg_subdirs_paths:
+        ctx = get_context('forkserver')
+        with ctx.Pool(processes=12) as pool:
+            pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
 
-            #making the subdir that will hold the embeddings for each PDF 
-            embed_name = os.path.basename(jpg_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_path, embed_name)
-
-            if not os.path.exists(embedding_dir):
-                os.makedirs(embedding_dir)
-
-            # all jpg files in the jpg subdir input 
-            jpg_files = os.listdir(jpg_subdir_path)
-
-            for jpg_file in jpg_files:
-                jpg_path = os.path.join(jpg_subdir_path, jpg_file)
-                
-                #check if file is empty; just skip to next if true 
-                if os.stat(jpg_path).st_size == 0:
-                    continue
-
-                embedding = self.embedding_model.encode_image(jpg_path)
-
-                file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
-                output_path = os.path.join(embedding_dir, file_name)
-                np.save(output_path, embedding.cpu().numpy())
 
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
