@@ -153,8 +153,8 @@ class PDFsToEmbeddings:
         if not os.path.exists(self.jpgs_path):
             os.makedirs(self.jpgs_path)
         
-        parser = PdfToJpeg()
-        parser.convert(self.pdfs_path, self.jpgs_path, 300)
+        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 300)
+        parser.convert_directory_to_jpegs()
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
     def convert_pdfs_to_txt(self):

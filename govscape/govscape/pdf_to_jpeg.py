@@ -7,14 +7,17 @@ from multiprocessing import Pool
 
 # wrapper class
 class PdfToJpeg:
-    def __init__(self):
+    def __init__(self, pdf_directory, save_directory, dpi):
+        self.pdf_directory = pdf_directory
+        self.save_directory = save_directory
+        self.dpi = dpi
         pass
 
     def convert_pdf_to_jpeg(self, pdf_filename):
 
-        print("Creating JPEG Thumbnails: " + pdf_filename)
+        print("Creating JPEG (DPI " + self.dpi + "):" + pdf_filename)
         # converts each pdf into a page with 50 dots per inch
-        pages = convert_from_path(pdf_filename, dpi=50)
+        pages = convert_from_path(pdf_filename, dpi=self.dpi)
 
         # creates a new directory for this pdf in save_directory
         pdf_basename = os.path.splitext(os.path.basename(pdf_filename))[0]
@@ -29,16 +32,13 @@ class PdfToJpeg:
 
     # pdf_directory -> directory to source pdfs
     # save_directory -> directory to save images
-    def convert_directory_to_jpegs(self, pdf_directory, save_directory):
-
+    def convert_directory_to_jpegs(self):
         # recursively finds the pdfs in pdf_directory
         pdf_files = []
-        for root, _, files in os.walk(pdf_directory):
+        for root, _, files in os.walk(self.pdf_directory):
             for filename in files:
                 pdf_files.append(os.path.join(root, filename))
         
-        self.save_directory = save_directory
-
         with Pool(processes=48) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
