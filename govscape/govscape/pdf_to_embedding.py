@@ -7,11 +7,13 @@
 import pdfplumber 
 import os
 # for pdf -> jpeg
-from PIL import Image
+from PIL import ImageFile, Image
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from io import BytesIO
-# import fitz
+import fitz
 # for CLIP
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel, AutoModel, AutoTokenizer
+from sentence_transformers import SentenceTransformer
 import torch
 import torch.nn.functional as F
 from torch.multiprocessing import Pool, TimeoutError, get_context
@@ -35,15 +37,46 @@ class EmbeddingModel(ABC):
     def encode_text(self, text):
         pass
 
+    @abstractmethod
+    def encode_image(self, jpg_path):
+        pass
+
+class TextEmbeddingModel(EmbeddingModel):
+    def __init__(self):
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
+        self.d = 1024
+    
+    def encode_text(self, text):
+        #tokenize text
+        text_embedding = self.model.encode([text])
+        return text_embedding
+
+    def encode_image(self, jpg_path):
+        image = Image.open(jpg_path)
+
+        # preprocess image
+        inputs = self.processor(images = image, return_tensors="pt").to(self.device)
+
+        with torch.no_grad():
+            image_embedding = self.model.get_image_features(**inputs)
+        
+        image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
+
+        return np.zeros(1024)
+    
+
+    
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.d = 512
     
     def encode_text(self, text):
         #tokenize text
-        inputs = self.processor(text=text, return_tensors="pt", padding=False, truncation=False).to(self.device)
+        inputs = self.processor(text=text, return_tensors="pt").to(self.device)
         tokenized_text = inputs['input_ids'][0]
 
         #CLIP token limit = 77 so we have to divide into chunks and get embeddings for each of those
@@ -117,6 +150,8 @@ class PDFsToEmbeddings:
 
         for page_num, page_text in enumerate(text):
             txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
+            if len(page_text) == 0:
+                continue
             with open(txt_file_path, 'w', encoding='utf-8') as text_file:
                 text_file.write(page_text)
 
@@ -224,7 +259,7 @@ class PDFsToEmbeddings:
                 txt_subdirs_paths.append(txt_subdir.path)
         
         ctx = get_context('spawn')
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
     def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
@@ -245,9 +280,10 @@ class PDFsToEmbeddings:
             #check if file is empty; just skip to next if true 
             if os.stat(jpg_path).st_size == 0:
                 continue
-
-            embedding = self.embedding_model.encode_image(jpg_path)
-
+            try:
+                embedding = self.embedding_model.encode_image(jpg_path)
+            except: 
+                continue
             file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
             output_path = os.path.join(embedding_dir, file_name)
             np.save(output_path, embedding.cpu().numpy())
@@ -263,7 +299,7 @@ class PDFsToEmbeddings:
                 jpg_subdirs_paths.append(jpg_subdir.path)
         
         ctx = get_context('spawn')
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=12) as pool:
             pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
 
 

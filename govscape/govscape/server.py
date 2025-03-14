@@ -41,8 +41,6 @@ class Server:
 
         # Load each .npy file into an array
         self.arrays = [np.load(file) for file in self.npy_files]
-        for array in self.arrays:
-            print(array.shape)
         stacked_array = np.vstack(self.arrays) 
         self.faiss_index.add(stacked_array)
         
