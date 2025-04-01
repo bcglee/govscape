@@ -23,6 +23,8 @@ class Server:
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
+        self.index_type = config.index_type
+        self.disk_index = config.disk_index
 
         # FAISS model
         self.model = config.model
@@ -81,23 +83,31 @@ class Server:
 
                 # Create random array embedding
                 query_embedding = self.model.text_to_embeddings(query)
-                # Search for the k closest arrays
-                D, I = self.faiss_index.search(query_embedding, self.k)
 
-                search_results = []
-                for i in range(I.shape[0]):
-                    for j in range(I.shape[1]):
-                        # parse file information for page
-                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                if self.index_type == 'Memory':
+                    # Search for the k closest arrays
+                    D, I = self.faiss_index.search(query_embedding, self.k)
 
-                        # add results onto file
-                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                json_object = json.dumps({"results": search_results}, indent=4)
+                    search_results = []
+                    for i in range(I.shape[0]):
+                        for j in range(I.shape[1]):
+                            # parse file information for page
+                            pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                            page, _, _ = page.rpartition('.')
+                            # create jpeg name
+                            jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
 
-                # print for testing
-                print(json_object)
+                            # add results onto file
+                            search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
+                    json_object = json.dumps({"results": search_results}, indent=4)
+
+                    # print for testing
+                    print(json_object)
+                
+                if self.index_type == 'Disk':
+                    results = self.disk_index.search(query_embedding.flatten(), self.k, self.k * 2)
+                    print("made it!")
+
+
         except EOFError:
             print("\nThank you for using!")

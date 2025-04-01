@@ -1,42 +1,83 @@
 import numpy as np
 import os
-from config import IndexConfig
+import struct
 
-# input dir of pdf embeddings as .npy files
-npy_embeddings = config.embedding_directory
-# npy_embeddings = "/homes/gws/alisony/govscape/src/govscape/data/embeddings"
+class NpyToBin:
+    # pass in bin file
+    def __init__(self, bin_file):
+        self.bin_file = bin_file
+        self.page_indices = []
 
-bin_path = os.path.join(npy_embeddings, "embeddings.bin")
+    # only append one npy file to bin
+    def convert_npy_to_bin(self, npy_file):
+        bin_path = self.bin_file
+        file_exists = os.path.exists(bin_path)
+        file_header_exists = os.path.getsize(bin_path) >= 8
+        data = np.load(npy_file, mmap_mode="r")
+        num_points, dimension = data.shape
 
-all_vectors = []
-page_indices = []  # store indices of tokenized pages
+        with open(bin_path, "r+b" if file_exists else "w+b") as file:
+            # create embedding file and write placeholder header
+            if not file_exists:
+                file.write(struct.pack("i", 0))
+                file.write(struct.pack("i", 0))
 
-# loop through subdirectories of embedding directory (pdfs)
-for subdir in os.listdir(npy_embeddings):
-    subdir_path = os.path.join(npy_embeddings, subdir)
-    if os.path.isdir(subdir_path): 
-        page_index = len(all_vectors)  # start index
-        page_indices.append(page_index)  # save page index
-        # loop through pages of pdf
-        for page in os.listdir(subdir_path):
-            if page.endswith(".npy"):
-                npy_path = os.path.join(subdir_path, page)
-                # load .npy file
-                data = np.load(npy_path)
-                all_vectors.append(data)
+            file.seek(0)
+            total_points = struct.unpack("i", file.read(4))[0]
+            dimension = struct.unpack("i", file.read(4))[0]
+            file.seek(0, os.SEEK_END)
 
-# list of arrays becomes single numpy array
-all_vectors = np.concatenate(all_vectors, axis=0)
+            for i in range(num_points):
+                vector = data[i]                    # This loads just one row at a time
+                file.write(vector.tobytes())          # Write the raw bytes of the vector
+        
+            file.seek(0)
+            file.write(struct.pack("i", total_points + num_points))
+            file.write(struct.pack("i", dimension))
+            # self.page_indicies.append()
+        # NEED TO CHANGE PAGE INDEX LOGIC write to bin file?
+        # self.page_indices.append(self.total_vectors)
 
-# save as .bin file with header
-with open(bin_path, "wb") as f:
-    np.array([all_vectors.shape[0], all_vectors.shape[1]], dtype=np.int32).tofile(f)  # Write header
-    all_vectors.tofile(f)  # Write vector data
+    
+    # append a pdf directory of npy files to bin
+    def convert_pdfdir_to_bin(self, embedding_directory):
+        bin_path = self.bin_file
+        file_exists = os.path.exists(bin_path)
+        file_header_exists = os.path.getsize(bin_path) >= 8
 
-# Optional: Write page indices if you want to track page boundaries
-# (You can use this for referencing later if needed, or include it in the same .bin file or separately)
-page_indices_path = os.path.join(os.path.dirname(bin_path), "page_indices.npy")
-np.save(page_indices_path, page_indices)
+        with open(bin_path, "r+b") as file:
+            total_points = 0
+            dimension = 0
+            if file_exists and file_header_exists:
+                file.seek(0)
+                total_points = struct.unpack("i", file.read(4))[0]
+                dimension = struct.unpack("i", file.read(4))[0]
+                file.seek(0, os.SEEK_END)
+            else :
+                # add placeholder header first if bin file doesn't exist, will update later
+                file.write(struct.pack("i", total_points))
+                file.write(struct.pack("i", dimension))
+            
+            # curr_index = num_points
+                # append current index to mark start of page
+                # self.page_indices.append(curr_index)
+                # loop through pages of pdf
+            for page in os.listdir(embedding_directory):
+                if page.endswith(".npy"):
+                    npy_file = os.path.join(embedding_directory, page)
+                    data = np.load(npy_file, mmap_mode="r")
+                    data_points, data_dimension = data.shape
+                    # writes entire file vs. loading each row in convert_npy_to_bin
+                    file.write(data.tobytes())
+                    total_points += data_points
+                    if dimension == 0:
+                        dimension = data_dimension
+                    elif dimension != data_dimension:
+                        raise ValueError("dimension of vector in file does not match dimension of data")
+            file.seek(0)
+            file.write(struct.pack("i", total_points))
+            file.write(struct.pack("i", dimension))
 
-print(f"Combined .bin file saved to {bin_path}")
-print(f"Page indices saved to {page_indices_path}")
+        # NEED TO CHANGE PAGE INDEX LOGIC
+        # page_indices_path = os.path.join(os.path.dirname(bin_path), "page_indices.npy")
+        # np.save(page_indices_path, page_indices) 
