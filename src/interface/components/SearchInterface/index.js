@@ -297,16 +297,12 @@ class SearchInterface {
         modal.querySelector('.current-page').textContent = matchedPageIndex + 1;
         modal.querySelector('.total-pages').textContent = pages.length;
         
-        // Calculate visible pages
-        const totalVisible = 5;
-        const start = Math.max(0, matchedPageIndex - Math.floor(totalVisible / 2));
-        
+        // Create grid layout instead of carousel
         carousel.innerHTML = `
-            <div class="page-carousel-inner">
+            <div class="page-grid">
                 ${pages.map((page, i) => `
-                    <div class="page-item ${i === matchedPageIndex ? 'active' : ''}"
-                        data-page="${i + 1}"
-                        style="transform: translateX(-${start * 20}%)">
+                    <div class="page-grid-item ${i === matchedPageIndex ? 'active' : ''}"
+                        data-page="${i + 1}">
                         <img src="${page.thumbnailUrl}" alt="Page ${page.pageNumber}">
                     </div>
                 `).join('')}
@@ -314,36 +310,31 @@ class SearchInterface {
         `;
         
         // Add click handlers for thumbnails
-        carousel.querySelectorAll('.page-item').forEach((item, i) => {
-            if (i !== matchedPageIndex) {
-                item.addEventListener('click', () => {
-                    this.goToPage(i);
-                });
-            }
+        carousel.querySelectorAll('.page-grid-item').forEach((item, i) => {
+            item.addEventListener('click', () => {
+                this.goToPage(i);
+            });
         });
         
-        this.initializeCarouselControls();
+        this.initializeGridControls();
     }
 
-    initializeCarouselControls() {
+    initializeGridControls() {
         const { prevButton, nextButton, pageCarousel } = this.elements;
-        const inner = pageCarousel.querySelector('.page-carousel-inner');
+        const grid = pageCarousel.querySelector('.page-grid');
         let currentIndex = Math.floor(this.currentPdfData.metadata.pageImages.length / 2);
         
         const goToPage = (index) => {
-            const items = pageCarousel.querySelectorAll('.page-item');
-            const totalVisible = 5;
+            const items = pageCarousel.querySelectorAll('.page-grid-item');
             
             items.forEach((item, i) => {
                 item.classList.remove('active');
                 if (i === index) {
                     item.classList.add('active');
+                    // Scroll the active item into view if needed
+                    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
-            
-            // Calculate new transform
-            const start = Math.max(0, index - Math.floor(totalVisible / 2));
-            inner.style.transform = `translateX(-${start * 20}%)`;
             
             // Update page number
             currentIndex = index;
