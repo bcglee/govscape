@@ -9,7 +9,6 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.10"
 govscape = { path = "govscape", develop = true }
-fitz = "^0.0.1.dev2"
 
 
 [build-system]
