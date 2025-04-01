@@ -16,6 +16,7 @@ transformers = "^4.49.0"
 torch = "^2.6.0"
 argparse = "^1.4.0"
 pymupdf = "^1.25.5"
+sentence-transformers = "^4.0.1"
 
 
 [build-system]
