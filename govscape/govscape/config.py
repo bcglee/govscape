@@ -23,5 +23,5 @@ class ServerConfig:
         self.k = k
 
         # define embedding size
-        self.d = self.model.d
+        self.d = self.model.embedding_model.d
 
