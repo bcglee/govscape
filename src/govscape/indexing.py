@@ -18,6 +18,8 @@ class IndexBuilder:
 
     # build index
     def build_index(self):
+        if not os.path.exists(self.index_directory):
+            os.makedirs(self.index_directory)
         embedding = os.path.join(self.embedding_directory, "embeddings.bin")
         dap.build_disk_index( # comments from DiskANN repo
             data=embedding,
@@ -50,10 +52,5 @@ class IndexBuilder:
             k_neighbors=k,
             complexity=complexity,  # must be as big or bigger than `k_neighbors`
         )
-        print("num internal_indices %d", len(internal_indices))
-        print(internal_indices)
-        # Map retrieved indices to page numbers
-        # matching_pages = [self.page_indices[idx] for idx in internal_indices[0]] # flatten array
-        # return matching_pages
-        return ""
+        return internal_indices, distances
 

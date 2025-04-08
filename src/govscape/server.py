@@ -5,6 +5,7 @@ import numpy as np
 import json
 import faiss
 import os
+import struct
 from .pdf_to_embedding import PDFsToEmbeddings
 
 
@@ -105,8 +106,18 @@ class Server:
                     print(json_object)
                 
                 if self.index_type == 'Disk':
-                    results = self.disk_index.search(query_embedding.flatten(), self.k, self.k * 2)
-                    print("made it!")
+                    indices, distances = self.disk_index.search(query_embedding.flatten(), self.k, self.k * 2)
+                    search_results = []
+                    page_indices = os.path.join(self.embedding_directory, "page_indices.bin")
+                    with open(page_indices, "rb") as file:
+                        for i in range(len(indices)):
+                            file.seek(indices[i] * 36, os.SEEK_SET)
+                            pdf_name = file.read(32).decode('utf-8').strip()
+                            page = str(struct.unpack("i", file.read(4))[0])
+                            search_results.append({"pdf": pdf_name, "page": page, "distance": float(distances[i])})
+                    json_object = json.dumps({"results": search_results}, indent=4)
+                    print(json_object)
+
 
 
         except EOFError:

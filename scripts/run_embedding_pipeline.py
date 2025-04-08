@@ -22,7 +22,8 @@ def main():
     processor.pdfs_to_embeddings()
 
     bin_file = os.path.join(embeddings_directory, "embeddings.bin")
-    npytobin = gs.NpyToBin(bin_file)
+    page_indices = os.path.join(embeddings_directory, "page_indices.bin")
+    npytobin = gs.NpyToBin(bin_file, page_indices)
     for subdir in os.listdir(embeddings_directory):
         subdir_path = os.path.join(embeddings_directory, subdir)
         if os.path.isdir(subdir_path):
