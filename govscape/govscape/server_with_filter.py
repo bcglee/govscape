@@ -121,16 +121,19 @@ class Server:
                 D, I = self.faiss_index.search(query_embedding, self.k)
 
                 search_results = []
+                pdfSet = set()
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
                         # parse file information for page
                         pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                        if pdf_name not in pdfSet:
+                            pdfSet.add(pdf_name)
+                            page, _, _ = page.rpartition('.')
+                            # create jpeg name
+                            jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
 
-                        # add results onto file
-                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
+                            # add results onto file
+                            search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
                 if filter_yes:
                     search_results = self.filt.filter_results(search_results, filters)
                 json_object = json.dumps({"results": search_results}, indent=4)
