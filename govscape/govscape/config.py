@@ -12,7 +12,7 @@ class IndexConfig:
 
         
 class ServerConfig:
-    def __init__(self, index_config : IndexConfig, embedding_model, k=3, d = 512):
+    def __init__(self, index_config : IndexConfig, embedding_model, k=3):
         self.pdf_directory = index_config.pdf_directory
         self.embedding_directory = index_config.embedding_directory
         self.index_directory = index_config.index_directory
@@ -23,5 +23,5 @@ class ServerConfig:
         self.k = k
 
         # define embedding size
-        self.d = d
+        self.d = self.model.embedding_model.d
 
