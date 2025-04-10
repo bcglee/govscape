@@ -1,3 +1,4 @@
+# This file defines the logic for serving requests to the user.
 from flask import Flask
 from .config import ServerConfig
 import numpy as np
@@ -6,10 +7,14 @@ import os
 import json
 from .api import init_api
 
+# basic pipeline developed:
+# 1. accept a query until EOF detected
+# 2. run an embedding model on the query
+# 3. return a list of files that are most similar to the query - utilize FAISS to do this
 class Server:
 
+    # obtain all the setup information from configuration
     def __init__(self, config: ServerConfig):
-        """Initialize the API with a Flask app and configuration."""
         self.config = config
 
         # directories
@@ -35,9 +40,30 @@ class Server:
 
         # Load each .npy file into an array
         self.arrays = [np.load(file) for file in self.npy_files]
-        if self.arrays:
-            stacked_array = np.vstack(self.arrays)
-            self.faiss_index.add(stacked_array)
+        stacked_array = np.vstack(self.arrays)
+        self.faiss_index.add(stacked_array)
+
+    # Accepts a Query -> Returns JSON with closest results
+    # Sample:
+    # {
+    #     "results": [
+    #         {
+    #             "pdf": "test_data/embeddings/gold/gold",
+    #             "page": "0",
+    #             "distance": 59.212852478027344
+    #         },
+    #         {
+    #             "pdf": "test_data/embeddings/government/government",
+    #             "page": "0",
+    #             "distance": 68.0333251953125
+    #         },
+    #         {s
+    #             "pdf": "test_data/embeddings/joebiden/joebiden",
+    #             "page": "0",
+    #             "distance": 68.0333251953125
+    #         }
+    #     ]
+    # }
 
         # Initialize Flask app and API
         self.app = Flask(__name__)
@@ -45,12 +71,9 @@ class Server:
         self.api = init_api(self.app)
     
     def search(self, query):
-        """Search for documents matching the query"""
-        if not query.strip():
-            return {"status": "error", "message": "Query cannot be empty"}
-        
-        # Process query
+        # Create random array embedding
         query_embedding = self.model.text_to_embeddings(query)
+        # Search for the k closest arrays
         D, I = self.faiss_index.search(query_embedding, self.k)
         
         search_results = []
