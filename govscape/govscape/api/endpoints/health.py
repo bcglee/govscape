@@ -1,22 +1,24 @@
-from flask_restx import Resource, fields
-from ..api import api
+from flask import current_app
+from flask_restx import Namespace, Resource, fields
 
-# Define health model directly in the endpoint
-health_response = api.model('HealthResponse', {
+# Create namespace
+ns = Namespace('health', description='Health check operations')
+
+# Define model
+health_model = ns.model('HealthResponse', {
     'status': fields.String(description='Server health status'),
     'embeddings_count': fields.Integer(description='Number of embeddings loaded')
 })
 
+@ns.route('/')
 class HealthCheck(Resource):
-    def __init__(self, api=None, *args, **kwargs):
-        super().__init__(api, *args, **kwargs)
-        self.context = self.api.app.context
-
-    @api.doc('get_health')
-    @api.response(200, 'Success', health_response)
+    @ns.doc('get_health')
+    @ns.response(200, 'Success', health_model)
     def get(self):
         """Get server health status"""
+        server = current_app.server
+        
         return {
             "status": "healthy", 
-            "embeddings_count": self.context.faiss_index.ntotal
+            "embeddings_count": server.faiss_index.ntotal
         }

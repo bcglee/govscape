@@ -1,18 +1,19 @@
-from .api import api
-from .endpoints.health import HealthCheck
-from .endpoints.search import Search
+from flask_restx import Api
+from .endpoints.health import ns as health_ns
+from .endpoints.search import ns as search_ns
 
 def init_api(app):
     """Initialize the Flask-RESTX API"""
-    # Initialize the api with the app
+    api = Api(
+        version='1.0',
+        title='GovScape API',
+        description='A RESTful API for searching government PDF documents',
+        doc='/docs'
+    )
     api.init_app(app)
     
-    # Create namespaces
-    health_ns = api.namespace('health', description='Health check operations')
-    search_ns = api.namespace('search', description='Search operations')
-    
-    # Register endpoints
-    health_ns.add_resource(HealthCheck, '')
-    search_ns.add_resource(Search, '')
+    # Add namespaces
+    api.add_namespace(health_ns)
+    api.add_namespace(search_ns)
     
     return api
