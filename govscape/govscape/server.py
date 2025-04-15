@@ -1,12 +1,11 @@
 # This file defines the logic for serving requests to the user.
+from flask import Flask
 from .config import ServerConfig
-from .config import IndexConfig
 import numpy as np
-import json
 import faiss
 import os
-from .pdf_to_embedding import PDFsToEmbeddings
-
+import json
+from .api import init_api
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -15,7 +14,7 @@ from .pdf_to_embedding import PDFsToEmbeddings
 class Server:
 
     # obtain all the setup information from configuration
-    def __init__(self, config : ServerConfig):
+    def __init__(self, config: ServerConfig):
         self.config = config
 
         # directories
@@ -41,9 +40,9 @@ class Server:
 
         # Load each .npy file into an array
         self.arrays = [np.load(file) for file in self.npy_files]
-        stacked_array = np.vstack(self.arrays) 
+        stacked_array = np.vstack(self.arrays)
         self.faiss_index.add(stacked_array)
-        
+
     # Accepts a Query -> Returns JSON with closest results
     # Sample:
     # {
@@ -66,7 +65,38 @@ class Server:
     #     ]
     # }
 
+        # Initialize Flask app and API
+        self.app = Flask(__name__)
+        self.app.server = self
+        self.api = init_api(self.app)
+    
+    def search(self, query):
+        # Create random array embedding
+        query_embedding = self.model.text_to_embeddings(query)
+        # Search for the k closest arrays
+        D, I = self.faiss_index.search(query_embedding, self.k)
+        
+        search_results = []
+        for i in range(I.shape[0]):
+            for j in range(I.shape[1]):
+                # parse file information for page
+                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                page, _, _ = page.rpartition('.')
+                # create jpeg name
+                jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                
+                # add results to list
+                search_results.append({
+                    "pdf": pdf_name, 
+                    "page": page, 
+                    "distance": float(D[i][j]), 
+                    "jpeg": jpeg
+                })
+        
+        return {"results": search_results}
+    
     def serve(self):
+        # keep this function to maintain compatibility with scripts/start_server.py
         print("Welcome to End-Of-Term PDF Search Server")   
     
         print("Searching against " + str(self.faiss_index.ntotal) + " embeddings\n")
@@ -77,25 +107,14 @@ class Server:
                 if query == "":
                     continue
 
-                # Create random array embedding
-                query_embedding = self.model.text_to_embeddings(query)
-                # Search for the k closest arrays
-                D, I = self.faiss_index.search(query_embedding, self.k)
-
-                search_results = []
-                for i in range(I.shape[0]):
-                    for j in range(I.shape[1]):
-                        # parse file information for page
-                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
-
-                        # add results onto file
-                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                json_object = json.dumps({"results": search_results}, indent=4)
+                result = self.search(query)
+                json_object = json.dumps(result, indent=4)
 
                 # print for testing
                 print(json_object)
         except EOFError:
             print("\nThank you for using!")
+    
+    def run(self, host='0.0.0.0', port=8080, debug=False):
+        """Run the Flask server."""
+        self.app.run(host=host, port=port, debug=debug)
