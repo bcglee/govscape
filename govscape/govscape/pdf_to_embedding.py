@@ -17,6 +17,11 @@ from sentence_transformers import SentenceTransformer
 import torch
 import torch.nn.functional as F
 from torch.multiprocessing import Pool, TimeoutError, get_context
+# for VIT-GPT2 image captioning model:
+from transformers import pipeline
+# for pdf -> img (extracted images not pg. images)
+from pathlib import Path
+import io
 
 #for saving embeddings
 import numpy as np
@@ -25,6 +30,7 @@ from abc import ABC, abstractmethod
 import json
 import sys
 from .pdf_to_jpeg import PdfToJpeg
+#from pdf_to_jpeg import PdfToJpeg
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
@@ -46,24 +52,28 @@ class TextEmbeddingModel(EmbeddingModel):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
         self.d = 1024
+        self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning")
     
     def encode_text(self, text):
         #tokenize text
         text_embedding = self.model.encode([text])
         return text_embedding
 
-    def encode_image(self, jpg_path):
+    def encode_image(self, jpg_path): # output: embed_shape 
         image = Image.open(jpg_path)
 
         # preprocess image
-        inputs = self.processor(images = image, return_tensors="pt").to(self.device)
+        #inputs = self.processor(images = image, return_tensors="pt").to(self.device)
 
-        with torch.no_grad():
-            image_embedding = self.model.get_image_features(**inputs)
+        # with torch.no_grad():
+        #     image_embedding = self.model.get_image_features(**inputs)
         
-        image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
+        caption = (self.image_to_caption(image))[0]['generated_text']
+        print(caption)
+        image_caption_embed = self.model.encode([caption])
 
-        return np.zeros(1024)
+        return image_caption_embed
+    
     
 
     
@@ -125,12 +135,14 @@ class PDFsToEmbeddings:
         self.embedding_model = embedding_model
 
         #big json file turn into dictionary
-        self.json_file = "/homes/gws/cgong16/govscape/govscape/tests/test_files/test.json" # input path here, probably want to add to a script later since i assume this will always be there
-        self.json = {}
-        self.convert_json_to_dict(self.json_file)
+        # self.json_file = "/homes/gws/cgong16/govscape/data/test_data/TechnicalReport234PDFs" # input path here, probably want to add to a script later since i assume this will always be there
+        # self.json = {}
+        # self.convert_json_to_dict(self.json_file)
+        # print("FINISHED WITH JSON DICTIONARY")
 
+    # converts json file of metadata to a dictionary where key = digest, value = (govname, timestamp)
     def convert_json_to_dict(self, json_file):
-        print(json_file)
+        #print(json_file)
         with open(json_file, 'r') as file:
             data = json.load(file)
         for row in data:
@@ -144,7 +156,7 @@ class PDFsToEmbeddings:
 
     # converts a single pdf file to a txt file
     def convert_pdf_to_txt(self, pdf_file):
-        print("Paginating & Scraping Text: " + pdf_file)
+        #print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(self.pdfs_path, pdf_file)
         #subdir for each pdf 
         pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
@@ -208,6 +220,49 @@ class PDFsToEmbeddings:
         
         parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
         parser.convert_directory_to_jpegs()
+    
+
+    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path):
+        pdf_doc = fitz.open(pdf_path)
+
+        title = os.path.splitext(os.path.basename(pdf_path))[0]
+
+
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc[page_num]
+            for i, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                image_dict = pdf_doc.extract_image(xref)
+                image_bytes = image_dict["image"]
+                image = Image.open(io.BytesIO(image_bytes))
+
+                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_IMG_{i}.jpg"
+                print("img saved at: ",  image_path)
+                image.save(image_path, "JPEG")
+
+                # convert to embedding 
+                embed = self.embedding_model.encode_image(image_path)
+
+                output_path = os.path.join(out_embed_path, f"{title}_{page_num}_IMG_{i}.npy")
+                np.save(output_path, embed)
+
+
+
+    def extract_img_pdfs(self):
+        # go through entire set of pdfs 
+        pdfs_dir = Path(self.pdfs_path)
+        pdf_paths = list(pdfs_dir.glob("*.pdf"))
+
+        extract_folder = Path(str(self.jpgs_path) + "_extract")
+        extract_folder.mkdir(parents=True, exist_ok=True)
+
+        # extract images and put it in images under _IMG_count.png
+        for pdf_path in pdf_paths:
+            img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
+            img_path.mkdir(parents=True, exist_ok=True)
+            out_embed_path = Path(self.embeddings_path) / Path(pdf_path.stem)
+            self.extract_img_embed_pdf(pdf_path, img_path, out_embed_path)
+        
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
     def convert_pdfs_to_txt(self):
@@ -218,7 +273,7 @@ class PDFsToEmbeddings:
         with ctx.Pool(processes=12) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
-    #2. TXT -> CLIP EMBEDDINGS
+    #2. TXT -> EMBEDDINGS
 
     #takes in a string and converts it into an embedding. 
     def text_to_embeddings(self, text):
@@ -241,7 +296,7 @@ class PDFsToEmbeddings:
             json.dump(data, json_file, indent=4)
     
     def convert_subdir_to_embeddings(self, txt_subdir_path):
-        print("Embedding PDF: " + txt_subdir_path)
+        #print("Embedding PDF: " + txt_subdir_path)
         #making the subdir that will hold the embeddings for each PDF 
         embed_name = os.path.basename(txt_subdir_path)
         embedding_dir = os.path.join(self.embeddings_path, embed_name)
@@ -255,7 +310,7 @@ class PDFsToEmbeddings:
         #all txt files in the txt subdir input 
         txt_files = os.listdir(txt_subdir_path)
 
-        self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))
+        # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))   #**********************************
 
         for txt_file in txt_files:
             txt_path = os.path.join(txt_subdir_path, txt_file)
@@ -326,10 +381,21 @@ class PDFsToEmbeddings:
         self.convert_pdfs_to_txt()
         self.convert_txts_to_embeddings()
         self.convert_pdfs_to_single_jpg()
-        self.convert_imgs_to_embeddings()
+        #self.convert_imgs_to_embeddings()
+        self.extract_img_pdfs()
 
     #helper functions
     #makes sure that the directory specified is created
     def ensure_dir(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
+
+
+# model = TextEmbeddingModel()
+
+# text_emb = model.encode_text("hello hi")
+# print(text_emb.shape)
+
+# # Encode an image (path to .jpg/.png)
+# image_emb = model.encode_image("/homes/gws/cgong16/govscape/data/test_data/Devon_Rex_Cassini.jpeg")
+# print("embed_shape", image_emb.shape)
