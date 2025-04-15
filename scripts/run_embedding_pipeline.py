@@ -26,7 +26,6 @@ def main():
     processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
     processor.pdfs_to_embeddings()
 
-<<<<<<< HEAD
     bin_file = os.path.join(embeddings_directory, "embeddings.bin")
     page_indices = os.path.join(embeddings_directory, "page_indices.bin")
     npytobin = gs.NpyToBin(bin_file, page_indices)
@@ -39,12 +38,8 @@ def main():
     indexBuilder = gs.IndexBuilder(indexConfig)
     indexBuilder.build_index()
 
-    pdftojpeg = gs.PdfToJpeg()
-    pdftojpeg.convert(pdf_directory, image_directory)
-=======
     pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
     pdftojpeg.convert_directory_to_jpegs()
->>>>>>> 3d20c10835e217ccd36aca7f6dd9a87b22dea546
 
 if __name__ == '__main__':
          main()
