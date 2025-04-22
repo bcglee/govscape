@@ -6,7 +6,7 @@ def main():
     parser.add_argument('-p', '--pdf-directory', default='data/test_data/TechnicalReport234PDFs', help='Directory containing PDF files')
     parser.add_argument('-d', '--data-directory', default='data/test_data', help='Directory containing data files')
     parser.add_argument('-m', '--model', default='CLIP', choices=['CLIP', 'UAE'], help='The model to use for embedding.')
-    parser.add_argument('-k', '--top-k', type=int, default=5, help='Number of top results to return')
+    parser.add_argument('-k', '--top-k', type=int, default=20, help='Number of top results to return')
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--host', default='0.0.0.0', help='Host to run the server on')
     parser.add_argument('--port', type=int, default=8080, help='Port to run the server on')

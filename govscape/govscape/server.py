@@ -1,5 +1,6 @@
 # This file defines the logic for serving requests to the user.
 from flask import Flask
+from flask_cors import CORS
 from .config import ServerConfig
 import numpy as np
 import faiss
@@ -67,9 +68,22 @@ class Server:
     #         }
     #     ]
     # }
+        # Get the absolute path to the build directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        build_dir = os.path.abspath(os.path.join(current_dir, '..', '..', 'interface', 'build'))
+        
+        print(f"Static files directory: {build_dir}")
+        if not os.path.exists(build_dir):
+            print(f"Warning: Build directory does not exist: {build_dir}")
+            print("Please run 'npm run build' in the interface directory first")
 
         # Initialize Flask app and API
-        self.app = Flask(__name__)
+        self.app = Flask(__name__, 
+                        static_folder=build_dir,
+                        static_url_path='')
+        # Allow CORS for frontend dev server only
+        CORS(self.app, origins=["http://localhost:5173"], supports_credentials=True)
+
         self.app.server = self
         self.api = init_api(self.app)
     
