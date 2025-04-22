@@ -84,6 +84,10 @@ class Server:
         # Allow CORS for frontend dev server only
         CORS(self.app, origins=["http://localhost:5173"], supports_credentials=True)
 
+        @self.app.route('/')
+        def serve_index():
+            return self.app.send_static_file('index.html')
+
         self.app.server = self
         self.api = init_api(self.app)
     
