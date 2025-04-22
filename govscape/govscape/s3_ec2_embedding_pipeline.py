@@ -48,7 +48,7 @@ def process_pdfs(pdf_files):
     upload_directory_to_s3(embeddings_directory, data_s3_prefix + 'embeddings')
     upload_directory_to_s3(image_directory, data_s3_prefix + 'images')
 
-def batched_file_download():
+def batched_file_download(BATCH_SIZE):
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
     # get list of pdf file names
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]
@@ -80,4 +80,9 @@ def upload_directory_to_s3(ec2_dir, s3_dir):
             s3.upload_file(local_file_path, bucket_name, s3_key)
 
 
-download_files_in_chunks()
+#poetry run python embedding_pipeline_ec2.py
+def main():
+    download_and_process_batches(BATCH_SIZE)
+
+if __name__ == '__main__':
+    main()
