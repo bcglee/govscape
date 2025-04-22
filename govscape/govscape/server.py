@@ -66,36 +66,29 @@ class Server:
     #     ]
     # }
 
-    def serve(self):
+    def serve_test(self, file):
         print("Welcome to End-Of-Term PDF Search Server")   
     
         print("Searching against " + str(self.faiss_index.ntotal) + " embeddings\n")
-        try:
-            while True:
-                query = input("Search: ")
-                # EOF detected
-                if query == "":
-                    continue
 
-                # Create random array embedding
-                query_embedding = self.model.text_to_embeddings(query)
-                # Search for the k closest arrays
-                D, I = self.faiss_index.search(query_embedding, self.k)
-
-                search_results = []
-                for i in range(I.shape[0]):
-                    for j in range(I.shape[1]):
-                        # parse file information for page
-                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
-
-                        # add results onto file
-                        search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                json_object = json.dumps({"results": search_results}, indent=4)
-
-                # print for testing
-                print(json_object)
-        except EOFError:
-            print("\nThank you for using!")
+        with open(file, 'r', encoding='utf-8') as f:
+            pdf = f.readline()
+            correct = 0
+            while pdf:
+                for _ in range(0, 10):
+                    # Create random array embedding
+                    search = f.readline()
+                    print(search)
+                    query_embedding = self.model.text_to_embeddings(search)
+                    # Search for the k closest arrays
+                    D, I = self.faiss_index.search(query_embedding, self.k)
+                    search_results = []
+                    for i in range(I.shape[0]):
+                        for j in range(I.shape[1]):
+                            # parse file information for page
+                            pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                            print(pdf_name)
+                            if pdf_name in pdf:
+                                correct += 1
+                print(pdf + " " + str(correct))
+                pdf = f.readline()

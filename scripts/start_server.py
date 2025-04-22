@@ -24,7 +24,7 @@ def main():
     index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory)
     server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), k = 5)
     s = gs.Server(server_config)
-    s.serve()
+    s.serve_test('data/test_data/queries/scikit.txt')
 
 if __name__ == '__main__':
          main()
