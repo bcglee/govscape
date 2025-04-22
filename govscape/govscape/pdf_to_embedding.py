@@ -382,7 +382,7 @@ class PDFsToEmbeddings:
         self.convert_txts_to_embeddings()
         self.convert_pdfs_to_single_jpg()
         #self.convert_imgs_to_embeddings()
-        self.extract_img_pdfs()
+        self.extract_img_pdfs() # add param to embed pipeline to use
 
     #helper functions
     #makes sure that the directory specified is created

@@ -25,11 +25,13 @@ class Server:
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
+        self.image_extract_directory = '/homes/gws/cgong16/govscape/data/test_data/smol/images_extract' ### THIS NEEDS TO BE UPDATED TO CONFIG 
 
         # FAISS model
         self.model = config.model
         self.k = self.config.k
-        self.d = self.config.d
+        self.d = self.config.d  # fix config.d???? idk why it's 512
+        self.d = 1024  # FIX THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         # create a new index
         self.faiss_index = faiss.IndexFlatL2(self.d)
@@ -46,6 +48,7 @@ class Server:
         for array in self.arrays:
             print(array.shape)
         stacked_array = np.vstack(self.arrays) 
+        print(stacked_array.shape, self.d)
         self.faiss_index.add(stacked_array)
 
         #Filter intilization
@@ -118,16 +121,31 @@ class Server:
                 # Create random array embedding
                 query_embedding = self.model.text_to_embeddings(query)
                 # Search for the k closest arrays
+                print(query_embedding.shape)
                 D, I = self.faiss_index.search(query_embedding, self.k)
 
                 search_results = []
                 for i in range(I.shape[0]):
                     for j in range(I.shape[1]):
-                        # parse file information for page
-                        pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                        page, _, _ = page.rpartition('.')
-                        # create jpeg name
-                        jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                        # # parse file information for page
+                        # pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                        # page, _, _ = page.rpartition('.')
+                        # #create jpeg name
+                        # jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+
+                        file_name = self.npy_files[I[i][j]]
+                        basename = os.path.basename(file_name)
+
+                        name_parts = basename.replace('.npy', '').split('_')
+
+                        if name_parts[-2] == "IMG":
+                            page = name_parts[-1]
+                            pdf_name = '_'.join(name_parts[:-2])
+                            jpeg = self.image_extract_directory + "/" + name_parts[0] + "/" +  '_'.join(name_parts) + ".jpg"
+                        else:
+                            page = name_parts[-1]
+                            pdf_name = '_'.join(name_parts[:-1])
+                            jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
 
                         # add results onto file
                         search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
