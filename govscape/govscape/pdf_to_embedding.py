@@ -38,6 +38,15 @@ from .pdf_to_jpeg import PdfToJpeg
 #   - has structure: dir -> subdir for each PDF -> .npy files for each page embedding 
 # Note: this version supports creating a json metadata file for each pdf. So far it contains number of pages.
 
+
+# NOTE FOR THIS VERSION: *******************************************************************************************************
+
+# all json methods are commented out meaning we are not producing metadata 
+# pdf img -> embedding not enabled 
+# extracted img -> embedding not enabled
+
+# *************************************************************************************************************
+
 class EmbeddingModel(ABC):
     @abstractmethod
     def encode_text(self, text):
@@ -381,8 +390,8 @@ class PDFsToEmbeddings:
         self.convert_pdfs_to_txt()
         self.convert_txts_to_embeddings()
         self.convert_pdfs_to_single_jpg()
-        #self.convert_imgs_to_embeddings()
-        self.extract_img_pdfs() # add param to embed pipeline to use
+        #self.convert_imgs_to_embeddings()  # i think this is for img of pdf -> embeddings ??
+        #self.extract_img_pdfs() # add param to embed pipeline to use  # i think this is for extract img -> caption -> embeddings
 
     #helper functions
     #makes sure that the directory specified is created
