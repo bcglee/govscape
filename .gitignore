@@ -1,4 +1,4 @@
 dist
-govscape/govscape/__pycache__
+govscape/govscape/**/__pycache__
 data
 poetry.lock
