@@ -8,35 +8,6 @@ class NpyToBin:
         self.bin_file = bin_file
         self.page_indices = page_indices
 
-    # only append one npy file to bin
-    # not currently adding to page indices
-    def convert_npy_to_bin(self, npy_file):
-        bin_path = self.bin_file
-        file_exists = os.path.exists(bin_path)
-        file_header_exists = os.path.getsize(bin_path) >= 8
-        data = np.load(npy_file, mmap_mode="r")
-        num_points, dimension = data.shape
-
-        with open(bin_path, "r+b" if file_exists else "w+b") as file:
-            # create embedding file and write placeholder header
-            if not file_exists:
-                file.write(struct.pack("i", 0))
-                file.write(struct.pack("i", 0))
-
-            file.seek(0)
-            total_points = struct.unpack("i", file.read(4))[0]
-            dimension = struct.unpack("i", file.read(4))[0]
-            file.seek(0, os.SEEK_END)
-
-            for i in range(num_points):
-                vector = data[i]                    # loads one row at a time
-                file.write(vector.tobytes())        # write raw bytes of vector
-        
-            file.seek(0)
-            file.write(struct.pack("i", total_points + num_points))
-            file.write(struct.pack("i", dimension))
-
-    
     # append a pdf directory of npy files to bin
     def convert_pdfdir_to_bin(self, embedding_directory):
         bin_path = self.bin_file
@@ -57,16 +28,19 @@ class NpyToBin:
                 if page.endswith(".npy"):
                     npy_file = os.path.join(embedding_directory, page)
                     data = np.load(npy_file, mmap_mode="r")
+                    data = np.asarray(data)
+                    data = data / np.linalg.norm(data, axis=1, keepdims=True)
                     data_points, data_dimension = data.shape
 
-                    # writes entire file vs. loading each row in convert_npy_to_bin
                     file.write(data.tobytes())
                     total_points += data_points
 
-                    # 32 bytes for pdf name
-                    index_file.write(page[0:32].encode('utf-8'))
+                    # 114 bytes for pdf name
+                    index_file.write(page[0:113].encode('utf-8'))
+                    print(page[0:113])
+                    print(len(page) - 4)
                     # 4 bytes for page number
-                    index_file.write(struct.pack("i", int(page[33:(len(page) - 4)])))
+                    index_file.write(struct.pack("i", int(page[114:(len(page) - 4)])))
 
                     if dimension == 0:
                         dimension = data_dimension

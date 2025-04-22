@@ -104,13 +104,14 @@ class Server:
                     print(json_object)
                 
                 if self.index_type == 'Disk':
-                    indices, distances = self.disk_index.search(query_embedding.flatten(), self.k, self.k * 2)
+                    normalized = query_embedding / np.linalg.norm(query_embedding)
+                    indices, distances = self.disk_index.search(normalized.flatten(), self.k, self.k * 2)
                     search_results = []
                     page_indices = os.path.join(self.embedding_directory, "page_indices.bin")
                     with open(page_indices, "rb") as file:
                         for i in range(len(indices)):
-                            file.seek(indices[i] * 36, os.SEEK_SET)
-                            pdf_name = file.read(32).decode('utf-8').strip()
+                            file.seek(indices[i] * 117, os.SEEK_SET)
+                            pdf_name = file.read(113).decode('utf-8').strip()
                             page = str(struct.unpack("i", file.read(4))[0])
                             search_results.append({"pdf": pdf_name, "page": page, "distance": float(distances[i])})
                     json_object = json.dumps({"results": search_results}, indent=4)
