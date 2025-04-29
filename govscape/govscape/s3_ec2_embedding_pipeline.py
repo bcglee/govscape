@@ -27,7 +27,7 @@ data_dir_s3 = '2008_EOT_PDFs/data/'
 
 
 # for processing pdfs: 
-pdf_directory = 'downloads'
+pdf_directory = '/data/test_data/small_test'
 txt_directory = 'data/txt'
 embeddings_directory = 'data/embeddings'
 image_directory = 'data/images'
@@ -44,9 +44,9 @@ def process_pdfs(pdf_files):
     pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
     pdftojpeg.convert_directory_to_jpegs()
 
-    upload_directory_to_s3(txt_directory, data_s3_prefix + 'txt')
-    upload_directory_to_s3(embeddings_directory, data_s3_prefix + 'embeddings')
-    upload_directory_to_s3(image_directory, data_s3_prefix + 'images')
+    upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+    upload_directory_to_s3(image_directory, data_dir_s3 + 'images')
 
 def batched_file_download(BATCH_SIZE):
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
@@ -80,9 +80,9 @@ def upload_directory_to_s3(ec2_dir, s3_dir):
             s3.upload_file(local_file_path, bucket_name, s3_key)
 
 
-#poetry run python embedding_pipeline_ec2.py
+#poetry run python s3_ec2_embedding_pipeline.py
 def main():
-    download_and_process_batches(BATCH_SIZE)
+    batched_file_download(BATCH_SIZE)
 
 if __name__ == '__main__':
     main()
