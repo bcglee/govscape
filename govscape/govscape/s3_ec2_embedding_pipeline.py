@@ -50,9 +50,9 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 def process_pdfs(pdf_files):
     for pdf in pdf_files:
         # PROCESS THEM HERE
-        processor.pdfs_to_embeddings()
-    pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
-    pdftojpeg.convert_directory_to_jpegs()
+        # processor.pdfs_to_embeddings()
+    # pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
+    # pdftojpeg.convert_directory_to_jpegs()
 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
