@@ -41,7 +41,8 @@ data_dir_s3 = '2008_EOT_PDFs/data2/'
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')
 
-pdf_directory = os.path.join(DATA_DIR, 'small_test')
+#pdf_directory = os.path.join(DATA_DIR, 'small_test')  # for testing a folder of three pdfs
+pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
 txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
