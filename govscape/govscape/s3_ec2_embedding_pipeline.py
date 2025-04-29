@@ -26,7 +26,9 @@ BATCH_SIZE = 1000
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
-data_dir_s3 = '2008_EOT_PDFs/data1/'
+data_dir_s3 = '2008_EOT_PDFs/data2/' 
+# data and data1 were for testing cpu file output
+# data2 is for testing single gpu file output
 
 
 # for processing pdfs: 
