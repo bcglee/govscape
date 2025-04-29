@@ -1,0 +1,18 @@
+FROM python:3.12-bullseye
+
+RUN pip install poetry==2.1.2
+
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
+
+RUN mkdir /home/govscape
+WORKDIR /home/govscape
+COPY . .
+
+EXPOSE 8080
+
+RUN poetry install
+
+ENTRYPOINT ["poetry", "run", "python",  "scripts/run_embedding_pipeline.py", "-p", "data/test_data/TechnicalReport234PDFs", "-d", "data/test_data", "-m", "UAE"]
