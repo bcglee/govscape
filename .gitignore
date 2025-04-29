@@ -2,3 +2,12 @@ dist
 govscape/govscape/**/__pycache__
 data
 poetry.lock
+node_modules
+interface/**/build
+.svelte-kit
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+!.env.test

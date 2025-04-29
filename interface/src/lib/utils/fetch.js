@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8080/api';
+export const API_BASE_URL = 'http://localhost:8080/api';
+export const IMAGE_BASE_URL = 'http://localhost:8080/images';
 
 export async function apiFetch(endpoint, options = {}) {
     const defaultOptions = {

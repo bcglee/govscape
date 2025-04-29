@@ -1,6 +1,7 @@
 <script>
   import { searchStore } from '$lib/stores/search';
   import { search } from '$lib/api/search';
+  import { IMAGE_BASE_URL } from '$lib/utils/fetch';
 
   let query = '';
 
@@ -15,7 +16,13 @@
 
       if (!success) throw new Error(error);
 
-      searchStore.update(store => ({ ...store, results: data.results, loading: false }));
+      // Prepend the base path to the jpeg field
+      const results = data.results.map(result => ({
+        ...result,
+        jpeg: `${IMAGE_BASE_URL}/${result.jpeg.split('/').slice(-2).join('/')}`
+      }));
+
+      searchStore.update(store => ({ ...store, results, loading: false }));
     } catch (err) {
       console.error('Search error:', err);
       searchStore.update(store => ({ ...store, error: err.message, loading: false, results: [] }));
@@ -41,7 +48,7 @@
 
 <style>
   .search-container {
-    margin-bottom: 1rem;
+    margin-bottom: 3rem;
     padding: 0 30%;
     min-width: 500px;
   }
