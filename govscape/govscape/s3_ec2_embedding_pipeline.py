@@ -57,7 +57,7 @@ def batched_file_download(BATCH_SIZE):
 
     # now process file batch by batch
     for i in range(0, len(pdf_files), BATCH_SIZE):
-        batch = pdf_files[i:i + batch_size]
+        batch = pdf_files[i:i + BATCH_SIZE]
 
         # Download each file in the batch
         for pdf in batch:
