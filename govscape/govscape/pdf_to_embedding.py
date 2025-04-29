@@ -60,7 +60,8 @@ class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         #self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
-        self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
+        #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
+        self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
     
