@@ -48,7 +48,7 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 # ****************************************************************************************************
 
 def process_pdfs(pdf_files):
-    for pdf in pdf_files:
+    #for pdf in pdf_files:
         # PROCESS THEM HERE
         # processor.pdfs_to_embeddings()
     # pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
