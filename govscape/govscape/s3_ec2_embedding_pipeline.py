@@ -25,7 +25,7 @@ BATCH_SIZE = 1000
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
-data_dir_s3 = '2008_EOT_PDFs/data/'
+data_dir_s3 = '2008_EOT_PDFs/data1/'
 
 
 # for processing pdfs: 
@@ -33,7 +33,7 @@ data_dir_s3 = '2008_EOT_PDFs/data/'
 # txt_directory = '../../data/test_data/txt'
 # embeddings_directory = '../../data/test_data/embeddings'
 # image_directory = '../../data/test_data/images'
-model = gs.TextEmbeddingModel()
+# model = gs.TextEmbeddingModel()
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')
@@ -43,7 +43,7 @@ txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
 
-processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+# processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
 
 # ****************************************************************************************************
 
