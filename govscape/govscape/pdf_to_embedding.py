@@ -67,7 +67,8 @@ class TextEmbeddingModel(EmbeddingModel):
     def encode_text(self, text):
         #tokenize text
         torch.cuda.empty_cache()
-        text_embedding = self.model.encode([text], batch_size=1)
+        with torch.no_grad():
+            text_embedding = self.model.encode([text], batch_size=1)
         return text_embedding
 
     def encode_image(self, jpg_path): # output: embed_shape 
@@ -78,8 +79,8 @@ class TextEmbeddingModel(EmbeddingModel):
 
         # with torch.no_grad():
         #     image_embedding = self.model.get_image_features(**inputs)
-        
-        caption = (self.image_to_caption(image))[0]['generated_text']
+        with torch.no_grad():
+            caption = (self.image_to_caption(image))[0]['generated_text']
         print(caption)
         image_caption_embed = self.model.encode([caption])
 
