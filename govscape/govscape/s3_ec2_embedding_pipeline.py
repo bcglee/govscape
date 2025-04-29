@@ -48,7 +48,7 @@ txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
 
-# processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
 
 # ****************************************************************************************************
 
