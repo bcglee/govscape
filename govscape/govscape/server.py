@@ -6,6 +6,10 @@ import json
 import faiss
 import os
 from .pdf_to_embedding import PDFsToEmbeddings
+from urllib.parse import urlparse, parse_qs
+from whoosh.fields import Schema, TEXT, ID
+from whoosh.index import create_in, open_dir
+from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, AndGroup
 
 
 # basic pipeline developed:
@@ -23,6 +27,7 @@ class Server:
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
+        self.whoosh_directory = config.whoosh_directory
 
         # FAISS model
         self.model = config.model
@@ -41,10 +46,11 @@ class Server:
 
         # Load each .npy file into an array
         self.arrays = [np.load(file) for file in self.npy_files]
-        for array in self.arrays:
-            print(array.shape)
         stacked_array = np.vstack(self.arrays) 
         self.faiss_index.add(stacked_array)
+        self.ix = open_dir(self.whoosh_directory)
+
+
         
     # Accepts a Query -> Returns JSON with closest results
     # Sample:
@@ -106,24 +112,34 @@ class Server:
                     json_object = json.dumps({"pdf": query_params['pdf_name']}, indent=4)
 
                 elif 'search' in path:
-                    # Create random array embedding
-                    query_embedding = self.model.text_to_embeddings(query_params['query'])
+                    if (query_params['exact'][0].lower() == "true"):
+                        with self.ix.searcher() as searcher:
+                            parser = QueryParser("content", self.ix.schema)
+                            query = parser.parse(query_params['query'][0])
+                            results = searcher.search(query, limit = self.k)
+                            search_results = []
+                            for result in results:
+                                search_results.append({"pdf": result['path']})
+                            json_object = json.dumps({"results": search_results}, indent=4)
+                    else:
+                        # Create random array embedding
+                        query_embedding = self.model.text_to_embeddings(query_params['query'])
 
-                    # Search for the three closest arrays
-                    D, I = self.faiss_index.search(query_embedding, self.k)
+                        # Search for the three closest arrays
+                        D, I = self.faiss_index.search(query_embedding, self.k)
 
-                    search_results = []
-                    for i in range(I.shape[0]):
-                        for j in range(I.shape[1]):
-                            # parse file information for page
-                            pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                            page, _, _ = page.rpartition('.')
-                            # create jpeg name
-                            jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
+                        search_results = []
+                        for i in range(I.shape[0]):
+                            for j in range(I.shape[1]):
+                                # parse file information for page
+                                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                                page, _, _ = page.rpartition('.')
+                                # create jpeg name
+                                jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
 
-                            # add results onto file
-                            search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
-                    json_object = json.dumps({"results": search_results}, indent=4)
+                                # add results onto file
+                                search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
+                        json_object = json.dumps({"results": search_results}, indent=4)
 
                 # print for testing
                 print(json_object)

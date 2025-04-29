@@ -22,6 +22,8 @@ from abc import ABC, abstractmethod
 import json
 import sys
 from .pdf_to_jpeg import PdfToJpeg
+from whoosh.fields import Schema, TEXT, ID
+from whoosh.index import create_in
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
@@ -82,11 +84,12 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
 
 class PDFsToEmbeddings:
-    def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, embedding_model):
+    def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, whoosh_dir, embedding_model):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         self.jpgs_path = jpgs_dir
+        self.whoosh_path = whoosh_dir
         self.embedding_model = embedding_model
 
     #1. PDF -> TXT 
@@ -259,13 +262,39 @@ class PDFsToEmbeddings:
                 output_path = os.path.join(embedding_dir, file_name)
                 np.save(output_path, embedding.cpu().numpy())
 
+    def convert_pdfs_to_whoosh(self):
+        schema = Schema(path=ID(stored=True), content=TEXT)
+        if not os.path.exists(self.whoosh_path):
+            os.makedirs(self.whoosh_path)
+        ix = create_in(self.whoosh_path, schema)
+        writer = ix.writer()
+        for dirpath, dirnames, filenames in os.walk(self.txts_path):
+            for filename in filenames:
+                if filename.endswith('.txt'):
+                    document_path = os.path.join(dirpath, filename)
+                    try:
+                        # Open and read the document
+                        with open(document_path, 'r', encoding='utf-8') as file:
+                            document_content = file.read()
+                        
+                        # Add the document to the index
+                        writer.add_document(
+                            path=document_path,  # Store the path for retrieval
+                            content=document_content  # The actual text content to be indexed
+                        )
+                        print(f"Indexed: {document_path}")
+                    except Exception as e:
+                        print(f"Error indexing {document_path}: {e}")
+        writer.commit()
+
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
-        self.convert_pdfs_to_txt()
-        self.convert_txts_to_embeddings()
-        self.convert_pdfs_to_single_jpg()
-        self.convert_imgs_to_embeddings()
+        # self.convert_pdfs_to_txt()
+        # self.convert_txts_to_embeddings()
+        # self.convert_pdfs_to_single_jpg()
+        # self.convert_imgs_to_embeddings()
+        self.convert_pdfs_to_whoosh()
 
     #helper functions
     #makes sure that the directory specified is created
