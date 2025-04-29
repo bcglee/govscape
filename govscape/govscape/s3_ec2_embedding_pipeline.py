@@ -29,10 +29,10 @@ data_dir_s3 = '2008_EOT_PDFs/data/'
 
 
 # for processing pdfs: 
-pdf_directory = '/data/test_data/small_test'
-txt_directory = 'data/test_data/txt'
-embeddings_directory = 'data/test_data/embeddings'
-image_directory = 'data/test_data/images'
+pdf_directory = '../../data/test_data/small_test'
+txt_directory = '../../data/test_data/txt'
+embeddings_directory = '../../data/test_data/embeddings'
+image_directory = '../../data/test_data/images'
 model = gs.TextEmbeddingModel()
 
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
