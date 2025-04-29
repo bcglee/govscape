@@ -14,6 +14,7 @@
 import boto3
 import os
 import argparse
+import time
 import govscape as gs
 
 s3 = boto3.client('s3')
@@ -48,11 +49,23 @@ image_directory = os.path.join(DATA_DIR, 'images')
 # ****************************************************************************************************
 
 def process_pdfs(pdf_files):
-    #for pdf in pdf_files:
-        # PROCESS THEM HERE
-        # processor.pdfs_to_embeddings()
-    # pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
-    # pdftojpeg.convert_directory_to_jpegs()
+    start_time = time.time()
+    print(f"processing {len(pdf_files)} number of pdfs!")
+    for pdf in pdf_files:
+        # PROCESS THEM HERE!!
+        processor.pdfs_to_embeddings()
+    
+    end_time = time.time()
+    duration = end_time - start_time
+    if duration > 0:
+        tp = len(pdf_files) / duration
+    else:
+        tp = 0
+    
+    print(f"throughput = {tp} where {len(pdf_files)} / total time {duration}")
+    
+    pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
+    pdftojpeg.convert_directory_to_jpegs()
 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
