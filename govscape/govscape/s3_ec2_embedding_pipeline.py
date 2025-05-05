@@ -55,9 +55,8 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 def process_pdfs(pdf_files):
     start_time = time.time()
     print(f"processing {len(pdf_files)} number of pdfs!")
-    for pdf in pdf_files:
-        # PROCESS THEM HERE!!
-        processor.pdfs_to_embeddings(pdf_files=pdf_files)
+
+    processor.pdfs_to_embeddings(pdf_files=pdf_files)
     
     end_time = time.time()
     duration = end_time - start_time
@@ -68,18 +67,20 @@ def process_pdfs(pdf_files):
     
     print(f"throughput = {tp} where {len(pdf_files)} / total time {duration}")
     
-    pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
-    pdftojpeg.convert_directory_to_jpegs()
+    # pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
+    # pdftojpeg.convert_directory_to_jpegs()
 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
-    upload_directory_to_s3(image_directory, data_dir_s3 + 'images')
+    print("FINISHED UPLOADING")
+    # upload_directory_to_s3(image_directory, data_dir_s3 + 'images')
 
 def batched_file_download(BATCH_SIZE):
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
     # get list of pdf file names
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]
 
+    print("now starting with number of total pdf_files: ", len(pdf_files))
     # now process file batch by batch
     for i in range(0, len(pdf_files), BATCH_SIZE):
         batch = pdf_files[i:i + BATCH_SIZE]
