@@ -63,17 +63,19 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("HISHDFIH SIDFHISDFHODSHFI DOSIFHOSIDFHOIDSFHOIHDFOFHDOF HFIO SDFOSNNOT USING GPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        #self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
+        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
-        self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
+        #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
     
     def encode_text(self, text):
         #tokenize text
-        torch.cuda.empty_cache()
         with torch.no_grad():
-            text_embedding = self.model.encode([text], batch_size=1)
+            # Ensure inputs are on the GPU
+            texts = [text.to(self.device) for text in texts]  # Move batch of texts to GPU
+            text_embeddings = self.model.encode(texts, batch_size=len(texts))
+            #text_embedding = self.model.encode([text], batch_size=1)
         return text_embedding
 
     def encode_image(self, jpg_path): # output: embed_shape 
