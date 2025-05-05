@@ -57,7 +57,7 @@ def process_pdfs(pdf_files):
     print(f"processing {len(pdf_files)} number of pdfs!")
     for pdf in pdf_files:
         # PROCESS THEM HERE!!
-        processor.pdfs_to_embeddings()
+        processor.pdfs_to_embeddings(pdf_files=pdf_files)
     
     end_time = time.time()
     duration = end_time - start_time
