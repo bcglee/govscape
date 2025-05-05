@@ -58,6 +58,10 @@ class EmbeddingModel(ABC):
 
 class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
+        if torch.cuda.is_available():
+            print("HIHIHIHIHIHI USING GPU")
+        else:
+            print("HISHDFIH SIDFHISDFHODSHFI DOSIFHOSIDFHOIDSFHOIHDFOFHDOF HFIO SDFOSNNOT USING GPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         #self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
