@@ -33,6 +33,7 @@ from .pdf_to_jpeg import PdfToJpeg
 #from pdf_to_jpeg import PdfToJpeg
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import get_context
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
