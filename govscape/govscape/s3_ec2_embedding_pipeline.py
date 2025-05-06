@@ -69,10 +69,14 @@ def process_pdfs(pdf_files):
 
     gpu_utilization_before, memory_used_before, memory_free_before = get_gpu_utilization()
 
+    print(gpu_utilization_before)
+
     # Process the PDFs
     processor.pdfs_to_embeddings(pdf_files=pdf_files)
 
     gpu_utilization_after, memory_used_after, memory_free_after = get_gpu_utilization()
+
+    print(gpu_utilization_after)
     
     end_time = time.time()
     duration = end_time - start_time
@@ -182,7 +186,7 @@ def upload_directory_to_s3(ec2_dir, s3_dir):
             local_file_path = os.path.join(root, file)
             s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
 
-            print(f"Uploading {local_file_path} to {s3_key}...")
+            # print(f"Uploading {local_file_path} to {s3_key}...")
             s3.upload_file(local_file_path, bucket_name, s3_key)
 
 
