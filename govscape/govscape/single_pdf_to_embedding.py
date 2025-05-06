@@ -32,6 +32,8 @@ import sys
 from .pdf_to_jpeg import PdfToJpeg
 #from pdf_to_jpeg import PdfToJpeg
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
 # 2. Plug in .txt files to CLIP to generate embeddings -> save as .npy file (could implement .pt if needed)
@@ -290,18 +292,31 @@ class PDFsToEmbeddings:
 
     # converts a dir of pdfs to a dir of subdirs for each pdf of txt files of each page 
     # MULTIPROCESSING VERSION 
-    def convert_pdfs_to_txt(self):
-        self.ensure_dir(self.txts_path)
+    # def convert_pdfs_to_txt(self):
+    #     self.ensure_dir(self.txts_path)
         
-        pdf_files = os.listdir(self.pdfs_path)
-        ctx = get_context('spawn')
-        with ctx.Pool(processes=4) as pool:
-            pool.map(self.convert_pdf_to_txt, pdf_files)
-    # NON MULTIPROCESSING VERsion
+    #     pdf_files = os.listdir(self.pdfs_path)
+    #     ctx = get_context('spawn')
+    #     with ctx.Pool(processes=4) as pool:
+    #         pool.map(self.convert_pdf_to_txt, pdf_files)
+    # # NON MULTIPROCESSING VERsion
     # def convert_pdfs_to_txt(self, pdf_files):
     #     self.ensure_dir(self.txts_path)
     #     for pdf_file in pdf_files:
     #         self.convert_pdf_to_txt(pdf_file)
+
+
+    #MULTITREAD VERSION
+    def convert_pdfs_to_txt(self, pdf_files=None):
+        self.ensure_dir(self.txts_path)
+        pdf_files = pdf_files or os.listdir(self.pdfs_path)
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            pool.map(self._convert_pdf_to_txt_mp, pdf_files)
+
+    def _convert_pdf_to_txt_mp(self, pdf_file):
+        # Allows Pool.map to call instance methods
+        return self.convert_pdf_to_txt(pdf_file)
 
     #2. TXT -> EMBEDDINGS
 
@@ -353,25 +368,41 @@ class PDFsToEmbeddings:
 
     # converts a dir of subdirs for each pdf of txts for each page into a dir of subdir of embeddings in .npy
     # MULTIPROCESSING VERSION
-    def convert_txts_to_embeddings(self):
-        self.ensure_dir(self.embeddings_path)
+    # def convert_txts_to_embeddings(self):
+    #     self.ensure_dir(self.embeddings_path)
 
-        txt_subdirs_paths = []
-        for txt_subdir in os.scandir(self.txts_path):
-            if txt_subdir.is_dir():
-                txt_subdirs_paths.append(txt_subdir.path)
+    #     txt_subdirs_paths = []
+    #     for txt_subdir in os.scandir(self.txts_path):
+    #         if txt_subdir.is_dir():
+    #             txt_subdirs_paths.append(txt_subdir.path)
         
-        ctx = get_context('spawn')
-        with ctx.Pool(processes=2) as pool:
-            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+    #     ctx = get_context('spawn')
+    #     with ctx.Pool(processes=2) as pool:
+    #         pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
     #NON MULTIPROCESSING VERSION
-    def convert_txts_to_embeddings(self, pdf_files):
+    # def convert_txts_to_embeddings(self, pdf_files):
+    #     self.ensure_dir(self.embeddings_path)
+    #     for pdf_file in pdf_files:
+    #         subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
+    #         if os.path.isdir(subdir):
+    #             self.convert_subdir_to_embeddings(subdir)
+
+    # mULTITHREADED VERSION
+    def convert_txts_to_embeddings(self, pdf_files=None):
         self.ensure_dir(self.embeddings_path)
-        for pdf_file in pdf_files:
-            subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
-            if os.path.isdir(subdir):
-                self.convert_subdir_to_embeddings(subdir)
+        pdf_files = pdf_files or os.listdir(self.pdfs_path)
+
+        txt_subdirs = [os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
+            for pdf_file in pdf_files
+            if os.path.isdir(os.path.join(self.txts_path, os.path.splitext(pdf_file)[0]))]
+
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            pool.map(self._convert_subdir_to_embeddings_mp, txt_subdirs)
+
+    def _convert_subdir_to_embeddings_mp(self, subdir_path):
+        return self.convert_subdir_to_embeddings(subdir_path)
 
     def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
         print("Embedding PDF Img: " + jpg_subdir_path)
@@ -400,27 +431,27 @@ class PDFsToEmbeddings:
             np.save(output_path, embedding.cpu().numpy())
 
     # converts a dir of subdirs for each image for each page into a dir of subdir of embeddings in .npy
-    # MULTIPROCESSING VER
-    def convert_imgs_to_embeddings(self):
-        if not os.path.exists(self.embeddings_path):
-            os.makedirs(self.embeddings_path)
-
-        jpg_subdirs_paths = []
-        for jpg_subdir in os.scandir(self.jpgs_path):
-            if jpg_subdir.is_dir():
-                jpg_subdirs_paths.append(jpg_subdir.path)
-        
-        ctx = get_context('spawn')
-        with ctx.Pool(processes=4) as pool:
-            pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
-
+    # # MULTIPROCESSING VER
     # def convert_imgs_to_embeddings(self):
     #     if not os.path.exists(self.embeddings_path):
     #         os.makedirs(self.embeddings_path)
 
+    #     jpg_subdirs_paths = []
     #     for jpg_subdir in os.scandir(self.jpgs_path):
     #         if jpg_subdir.is_dir():
-    #             self.convert_img_subdir_to_embeddings(jpg_subdir.path)
+    #             jpg_subdirs_paths.append(jpg_subdir.path)
+        
+    #     ctx = get_context('spawn')
+    #     with ctx.Pool(processes=4) as pool:
+    #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
+
+    def convert_imgs_to_embeddings(self):
+        if not os.path.exists(self.embeddings_path):
+            os.makedirs(self.embeddings_path)
+
+        for jpg_subdir in os.scandir(self.jpgs_path):
+            if jpg_subdir.is_dir():
+                self.convert_img_subdir_to_embeddings(jpg_subdir.path)
 
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
