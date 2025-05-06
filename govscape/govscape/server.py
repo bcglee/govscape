@@ -109,7 +109,17 @@ class Server:
 
                 json_object = json.dumps({})
                 if 'static' in path:
-                    json_object = json.dumps({"pdf": query_params['pdf_name']}, indent=4)
+                    # stores pdf name locally
+                    pdf_name = query_params['pdf_name'][0]
+                    npy_files = []
+                    # searches the embedding directory
+                    for entry in os.listdir(self.embedding_directory):
+                        full_path = os.path.join(self.embedding_directory, entry)
+                        if os.path.isdir(full_path) and pdf_name.startswith(entry):
+                            for f in os.listdir(full_path):
+                                if f.endswith('.npy'):
+                                    npy_files.append(os.path.splitext(f)[0] + ".jpg")
+                    json_object = json.dumps({"pdf": query_params['pdf_name'], "pages": npy_files}, indent=4)
 
                 elif 'search' in path:
                     if (query_params['exact'][0].lower() == "true"):
