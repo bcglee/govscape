@@ -76,7 +76,7 @@ class TextEmbeddingModel(EmbeddingModel):
     #         text_embeddings = self.model.encode(texts, batch_size=len(texts))
     #         #text_embedding = self.model.encode([text], batch_size=1)
     #     return text_embedding
-    def encode_texts(self, texts: list):
+    def encode_texts(self, text):
         with torch.no_grad():
             embeddings = self.model.encode(texts, batch_size=32, convert_to_tensor=True, device=self.device)
         return embeddings.cpu().numpy()
