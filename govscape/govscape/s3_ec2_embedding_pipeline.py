@@ -10,7 +10,7 @@ s3 = boto3.client('s3')
 
 # FIELDS TO SET **************************************************************************************
 
-BATCH_SIZE = 10
+BATCH_SIZE = 50
 
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
@@ -91,9 +91,9 @@ def process_pdfs(pdf_files):
     
     print(f"Throughput for this batch: {throughput} PDFs/sec (Processed {len(pdf_files)} PDFs in {duration} seconds)")
 
-    upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
-    upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
-    # upload_directory_to_s3(image_directory, data_dir_s3 + 'images')
+    # upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    # upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+    # upload_directory_to_s3(image_directory, data_dir_s3 + 'images')  # not working yet or idk
     print("Finished uploading.")
 
 # def batched_file_download(BATCH_SIZE):
@@ -157,7 +157,7 @@ def batched_file_download(BATCH_SIZE):
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]
 
     # temporary: 
-    pdf_files = pdf_files[:10]
+    pdf_files = pdf_files[:1000]
 
     print("Now starting with total number of PDF files: ", len(pdf_files))
     
