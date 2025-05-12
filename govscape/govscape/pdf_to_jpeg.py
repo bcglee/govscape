@@ -34,6 +34,7 @@ class PdfToJpeg:
             pass
 
         # fixes the names of files output from convert_from_path
+        img_files = []
         img_files = os.listdir(img_directory)
         for img_file in img_files:
             img_basename = os.path.splitext(os.path.basename(img_file))[0]
@@ -43,23 +44,34 @@ class PdfToJpeg:
                 page_number = 0
             output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{page_number}.jpg")
             os.rename(os.path.join(img_directory, img_file), output_path)
-        return None
+            img_files.append(output_path)
+        return img_files
 
 
 
     # pdf_directory -> directory to source pdfs
     # save_directory -> directory to save images
-    def convert_directory_to_jpegs(self):
+    # def convert_directory_to_jpegs(self):
+    #     # recursively finds the pdfs in pdf_directory
+    #     pdf_files = []
+    #     for root, _, files in os.walk(self.pdf_directory):
+    #         for filename in files:
+    #             pdf_files.append(os.path.join(root, filename))
+
+    #     ctx = get_context('spawn')
+    #     with ctx.Pool(processes=30) as pool:
+    #         pool.map(self.convert_pdf_to_jpeg, pdf_files)
+
+    def convert_directory_to_jpegs(self, pdf_files):
         # recursively finds the pdfs in pdf_directory
-        pdf_files = []
-        for root, _, files in os.walk(self.pdf_directory):
-            for filename in files:
-                pdf_files.append(os.path.join(root, filename))
+        # pdf_files = []
+        # for root, _, files in os.walk(self.pdf_directory):
+        #     for filename in files:
+        #         pdf_files.append(os.path.join(root, filename))
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=30) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
-
 
 
 

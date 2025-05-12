@@ -20,15 +20,9 @@ data_dir_s3 = '2008_EOT_PDFs/data2/'
 # data2 is for testing single gpu file output
 
 # for processing pdfs: 
-# pdf_directory = '../../data/test_data/small_test'
-# txt_directory = '../../data/test_data/txt'
-# embeddings_directory = '../../data/test_data/embeddings'
-# image_directory = '../../data/test_data/images'
-
-model = gs.TextEmbeddingModel()
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
-DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')
+DATA_DIR = os.path.join(PROJECT_ROOT, 'data4', 'test_data')
 
 #pdf_directory = os.path.join(DATA_DIR, 'small_test')  # for testing a folder of three pdfs
 pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
@@ -36,66 +30,45 @@ txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
 
+bath_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
+
+model = gs.TextEmbeddingModel()
+
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
 
 # ****************************************************************************************************
 
-def get_gpu_utilization():
-    """Function to get the current GPU utilization using nvidia-smi."""
-    try:
-        # Run nvidia-smi to get GPU utilization
-        result = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.free', '--format=csv,noheader,nounits'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
-        gpu_stats = result.stdout.strip().split(', ')
-        gpu_utilization = gpu_stats[0]
-        memory_used = gpu_stats[1]
-        memory_free = gpu_stats[2]
-        return gpu_utilization, memory_used, memory_free
-    except subprocess.CalledProcessError as e:
-        print(f"Error while getting GPU utilization: {e}")
-        return None, None, None
+# for analyzing: 
+times = []
 
-
-def download_pdf(pdf, batch_download_dir):
-    file_name = os.path.basename(pdf)
-    local_path = os.path.join(batch_download_dir, file_name)
-    os.makedirs(os.path.dirname(local_path), exist_ok=True)
-    s3.download_file(bucket_name, pdf, local_path)
+def upload_directory_to_s3(ec2_dir, s3_dir):
+    for root, dirs, files in os.walk(ec2_dir):
+        for file in files:
+            local_file_path = os.path.join(root, file)
+            s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
+            s3.upload_file(local_file_path, bucket_name, s3_key)
 
 def process_pdfs(pdf_files):
     start_time = time.time()
-    print(f"Processing {len(pdf_files)} number of PDFs...")
 
-
-    gpu_utilization_before, memory_used_before, memory_free_before = get_gpu_utilization()
-
-    print(gpu_utilization_before)
-
-    # Process the PDFs
+    # PROCESS PDFS HERE 
     processor.pdfs_to_embeddings(pdf_files=pdf_files)
 
-    gpu_utilization_after, memory_used_after, memory_free_after = get_gpu_utilization()
-
-    print(gpu_utilization_after)
-    
     end_time = time.time()
     duration = end_time - start_time
-    throughput = len(pdf_files) / duration if duration > 0 else 0
-    
-    if gpu_utilization_before is not None and gpu_utilization_after is not None:
-        gpu_utilization_diff = float(gpu_utilization_after) - float(gpu_utilization_before)
-        memory_used_diff = int(memory_used_after) - int(memory_used_before)
-        memory_free_diff = int(memory_free_after) - int(memory_free_before)
-        print(f"GPU utilization change: {gpu_utilization_diff}%")
-        print(f"Memory used change: {memory_used_diff}MB | Memory free change: {memory_free_diff}MB")
-    
-    print(f"Throughput for this batch: {throughput} PDFs/sec (Processed {len(pdf_files)} PDFs in {duration} seconds)")
+    if duration > 0:
+        throughput = len(pdf_files) / duration
+    else:
+        throughput = 0
 
+    # UPLOADING EMBEDDINGS, TXTS, IMAGES TO S3 HERE 
     # upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     # upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
     # upload_directory_to_s3(image_directory, data_dir_s3 + 'images')  # not working yet or idk
-    print("Finished uploading.")
+    print("finished uploading current batch")
 
+
+# NON-MULTITHREADED VERSION
 # def batched_file_download(BATCH_SIZE):
 #     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
 #     # Get list of pdf file names
@@ -106,12 +79,6 @@ def process_pdfs(pdf_files):
 
 #     print("Now starting with total number of PDF files: ", len(pdf_files))
     
-#     total_start_time = time.time()
-
-#     total_gpu_utilization = 0
-#     total_memory_used = 0
-#     total_memory_free = 0
-#     total_pdf_count = 0
 
 #     for i in range(0, len(pdf_files), BATCH_SIZE):
 #         print("BATCH: ", i)
@@ -125,70 +92,45 @@ def process_pdfs(pdf_files):
         
 #         process_pdfs(batch)
 
-#         gpu_utilization, memory_used, memory_free = get_gpu_utilization()
-#         if gpu_utilization is not None:
-#             total_gpu_utilization += float(gpu_utilization)
-#             total_memory_used += int(memory_used)
-#             total_memory_free += int(memory_free)
-        
-#         total_pdf_count += len(batch)
-
-#     total_end_time = time.time()
-#     total_duration = total_end_time - total_start_time
-
-#     if total_duration > 0:
-#         total_throughput = total_pdf_count / total_duration
-#     else:
-#         total_throughput = 0
-
-#     avg_gpu_utilization = total_gpu_utilization / len(pdf_files) if len(pdf_files) > 0 else 0
-#     avg_memory_used = total_memory_used / len(pdf_files) if len(pdf_files) > 0 else 0
-#     avg_memory_free = total_memory_free / len(pdf_files) if len(pdf_files) > 0 else 0
-
-#     print(f"Total time for processing: {total_duration} seconds")
-#     print(f"Total PDFs processed: {total_pdf_count}")
-#     print(f"Total throughput: {total_throughput} PDFs/sec")
-#     print(f"Average GPU utilization: {avg_gpu_utilization}%")
-#     print(f"Average memory used: {avg_memory_used}MB | Average memory free: {avg_memory_free}MB")
-
+# MULTITHREADED VERSION??? -- idk if this is really speeding up anything
+def download_pdf(pdf, batch_download_dir):
+    file_name = os.path.basename(pdf)
+    local_path = os.path.join(batch_download_dir, file_name)
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+    s3.download_file(bucket_name, pdf, local_path)
 
 def batched_file_download(BATCH_SIZE):
+    # downloading pdfs from s3
+    start_time_load_files = time.time()
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
-    pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]
+    pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # YOU ARE ONLY GETTING THE FIRST 1000, have to do something with pages??
 
-    # temporary: 
-    pdf_files = pdf_files[:1000]
+    pdf_files = pdf_files[:10] # temporary!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! this is just for testing 
 
-    print("Now starting with total number of PDF files: ", len(pdf_files))
+    print("TOTAL NUMBER OF PDF FILES WE ARE ABOUT TO PROCESS IS ", len(pdf_files))
+    print("NUMBER OF THREADS FOR DOWNLOADING FILES IS ", os.cpu_count())
     
-
-    total_start_time = time.time()
-
-    batch_download_dir = "downloads"  # Change this as necessary
-
-    # Use ThreadPoolExecutor for parallel downloads
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         for pdf in pdf_files:
             futures.append(executor.submit(download_pdf, pdf, batch_download_dir))
-
-        # Wait for all downloads to finish
         concurrent.futures.wait(futures)
+    
+    end_time_load_files = time.time()
 
-    # After download, process PDFs as usual
+    start_time_process_files = time.time()
+    # processing pdfs here in batches 
     for i in range(0, len(pdf_files), BATCH_SIZE):
         batch = pdf_files[i:i + BATCH_SIZE]
         process_pdfs(batch)
+    end_time_process_files = time.time()
+    
+    time_load = end_time_load_files - start_time_load_files
+    time_process = end_time_process_files - start_time_process_files
 
-def upload_directory_to_s3(ec2_dir, s3_dir):
-    for root, dirs, files in os.walk(ec2_dir):
-        for file in files:
-            local_file_path = os.path.join(root, file)
-            s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
-
-            # print(f"Uploading {local_file_path} to {s3_key}...")
-            s3.upload_file(local_file_path, bucket_name, s3_key)
-
+    print("TOTAL TIME TO LOAD IS ", time_load)
+    print("TOTAL TIME TO PROCESS IS ", time_process)
+    print("TOTAL TIME IS ", (time_process + time_load))
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
