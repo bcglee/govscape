@@ -416,7 +416,7 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         self.convert_pdfs_to_txt(pdf_files)
         self.convert_txts_to_embeddings(pdf_files)
-        self.convert_pdfs_to_single_jpg()  # getting entire pdf page as an image. 
+        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. 
         self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)
         # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
 
