@@ -332,7 +332,15 @@ class PDFsToEmbeddings:
 
 
     # dir of imgs/pg -> dir of embeds
-    # 1. MP VERSION
+    # 1. OG VERSION 
+    def convert_imgs_to_embeddings(self):
+        if not os.path.exists(self.embeddings_path):
+            os.makedirs(self.embeddings_path)
+
+        for jpg_subdir in os.scandir(self.jpgs_path):
+            if jpg_subdir.is_dir():
+                self.convert_img_subdir_to_embeddings(jpg_subdir.path)
+    # 2. MP VERSION
     # def convert_imgs_to_embeddings(self):
     #     if not os.path.exists(self.embeddings_path):
     #         os.makedirs(self.embeddings_path)
@@ -345,15 +353,6 @@ class PDFsToEmbeddings:
     #     ctx = get_context('spawn')
     #     with ctx.Pool(processes=4) as pool:
     #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
-
-    # 2. MT VERSION 
-    def convert_imgs_to_embeddings(self):
-        if not os.path.exists(self.embeddings_path):
-            os.makedirs(self.embeddings_path)
-
-        for jpg_subdir in os.scandir(self.jpgs_path):
-            if jpg_subdir.is_dir():
-                self.convert_img_subdir_to_embeddings(jpg_subdir.path)
     
     # *******************************************************************************************************************
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir

@@ -70,7 +70,8 @@ class PdfToJpeg:
         #         pdf_files.append(os.path.join(root, filename))
 
         ctx = get_context('spawn')
-        with ctx.Pool(processes=30) as pool:
+        # with ctx.Pool(processes=30) as pool:
+        with ctx.Pool(processes=4) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
 
