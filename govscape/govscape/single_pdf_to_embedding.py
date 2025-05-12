@@ -62,9 +62,9 @@ class EmbeddingModel(ABC):
 class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
         if torch.cuda.is_available():
-            print("HIHIHIHIHIHI USING GPU")
+            print("USING GPU")
         else:
-            print("HISHDFIH SIDFHISDFHODSHFI DOSIFHOSIDFHOIDSFHOIHDFOFHDOF HFIO SDFOSNNOT USING GPU")
+            print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
@@ -81,8 +81,8 @@ class TextEmbeddingModel(EmbeddingModel):
     #     return text_embedding
     def encode_text(self, text):
         with torch.no_grad():
-            embeddings = self.model.encode(texts, batch_size=32, convert_to_tensor=True, device=self.device)
-        return embeddings.cpu().numpy()
+            embeddings = self.model.encode(texts, batch_size=32, convert_to_tensor=True, device=self.device) # hopefully in batches
+        return embeddings.cpu().numpy()  # can only convert embeddings to numpy on cpu?? 
 
     def encode_image(self, jpg_path): # output: embed_shape 
         image = Image.open(jpg_path)
@@ -99,8 +99,6 @@ class TextEmbeddingModel(EmbeddingModel):
 
         return image_caption_embed
     
-    
-
     
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
@@ -208,7 +206,9 @@ class PDFsToEmbeddings:
                 continue
             with open(txt_file_path, 'w', encoding='utf-8') as text_file:
                 text_file.write(page_text)
+    
 
+    # TODO: verify that this method below is now replaced with the method in pdf_to_jpeg.py
     # # extracts the images from each pdf and saves as a jpeg
     # def convert_pdfs_to_jpg(self):
     #     if not os.path.exists(self.jpgs_path):
@@ -238,17 +238,22 @@ class PDFsToEmbeddings:
 
     #                     img_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}_{img_ind}.jpg')
     #                     new_jpg.save(img_file_path, "JPEG")
-    
-    # converts each pdf to an image
-    def convert_pdfs_to_single_jpg(self):
-        if not os.path.exists(self.jpgs_path):
-            os.makedirs(self.jpgs_path)
-        
-        #parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
-        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
-        parser.convert_directory_to_jpegs()
-    
 
+    
+    # converts each pdf to an image  #OLD
+    # def convert_pdfs_to_single_jpg(self):
+    #     if not os.path.exists(self.jpgs_path):
+    #         os.makedirs(self.jpgs_path)
+        
+    #     #parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
+    #     parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
+    #     parser.convert_directory_to_jpegs()
+    
+    def convert_pdfs_to_single_jpg(self, pdf_files):
+        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
+        parser.convert_directory_to_jpegs(pdf_files)
+
+    
     def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path):
         pdf_doc = fitz.open(pdf_path)
 
@@ -307,17 +312,11 @@ class PDFsToEmbeddings:
     #         self.convert_pdf_to_txt(pdf_file)
 
 
-    #MULTITREAD VERSION
-    def convert_pdfs_to_txt(self, pdf_files=None):
+    #MULTI-THREAD VERSION
+    def convert_pdfs_to_txt(self, pdf_files):
         self.ensure_dir(self.txts_path)
-        pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        ctx = get_context('spawn')
-        with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self._convert_pdf_to_txt_mp, pdf_files)
-
-    def _convert_pdf_to_txt_mp(self, pdf_file):
-        # Allows Pool.map to call instance methods
-        return self.convert_pdf_to_txt(pdf_file)
+        with ThreadPoolExecutor() as executor:
+            executor.map(self.convert_pdf_to_txt, pdf_files)
 
     #2. TXT -> EMBEDDINGS
 
@@ -405,31 +404,32 @@ class PDFsToEmbeddings:
     def _convert_subdir_to_embeddings_mp(self, subdir_path):
         return self.convert_subdir_to_embeddings(subdir_path)
 
-    def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
-        print("Embedding PDF Img: " + jpg_subdir_path)
-        #making the subdir that will hold the embeddings for each PDF 
-        embed_name = os.path.basename(jpg_subdir_path)
-        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    # def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
+    #     print("Embedding PDF Img: " + jpg_subdir_path)
+    #     #making the subdir that will hold the embeddings for each PDF 
+    #     embed_name = os.path.basename(jpg_subdir_path)
+    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
 
-        if not os.path.exists(embedding_dir):
-            os.makedirs(embedding_dir)
+    #     if not os.path.exists(embedding_dir):
+    #         os.makedirs(embedding_dir)
 
-        # all jpg files in the jpg subdir input 
-        jpg_files = os.listdir(jpg_subdir_path)
+    #     # all jpg files in the jpg subdir input 
+    #     jpg_files = os.listdir(jpg_subdir_path)
 
-        for jpg_file in jpg_files:
-            jpg_path = os.path.join(jpg_subdir_path, jpg_file)
+    #     for jpg_file in jpg_files:
+    #         jpg_path = os.path.join(jpg_subdir_path, jpg_file)
             
-            #check if file is empty; just skip to next if true 
-            if os.stat(jpg_path).st_size == 0:
-                continue
-            try:
-                embedding = self.embedding_model.encode_image(jpg_path)
-            except: 
-                continue
-            file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
-            output_path = os.path.join(embedding_dir, file_name)
-            np.save(output_path, embedding.cpu().numpy())
+    #         #check if file is empty; just skip to next if true 
+    #         if os.stat(jpg_path).st_size == 0:
+    #             continue
+    #         try:
+    #             embedding = self.embedding_model.encode_image(jpg_path)
+    #         except: 
+    #             continue
+    #         file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
+    #         output_path = os.path.join(embedding_dir, file_name)
+    #         np.save(output_path, embedding.cpu().numpy())
+
 
     # converts a dir of subdirs for each image for each page into a dir of subdir of embeddings in .npy
     # # MULTIPROCESSING VER
@@ -467,6 +467,9 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         self.convert_pdfs_to_txt(pdf_files)
         self.convert_txts_to_embeddings(pdf_files)
+        self.convert_pdfs_to_single_jpg()  # getting entire pdf page as an image. 
+        self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)
+        # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
 
     #helper functions
     #makes sure that the directory specified is created
