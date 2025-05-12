@@ -15,17 +15,18 @@ BATCH_SIZE = 50
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
-data_dir_s3 = '2008_EOT_PDFs/data2/' 
+data_dir_s3 = '2008_EOT_PDFs/data3/' # OUTPUT OVERALL DATA DIR IN S3 HERE
 # data and data1 were for testing cpu file output
 # data2 is for testing single gpu file output
 
 # for processing pdfs: 
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
-DATA_DIR = os.path.join(PROJECT_ROOT, 'data4', 'test_data')
+DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
 #pdf_directory = os.path.join(DATA_DIR, 'small_test')  # for testing a folder of three pdfs
-pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
+#pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
+pdf_directory = 'downloads'
 txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
@@ -49,6 +50,7 @@ def upload_directory_to_s3(ec2_dir, s3_dir):
             s3.upload_file(local_file_path, bucket_name, s3_key)
 
 def process_pdfs(pdf_files):
+    print("IN PROCESS_PDFS: ", pdf_files)
     start_time = time.time()
 
     # PROCESS PDFS HERE 
@@ -98,6 +100,7 @@ def download_pdf(pdf, batch_download_dir):
     local_path = os.path.join(batch_download_dir, file_name)
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     s3.download_file(bucket_name, pdf, local_path)
+    return local_path
 
 def batched_file_download(BATCH_SIZE):
     # downloading pdfs from s3
@@ -109,19 +112,29 @@ def batched_file_download(BATCH_SIZE):
 
     print("TOTAL NUMBER OF PDF FILES WE ARE ABOUT TO PROCESS IS ", len(pdf_files))
     print("NUMBER OF THREADS FOR DOWNLOADING FILES IS ", os.cpu_count())
+
+    local_pdf_files = []
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         for pdf in pdf_files:
             futures.append(executor.submit(download_pdf, pdf, batch_download_dir))
-        concurrent.futures.wait(futures)
+        
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                local_path = future.result()
+                local_pdf_files.append(os.path.basename(local_path))
+            except Exception as e:
+                print(f"Download failed with error: {e}")
     
+    print("LOCAL PDF FILES: ", local_pdf_files)
+
     end_time_load_files = time.time()
 
     start_time_process_files = time.time()
     # processing pdfs here in batches 
-    for i in range(0, len(pdf_files), BATCH_SIZE):
-        batch = pdf_files[i:i + BATCH_SIZE]
+    for i in range(0, len(local_pdf_files), BATCH_SIZE):
+        batch = local_pdf_files[i:i + BATCH_SIZE]
         process_pdfs(batch)
     end_time_process_files = time.time()
     

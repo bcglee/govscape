@@ -23,11 +23,16 @@ import sys
 from .pdf_to_jpeg import PdfToJpeg
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
+import time
 
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
-# TODO: add 
+# 1. pdf -> txt -> embed
+# 2. pdf -> img/pg -> embed
+# 3.  pdf -> extracted img -> embed (not yet implemented)
+
+# handles given a list of pdfs instead of given a dir of pdfs 
 
 # *************************************************************************************************************
 
@@ -55,7 +60,7 @@ class TextEmbeddingModel(EmbeddingModel):
     
     def encode_text(self, text):
         with torch.no_grad():
-            embeddings = self.model.encode(texts, batch_size=32, convert_to_tensor=True, device=self.device) # hopefully in batches
+            embeddings = self.model.encode(text, batch_size=32, convert_to_tensor=True, device=self.device) # hopefully in batches
         return embeddings.cpu().numpy()  # can only convert embeddings to numpy on cpu?? 
 
     def encode_image(self, jpg_path): # output: embed_shape 
@@ -63,7 +68,7 @@ class TextEmbeddingModel(EmbeddingModel):
 
         with torch.no_grad():
             caption = (self.image_to_caption(image))[0]['generated_text']
-        print(caption)
+        # print(caption)
         image_caption_embed = self.model.encode([caption])
 
         return image_caption_embed
@@ -153,8 +158,9 @@ class PDFsToEmbeddings:
 
     # converts a single pdf file to a txt files (one txt per page)
     def convert_pdf_to_txt(self, pdf_file):
-        #print("Paginating & Scraping Text: " + pdf_file)
+        # print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(self.pdfs_path, pdf_file)
+        # print(pdf_path)
         #subdir for each pdf 
         pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
 
@@ -257,7 +263,7 @@ class PDFsToEmbeddings:
     #         if os.path.isdir(subdir):
     #             self.convert_subdir_to_embeddings(subdir)
 
-    # 2. MP VERSION (from kyle)
+    # 2a. MP VERSION (from kyle)
     # def convert_txts_to_embeddings(self):
     #     self.ensure_dir(self.embeddings_path)
 
@@ -270,21 +276,23 @@ class PDFsToEmbeddings:
     #     with ctx.Pool(processes=2) as pool:
     #         pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
-    # 3. MT VERSION 
-    def _convert_subdir_to_embeddings_mp(self, subdir_path):
-        return self.convert_subdir_to_embeddings(subdir_path)
+    # 2b. MP VERSION with pdf_files
     def convert_txts_to_embeddings(self, pdf_files=None):
         self.ensure_dir(self.embeddings_path)
-        pdf_files = pdf_files or os.listdir(self.pdfs_path)
+        if pdf_files is None:
+            pdf_files = os.listdir(self.pdfs_path)
 
-        txt_subdirs = [os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
-            for pdf_file in pdf_files
-            if os.path.isdir(os.path.join(self.txts_path, os.path.splitext(pdf_file)[0]))]
+        txt_subdirs_paths = []
+        for txt_subdir in os.scandir(self.txts_path):
+            if txt_subdir.is_dir():
+                txt_subdirs_paths.append(txt_subdir.path)
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self._convert_subdir_to_embeddings_mp, txt_subdirs)
-    
+            # pool.map(self._convert_subdir_to_embeddings_mp, txt_subdirs_paths)
+            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+
+
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
     # *******************************************************************************************************************
@@ -328,7 +336,7 @@ class PDFsToEmbeddings:
                 continue
             file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
             output_path = os.path.join(embedding_dir, file_name)
-            np.save(output_path, embedding.cpu().numpy())
+            np.save(output_path, embedding)
 
 
     # dir of imgs/pg -> dir of embeds
@@ -373,7 +381,7 @@ class PDFsToEmbeddings:
                 image = Image.open(io.BytesIO(image_bytes))
 
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_IMG_{i}.jpg"
-                print("img saved at: ",  image_path)
+                # print("img saved at: ",  image_path)
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
@@ -413,11 +421,21 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
+        time1 = time.time()
         self.convert_pdfs_to_txt(pdf_files)
+        time2 = time.time()
         self.convert_txts_to_embeddings(pdf_files)
+        time3 = time.time()
         self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. 
+        time4 = time.time()
         self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)
+        time5 = time.time()
         # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
+
+        print("pdf -> txt time: ", time2 - time1)
+        print("txt -> embed time: ", time3 - time2)
+        print("pdf -> img per page time: ", time4 - time3)
+        print("img per page -> embed time: ", time5 - time4)
 
     # *******************************************************************************************************************
     # helper functions
