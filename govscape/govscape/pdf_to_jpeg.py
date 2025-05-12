@@ -2,6 +2,7 @@
 # pdf pages to be compressed jpegs
 
 from pdf2image import convert_from_path
+from pdf2image.exceptions import PDFPopplerTimeoutError, PDFSyntaxError
 import os
 import shutil
 from torch.multiprocessing import Pool, TimeoutError, get_context
@@ -31,9 +32,9 @@ class PdfToJpeg:
             convert_from_path(pdf_filename, dpi=self.dpi, output_folder=img_directory, fmt="jpeg")
         except FileNotFoundError:
             print("FILE WAS NOT FOUND")
-        except pdf2image.exceptions.PDFPopplerTimeoutError:
+        except PDFPopplerTimeoutError:
             print("timeout for image processeding exceed error")
-        except pdf2image.exceptions.PDFSyntaxError:
+        except PDFSyntaxError:
             print("syntax in pdf errr but i think strict=true has to happen?")
         except:
             print("CONVERSION ERROR: " + pdf_filename)
