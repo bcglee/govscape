@@ -30,7 +30,7 @@ txt_directory = os.path.join(DATA_DIR, 'txt')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
 
-bath_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
+batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
 model = gs.TextEmbeddingModel()
 
