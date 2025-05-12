@@ -31,10 +31,10 @@ class PdfToJpeg:
             convert_from_path(pdf_filename, dpi=self.dpi, output_folder=img_directory, fmt="jpeg")
         except FileNotFoundError:
             print("FILE WAS NOT FOUND")
-        except PDFPopplerTimeoutError:
+        except pdf2image.exceptions.PDFPopplerTimeoutError:
             print("timeout for image processeding exceed error")
-        except PDFSyntaxError:
-            pring("syntax in pdf errr but i think strict=true has to happen?")
+        except pdf2image.exceptions.PDFSyntaxError:
+            print("syntax in pdf errr but i think strict=true has to happen?")
         except:
             print("CONVERSION ERROR: " + pdf_filename)
             pass
