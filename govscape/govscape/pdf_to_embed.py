@@ -262,31 +262,31 @@ class PDFsToEmbeddings:
             np.save(output_path, embedding)
     
     # version 2 = batch of subdirs: txt subdir -> embed subdir.
-    def convert_subdir_to_embeddings(self, txt_subdir_paths):
-        #print("Embedding PDF: " + txt_subdir_path)
-        #making the subdir that will hold the embeddings for each PDF 
-        embed_name = os.path.basename(txt_subdir_path)
-        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    # def convert_subdir_to_embeddings(self, txt_subdir_paths):
+    #     #print("Embedding PDF: " + txt_subdir_path)
+    #     #making the subdir that will hold the embeddings for each PDF 
+    #     embed_name = os.path.basename(txt_subdir_path)
+    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
         
-        # If the subdir already exists, we assume that this step has already been done.
-        if os.path.exists(embedding_dir):
-            return
+    #     # If the subdir already exists, we assume that this step has already been done.
+    #     if os.path.exists(embedding_dir):
+    #         return
 
-        self.ensure_dir(embedding_dir)
+    #     self.ensure_dir(embedding_dir)
 
-        #all txt files in the txt subdir input 
-        txt_files = os.listdir(txt_subdir_path)
+    #     #all txt files in the txt subdir input 
+    #     txt_files = os.listdir(txt_subdir_path)
 
-        # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
+    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
 
-        for txt_file in txt_files:
-            txt_path = os.path.join(txt_subdir_path, txt_file)
+    #     for txt_file in txt_files:
+    #         txt_path = os.path.join(txt_subdir_path, txt_file)
 
-            embedding = self.convert_txt_to_embedding(txt_path)
+    #         embedding = self.convert_txt_to_embedding(txt_path)
 
-            file_name = os.path.splitext(txt_file)[0] + ".npy"
-            output_path = os.path.join(embedding_dir, file_name)
-            np.save(output_path, embedding)
+    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
+    #         output_path = os.path.join(embedding_dir, file_name)
+    #         np.save(output_path, embedding)
     
     # txts -> embeds overall dir
     # 1. OG VERSION 
