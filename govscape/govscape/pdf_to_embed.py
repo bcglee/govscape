@@ -24,6 +24,7 @@ from .pdf_to_jpeg import PdfToJpeg
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 import time
+import math
 
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
