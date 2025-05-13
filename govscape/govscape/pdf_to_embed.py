@@ -53,7 +53,7 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)
+        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512 
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
         #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
@@ -262,31 +262,31 @@ class PDFsToEmbeddings:
             np.save(output_path, embedding)
     
     # version 2 = batch of subdirs: txt subdir -> embed subdir.
-    # def convert_subdir_to_embeddings(self, txt_subdir_path):
-    #     #print("Embedding PDF: " + txt_subdir_path)
-    #     #making the subdir that will hold the embeddings for each PDF 
-    #     embed_name = os.path.basename(txt_subdir_path)
-    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    def convert_subdir_to_embeddings(self, txt_subdir_paths):
+        #print("Embedding PDF: " + txt_subdir_path)
+        #making the subdir that will hold the embeddings for each PDF 
+        embed_name = os.path.basename(txt_subdir_path)
+        embedding_dir = os.path.join(self.embeddings_path, embed_name)
         
-    #     # If the subdir already exists, we assume that this step has already been done.
-    #     if os.path.exists(embedding_dir):
-    #         return
+        # If the subdir already exists, we assume that this step has already been done.
+        if os.path.exists(embedding_dir):
+            return
 
-    #     self.ensure_dir(embedding_dir)
+        self.ensure_dir(embedding_dir)
 
-    #     #all txt files in the txt subdir input 
-    #     txt_files = os.listdir(txt_subdir_path)
+        #all txt files in the txt subdir input 
+        txt_files = os.listdir(txt_subdir_path)
 
-    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
+        # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
 
-    #     for txt_file in txt_files:
-    #         txt_path = os.path.join(txt_subdir_path, txt_file)
+        for txt_file in txt_files:
+            txt_path = os.path.join(txt_subdir_path, txt_file)
 
-    #         embedding = self.convert_txt_to_embedding(txt_path)
+            embedding = self.convert_txt_to_embedding(txt_path)
 
-    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
-    #         output_path = os.path.join(embedding_dir, file_name)
-    #         np.save(output_path, embedding)
+            file_name = os.path.splitext(txt_file)[0] + ".npy"
+            output_path = os.path.join(embedding_dir, file_name)
+            np.save(output_path, embedding)
     
     # txts -> embeds overall dir
     # 1. OG VERSION 
@@ -463,10 +463,17 @@ class PDFsToEmbeddings:
         time5 = time.time()
         # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
 
+        first = time2 - time1
+        sec = time3 - time2
+        third = time4 - time3
+        fourth = time5 - time4
+
         print("pdf -> txt time: ", time2 - time1)
         print("txt -> embed time: ", time3 - time2)
         print("pdf -> img per page time: ", time4 - time3)
         print("img per page -> embed time: ", time5 - time4)
+
+        return first, sec, third, fourth
 
     # *******************************************************************************************************************
     # helper functions
