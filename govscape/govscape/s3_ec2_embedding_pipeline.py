@@ -108,14 +108,14 @@ def batched_file_download(BATCH_SIZE):
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # YOU ARE ONLY GETTING THE FIRST 1000, have to do something with pages??
 
-    pdf_files = pdf_files[:100] # temporary!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! this is just for testing 
+    pdf_files = pdf_files[:1000] # temporary!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! this is just for testing 
 
     print("TOTAL NUMBER OF PDF FILES WE ARE ABOUT TO PROCESS IS ", len(pdf_files))
     print("NUMBER OF THREADS FOR DOWNLOADING FILES IS ", os.cpu_count())
 
     local_pdf_files = []
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as executor: # TODO: maybe take thsi out 
         futures = []
         for pdf in pdf_files:
             futures.append(executor.submit(download_pdf, pdf, batch_download_dir))
