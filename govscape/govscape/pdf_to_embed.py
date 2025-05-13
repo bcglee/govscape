@@ -58,7 +58,7 @@ class TextEmbeddingModel(EmbeddingModel):
         self.d = 1024
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
     
-    def encode_text(self, text):
+    def encode_text(self, text): # TODO: verify you can put in a list of text files to do this in batches
         with torch.no_grad():
             embeddings = self.model.encode(text, batch_size=32, convert_to_tensor=True, device=self.device) # hopefully in batches
         return embeddings.cpu().numpy()  # can only convert embeddings to numpy on cpu?? 
@@ -192,18 +192,19 @@ class PDFsToEmbeddings:
     #         self.convert_pdf_to_txt(pdf_file)
 
     # 2. MP VERSION (from kyle)
-    # def convert_pdfs_to_txt(self):
-    #     self.ensure_dir(self.txts_path)
-    #     pdf_files = os.listdir(self.pdfs_path)
-    #     ctx = get_context('spawn')
-    #     with ctx.Pool(processes=4) as pool:
-    #         pool.map(self.convert_pdf_to_txt, pdf_files)
+    def convert_pdfs_to_txt(self, pdf_files=None):
+        self.ensure_dir(self.txts_path)
+        if pdf_files is None:
+            pdf_files = os.listdir(self.pdfs_path)
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            pool.map(self.convert_pdf_to_txt, pdf_files)
 
     # 3. MT VERSION 
-    def convert_pdfs_to_txt(self, pdf_files):
-        self.ensure_dir(self.txts_path)
-        with ThreadPoolExecutor() as executor:
-            executor.map(self.convert_pdf_to_txt, pdf_files)
+    # def convert_pdfs_to_txt(self, pdf_files):
+    #     self.ensure_dir(self.txts_path)
+    #     with ThreadPoolExecutor() as executor:
+    #         executor.map(self.convert_pdf_to_txt, pdf_files)
 
     # (2) txt -> embed
 
@@ -263,34 +264,25 @@ class PDFsToEmbeddings:
     #         if os.path.isdir(subdir):
     #             self.convert_subdir_to_embeddings(subdir)
 
-    # 2a. MP VERSION (from kyle)
-    # def convert_txts_to_embeddings(self):
-    #     self.ensure_dir(self.embeddings_path)
-
-    #     txt_subdirs_paths = []
-    #     for txt_subdir in os.scandir(self.txts_path):
-    #         if txt_subdir.is_dir():
-    #             txt_subdirs_paths.append(txt_subdir.path)
-        
-    #     ctx = get_context('spawn')
-    #     with ctx.Pool(processes=2) as pool:
-    #         pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
-
-    # 2b. MP VERSION with pdf_files
-    def convert_txts_to_embeddings(self, pdf_files=None):
+    # 2. MP VERSION with pdf_files
+    def convert_txts_to_embeddings(self):
         self.ensure_dir(self.embeddings_path)
-        if pdf_files is None:
-            pdf_files = os.listdir(self.pdfs_path)
 
         txt_subdirs_paths = []
         for txt_subdir in os.scandir(self.txts_path):
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
+        
+        # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
+        batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
+        txt_subdir_batches = []
+        for i in range(0, len(txt_subdirs_paths), batch_size):
+            txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            # pool.map(self._convert_subdir_to_embeddings_mp, txt_subdirs_paths)
-            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+            pool.map(self.convert_subdir_to_embeddings, txt_subdir_batches)
+            # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
 
     # *******************************************************************************************************************
@@ -341,26 +333,32 @@ class PDFsToEmbeddings:
 
     # dir of imgs/pg -> dir of embeds
     # 1. OG VERSION 
-    def convert_imgs_to_embeddings(self):
-        if not os.path.exists(self.embeddings_path):
-            os.makedirs(self.embeddings_path)
-
-        for jpg_subdir in os.scandir(self.jpgs_path):
-            if jpg_subdir.is_dir():
-                self.convert_img_subdir_to_embeddings(jpg_subdir.path)
-    # 2. MP VERSION
     # def convert_imgs_to_embeddings(self):
     #     if not os.path.exists(self.embeddings_path):
     #         os.makedirs(self.embeddings_path)
 
-    #     jpg_subdirs_paths = []
     #     for jpg_subdir in os.scandir(self.jpgs_path):
     #         if jpg_subdir.is_dir():
-    #             jpg_subdirs_paths.append(jpg_subdir.path)
+    #             self.convert_img_subdir_to_embeddings(jpg_subdir.path)
+    # 2. MP VERSION
+    def convert_imgs_to_embeddings(self):
+        if not os.path.exists(self.embeddings_path):
+            os.makedirs(self.embeddings_path)
+
+        jpg_subdirs_paths = []
+        for jpg_subdir in os.scandir(self.jpgs_path):
+            if jpg_subdir.is_dir():
+                jpg_subdirs_paths.append(jpg_subdir.path)
         
-    #     ctx = get_context('spawn')
-    #     with ctx.Pool(processes=4) as pool:
-    #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
+        batch_size = math.ceil(len(jpg_subdirs_paths) / os.cpu_count())
+        jpg_subdir_batches = []
+        for i in range(0, len(jpg_subdirs_paths), batch_size):
+            jpg_subdir_batches.append(jpg_subdirs_paths[i : i + batch_size])
+
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            #pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
+            pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches)
     
     # *******************************************************************************************************************
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir
@@ -424,7 +422,7 @@ class PDFsToEmbeddings:
         time1 = time.time()
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
-        self.convert_txts_to_embeddings(pdf_files)
+        self.convert_txts_to_embeddings()
         time3 = time.time()
         self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. 
         time4 = time.time()

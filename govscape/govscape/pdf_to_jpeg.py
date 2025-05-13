@@ -87,7 +87,7 @@ class PdfToJpeg:
 
         ctx = get_context('spawn')
         # with ctx.Pool(processes=30) as pool:
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 
 
