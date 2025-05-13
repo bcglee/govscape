@@ -7,9 +7,9 @@ import faiss
 import os
 from .pdf_to_embedding import PDFsToEmbeddings
 from urllib.parse import urlparse, parse_qs
-from whoosh.fields import Schema, TEXT, ID
-from whoosh.index import create_in, open_dir
-from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, AndGroup
+# from whoosh.fields import Schema, TEXT, ID
+# from whoosh.index import create_in, open_dir
+# from whoosh.qparser import QueryParser, MultifieldParser, OrGroup, AndGroup
 
 
 # basic pipeline developed:
@@ -36,19 +36,30 @@ class Server:
 
         # create a new index
         self.faiss_index = faiss.IndexFlatL2(self.d)
+        self.faiss_image_index = faiss.IndexFlatL2(self.d)
 
         # Train model on test vectors
-        self.npy_files = []
+        self.text_files = []
+        self.img_files = []
         for root, _, files in os.walk(self.embedding_directory):
             for file in files:
                 if file.endswith('.npy'):
-                    self.npy_files.append(os.path.join(root, file))
+                    full_path = os.path.join(root, file)
+                    if 'text' in root:
+                        self.text_files.append(full_path)
+                    elif 'img' in root:
+                        self.img_files.append(full_path)
 
         # Load each .npy file into an array
-        self.arrays = [np.load(file) for file in self.npy_files]
-        stacked_array = np.vstack(self.arrays) 
-        self.faiss_index.add(stacked_array)
-        self.ix = open_dir(self.whoosh_directory)
+        self.text_arrays = [np.load(file) for file in self.text_files]
+        self.img_arrays = [np.load(file) for file in self.img_files]
+
+
+        text_stacked = np.vstack(self.text_arrays)
+        img_stacked = np.vstack(self.img_arrays)
+        self.faiss_index.add(text_stacked)
+        self.faiss_image_index.add(img_stacked)
+        # self.ix = open_dir(self.whoosh_directory)
 
 
         
@@ -122,7 +133,7 @@ class Server:
                     json_object = json.dumps({"pdf": query_params['pdf_name'], "pages": npy_files}, indent=4)
 
                 elif 'search' in path:
-                    if (query_params['exact'][0].lower() == "true"):
+                    if 'exact' in query_params and (query_params['exact'][0].lower() == "true"):
                         with self.ix.searcher() as searcher:
                             parser = QueryParser("content", self.ix.schema)
                             query = parser.parse(query_params['query'][0])
@@ -131,6 +142,25 @@ class Server:
                             for result in results:
                                 search_results.append({"pdf": result['path']})
                             json_object = json.dumps({"results": search_results}, indent=4)
+                    elif 'image' in query_params and (query_params['image'][0].lower() == "true"):
+                        # Create random array embedding
+                        query_embedding = self.model.text_to_embeddings(query_params['query'])
+
+                        # Search for the three closest arrays
+                        D, I = self.faiss_image_index.search(query_embedding, self.k)
+
+                        search_results = []
+                        for i in range(I.shape[0]):
+                            for j in range(I.shape[1]):
+                                # parse file information for page
+                                pdf_name, _, page = self.img_files[I[i][j]].rpartition('_')
+                                page, _, _ = page.rpartition('.')
+                                # create jpeg name
+                                jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page
+
+                                # add results onto file
+                                search_results.append({"pdf": pdf_name, "page": page, "distance": float(D[i][j]), "jpeg": jpeg})
+                        json_object = json.dumps({"results": search_results}, indent=4)
                     else:
                         # Create random array embedding
                         query_embedding = self.model.text_to_embeddings(query_params['query'])
@@ -142,7 +172,7 @@ class Server:
                         for i in range(I.shape[0]):
                             for j in range(I.shape[1]):
                                 # parse file information for page
-                                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                                pdf_name, _, page = self.text_files[I[i][j]].rpartition('_')
                                 page, _, _ = page.rpartition('.')
                                 # create jpeg name
                                 jpeg = self.image_directory + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page

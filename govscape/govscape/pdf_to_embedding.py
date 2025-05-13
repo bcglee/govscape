@@ -22,8 +22,8 @@ from abc import ABC, abstractmethod
 import json
 import sys
 from .pdf_to_jpeg import PdfToJpeg
-from whoosh.fields import Schema, TEXT, ID
-from whoosh.index import create_in
+# from whoosh.fields import Schema, TEXT, ID
+# from whoosh.index import create_in
 
 # 1. extract text of PDF files -> and outputs them to .txt files
 #   - has stucture: dir -> subdir for each PDF -> .txt files of each page 
@@ -192,7 +192,7 @@ class PDFsToEmbeddings:
     def convert_subdir_to_embeddings(self, txt_subdir_path):
         print("Embedding PDF: " + txt_subdir_path)
         #making the subdir that will hold the embeddings for each PDF 
-        embed_name = os.path.basename(txt_subdir_path)
+        embed_name = os.path.basename(txt_subdir_path) + "/text"
         embedding_dir = os.path.join(self.embeddings_path, embed_name)
         
         # If the subdir already exists, we assume that this step has already been done.
@@ -240,7 +240,7 @@ class PDFsToEmbeddings:
         for jpg_subdir_path in jpg_subdirs_paths:
 
             #making the subdir that will hold the embeddings for each PDF 
-            embed_name = os.path.basename(jpg_subdir_path)
+            embed_name = os.path.basename(jpg_subdir_path) + "/img"
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
 
             if not os.path.exists(embedding_dir):
@@ -290,11 +290,11 @@ class PDFsToEmbeddings:
      # 1 + 2
     #converts a dir of pdfs to a dir of embeddings of .npy
     def pdfs_to_embeddings(self):
-        # self.convert_pdfs_to_txt()
-        # self.convert_txts_to_embeddings()
-        # self.convert_pdfs_to_single_jpg()
-        # self.convert_imgs_to_embeddings()
-        self.convert_pdfs_to_whoosh()
+        self.convert_pdfs_to_txt()
+        self.convert_txts_to_embeddings()
+        self.convert_pdfs_to_single_jpg()
+        self.convert_imgs_to_embeddings()
+        # self.convert_pdfs_to_whoosh()
 
     #helper functions
     #makes sure that the directory specified is created

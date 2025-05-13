@@ -11,7 +11,7 @@ class PdfToJpeg:
 
     # pdf_directory -> directory to source pdfs
     # save_directory -> directory to save images
-    def convert(self, pdf_directory, save_directory):
+    def convert(self, pdf_directory, save_directory, dpi):
 
         # recursively finds the pdfs in pdf_directory
         pdfs = []
@@ -21,7 +21,7 @@ class PdfToJpeg:
 
         for pdf in pdfs:
             # converts each pdf into a page with 50 dots per inch
-            pages = convert_from_path(pdf, dpi=50)
+            pages = convert_from_path(pdf, dpi=dpi)
 
             # creates a new directory for this pdf in save_directory
             pdf_basename = os.path.splitext(os.path.basename(pdf))[0]
