@@ -40,10 +40,10 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 # ****************************************************************************************************
 
 # for analyzing: 
-first = 0
-second = 0
-third = 0
-fourth = 0
+global first = 0
+global second = 0
+global third = 0
+global fourth = 0
 
 def upload_directory_to_s3(ec2_dir, s3_dir):
     for root, dirs, files in os.walk(ec2_dir):
