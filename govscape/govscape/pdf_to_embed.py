@@ -59,10 +59,15 @@ class TextEmbeddingModel(EmbeddingModel):
         self.d = 1024
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
     
-    def encode_text(self, text): # TODO: verify you can put in a list of text files to do this in batches
+    def encode_text(self, text):
         with torch.no_grad():
-            embeddings = self.model.encode(text, batch_size=32, convert_to_tensor=True, device=self.device) # hopefully in batches
-        return embeddings.cpu().numpy()  # can only convert embeddings to numpy on cpu?? 
+            embeddings = self.model.encode(text, batch_size=32, device=self.device) # hopefully in batches
+        return embeddings
+    
+    def encode_text_batch(self, texts): # TODO: verify you can put in a list of text files to do this in batches
+        with torch.no_grad():
+            embeddings = self.model.encode(texts, batch_size=32, device=self.device) # hopefully in batches
+        return embeddings  # can only convert embeddings to numpy on cpu?? 
 
     def encode_image(self, jpg_path): # output: embed_shape 
         image = Image.open(jpg_path)
@@ -229,7 +234,7 @@ class PDFsToEmbeddings:
         with open(json_file_path, "w") as json_file:
             json.dump(data, json_file, indent=4)
     
-    # txt subdir -> embed subdir
+    # version 1 = single subdir: txt subdir -> embed subdir.
     def convert_subdir_to_embeddings(self, txt_subdir_path):
         #print("Embedding PDF: " + txt_subdir_path)
         #making the subdir that will hold the embeddings for each PDF 
@@ -255,6 +260,33 @@ class PDFsToEmbeddings:
             file_name = os.path.splitext(txt_file)[0] + ".npy"
             output_path = os.path.join(embedding_dir, file_name)
             np.save(output_path, embedding)
+    
+    # version 2 = batch of subdirs: txt subdir -> embed subdir.
+    # def convert_subdir_to_embeddings(self, txt_subdir_path):
+    #     #print("Embedding PDF: " + txt_subdir_path)
+    #     #making the subdir that will hold the embeddings for each PDF 
+    #     embed_name = os.path.basename(txt_subdir_path)
+    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
+        
+    #     # If the subdir already exists, we assume that this step has already been done.
+    #     if os.path.exists(embedding_dir):
+    #         return
+
+    #     self.ensure_dir(embedding_dir)
+
+    #     #all txt files in the txt subdir input 
+    #     txt_files = os.listdir(txt_subdir_path)
+
+    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
+
+    #     for txt_file in txt_files:
+    #         txt_path = os.path.join(txt_subdir_path, txt_file)
+
+    #         embedding = self.convert_txt_to_embedding(txt_path)
+
+    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
+    #         output_path = os.path.join(embedding_dir, file_name)
+    #         np.save(output_path, embedding)
     
     # txts -> embeds overall dir
     # 1. OG VERSION 
@@ -282,8 +314,8 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self.convert_subdir_to_embeddings, txt_subdir_batches)
-            # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+            # pool.map(self.convert_subdir_to_embeddings, txt_subdir_batches)  #TODO: uncomment and figure out batches
+            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
 
 
     # *******************************************************************************************************************
@@ -358,8 +390,8 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            #pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
-            pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches)
+            pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
+            # pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches)  #TODO: uncomment and figure out
     
     # *******************************************************************************************************************
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir
