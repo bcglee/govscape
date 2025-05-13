@@ -40,10 +40,7 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 # ****************************************************************************************************
 
 # for analyzing: 
-global first = 0
-global second = 0
-global third = 0
-global fourth = 0
+pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0}
 
 def upload_directory_to_s3(ec2_dir, s3_dir):
     for root, dirs, files in os.walk(ec2_dir):
@@ -58,10 +55,10 @@ def process_pdfs(pdf_files):
 
     # PROCESS PDFS HERE 
     one, two, three, four = processor.pdfs_to_embeddings(pdf_files=pdf_files)
-    first += one
-    second += two
-    third += three 
-    fourth += four
+    pipeline_times['first'] += one
+    pipeline_times['second'] += two
+    pipeline_times['third'] += three 
+    pipeline_times['fourth'] += four
 
     end_time = time.time()
     duration = end_time - start_time
@@ -152,10 +149,10 @@ def batched_file_download(BATCH_SIZE):
     print("TOTAL TIME TO PROCESS IS ", time_process)
     print("TOTAL TIME IS ", (time_process + time_load))
 
-    print("TOTAL TIME pdf -> txt time:" + first)
-    print("TOTAL TIME txt -> embed time:" + second)
-    print("TOTAL TIME pdf -> img per page time:" + third)
-    print("TOTAL TIME img per page -> embed time:" + fourth)
+    print("TOTAL TIME pdf -> txt time:" + pipeline_times['first'])
+    print("TOTAL TIME txt -> embed time:" + pipeline_times['second'])
+    print("TOTAL TIME pdf -> img per page time:" + pipeline_times['third'])
+    print("TOTAL TIME img per page -> embed time:" + pipeline_times['fourth'])
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
