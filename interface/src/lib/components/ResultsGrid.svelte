@@ -12,7 +12,9 @@
   $: results = $searchStore.results;
 
   function handlePDFSelect(pdf, page) {
-    dispatch('pdfSelect', { pdf, page });
+    const pdfId = pdf.split('/').pop();
+
+    dispatch('pdfSelect', { pdf, page, id: pdfId });
   }
 
   function getAgencyName(subdomain) {

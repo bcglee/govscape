@@ -159,6 +159,32 @@ class Server:
         
         return {"results": search_results}
 
+    def pdf_pages(self, pdf_id):
+        """Get all page images for a PDF by pdf_id. Returns dict with 'images' key or error message."""
+        if not pdf_id:
+            return {"error": "Missing 'pdf_id' parameter"}, 400
+
+        embedding_dir = os.path.join(self.embedding_directory, pdf_id)
+        metadata_path = os.path.join(embedding_dir, f"{pdf_id}.json")
+
+        if not os.path.exists(metadata_path):
+            return {"error": "Metadata not found"}, 404
+
+        with open(metadata_path, "r") as f:
+            meta = json.load(f)
+        page_nums = meta.get("page_nums")
+        if not page_nums:
+            return {"error": "Page number not found"}, 404
+
+        try:
+            page_nums = int(page_nums)
+        except Exception:
+            return {"error": "Invalid page number in metadata"}, 500
+
+        image_dir = os.path.join(self.image_directory, pdf_id)
+        images = [f"{image_dir}/{pdf_id}_{i}.jpg" for i in range(page_nums)]
+        return {"images": images}
+
     def serve(self):
         # keep this function to maintain compatibility with scripts/start_server.py
         print("Welcome to End-Of-Term PDF Search Server")

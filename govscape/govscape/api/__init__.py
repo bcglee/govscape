@@ -1,6 +1,8 @@
 from flask_restx import Api
 from .endpoints.health import ns as health_ns
 from .endpoints.search import ns as search_ns
+from .endpoints.pages import ns as pages_ns
+
 
 def init_api(app):
     """Initialize the Flask-RESTX API"""
@@ -16,5 +18,6 @@ def init_api(app):
     # Add namespaces
     api.add_namespace(health_ns)
     api.add_namespace(search_ns)
-    
+    api.add_namespace(pages_ns)
+
     return api
