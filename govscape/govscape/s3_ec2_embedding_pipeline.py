@@ -149,10 +149,10 @@ def batched_file_download(BATCH_SIZE):
     print("TOTAL TIME TO PROCESS IS ", time_process)
     print("TOTAL TIME IS ", (time_process + time_load))
 
-    print("TOTAL TIME pdf -> txt time:" + pipeline_times['first'])
-    print("TOTAL TIME txt -> embed time:" + pipeline_times['second'])
-    print("TOTAL TIME pdf -> img per page time:" + pipeline_times['third'])
-    print("TOTAL TIME img per page -> embed time:" + pipeline_times['fourth'])
+    print("TOTAL TIME pdf -> txt time:",  pipeline_times['first'])
+    print("TOTAL TIME txt -> embed time:", pipeline_times['second'])
+    print("TOTAL TIME pdf -> img per page time:", pipeline_times['third'])
+    print("TOTAL TIME img per page -> embed time:", pipeline_times['fourth'])
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
