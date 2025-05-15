@@ -4,6 +4,7 @@ from .config import ServerConfig
 import numpy as np
 import faiss
 import os
+import struct
 import json
 from .api import init_api
 
@@ -22,6 +23,8 @@ class Server:
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
+        self.index_type = config.index_type
+        self.disk_index = config.disk_index
 
         # FAISS model
         self.model = config.model
@@ -73,28 +76,45 @@ class Server:
     def search(self, query):
         # Create random array embedding
         query_embedding = self.model.text_to_embeddings(query)
-        # Search for the k closest arrays
-        D, I = self.faiss_index.search(query_embedding, self.k)
-        
-        search_results = []
-        for i in range(I.shape[0]):
-            for j in range(I.shape[1]):
-                # parse file information for page
-                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                page, _, _ = page.rpartition('.')
-                # create jpeg name
-                jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
-                
-                # add results to list
-                search_results.append({
-                    "pdf": pdf_name, 
-                    "page": page, 
-                    "distance": float(D[i][j]), 
-                    "jpeg": jpeg
-                })
+        if self.index_type == 'Memory':
+            # Search for the k closest arrays
+            D, I = self.faiss_index.search(query_embedding, self.k)
+
+            search_results = []
+            for i in range(I.shape[0]):
+                for j in range(I.shape[1]):
+                    # parse file information for page
+                    pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                    page, _, _ = page.rpartition('.')
+                    # create jpeg name
+                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                    
+                    # add results to list
+                    search_results.append({
+                        "pdf": pdf_name, 
+                        "page": page, 
+                        "distance": float(D[i][j]), 
+                        "jpeg": jpeg
+                    })
+
+        if self.index_type == 'Disk':
+            normalized = query_embedding / np.linalg.norm(query_embedding)
+            indices, distances = self.disk_index.search(normalized.flatten(), self.k, self.k * 2)
+            search_results = []
+            page_indices = os.path.join(self.embedding_directory, "page_indices.bin")
+            with open(page_indices, "rb") as file:
+                for i in range(len(indices)):
+                    file.seek(indices[i] * 117, os.SEEK_SET)
+                    pdf_name = file.read(113).decode('utf-8').strip()
+                    page = str(struct.unpack("i", file.read(4))[0])
+                    search_results.append({
+                        "pdf": pdf_name,
+                        "page": page,
+                        "distance": float(distances[i])
+                    })
         
         return {"results": search_results}
-    
+
     def serve(self):
         # keep this function to maintain compatibility with scripts/start_server.py
         print("Welcome to End-Of-Term PDF Search Server")   
@@ -112,6 +132,9 @@ class Server:
 
                 # print for testing
                 print(json_object)
+
+
+
         except EOFError:
             print("\nThank you for using!")
     
