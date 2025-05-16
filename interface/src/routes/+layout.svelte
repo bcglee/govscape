@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  
   let scrolled = false;
 
   onMount(() => {
@@ -35,18 +36,6 @@
 </div>
 
 <style>
-  :global(body) {
-    margin: 0;
-    padding: 0;
-    background-color: var(--background-color);
-  }
-
-  .app {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
   .top-nav {
     position: fixed;
     top: 0;
@@ -65,8 +54,6 @@
     color: var(--text-color);
     text-decoration: none;
     font-weight: 600;
-    background: none;
-    border: none;
     padding: 0.5rem 1rem;
   }
 
@@ -127,22 +114,5 @@
     color: var(--text-color);
     text-decoration: none;
     font-weight: 600;
-  }
-
-  nav a:hover {
-    color: var(--primary-color);
-  }
-
-  main {
-    margin-top: var(--header-height);
-    flex: 1;
-    padding: 2rem;
-  }
-
-  h1 {
-    color: var(--text-color);
-    font-size: 2.5rem;
-    margin-bottom: 2rem;
-    font-weight: bold;
   }
 </style>

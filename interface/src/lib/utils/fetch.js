@@ -7,7 +7,7 @@ export async function apiFetch(endpoint, options = {}) {
         headers: {
             'Content-Type': 'application/json',
         },
-        credentials: 'include', // Ensure the server allows credentials in CORS
+        credentials: 'include',
     };
 
     const mergedOptions = {

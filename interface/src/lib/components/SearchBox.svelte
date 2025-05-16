@@ -1,37 +1,29 @@
 <script>
-  import { searchStore } from '$lib/stores/search';
-  import { apiFetch, IMAGE_BASE_URL } from '$lib/utils/fetch';
+  import { searchStore, searchActions } from '$lib/stores/search';
 
   let query = '';
   let searchMode = 'natural'; // 'natural' or 'keywords'
 
+  searchStore.subscribe(store => {
+    if (query !== store.query) {
+      query = store.query;
+    }
+  });
+
   function setMode(mode) {
     searchMode = mode;
     query = '';
+    searchActions.setQuery('');
   }
 
   async function onSearch() {
-    if (!query.trim()) return;
-
-    searchStore.update(store => ({ ...store, loading: true, error: null }));
-
-    try {
-      const filters = $searchStore.filters;
-      const data = await apiFetch('/search/', {
-        body: JSON.stringify({ query, filters })
-      });
-
-      // Prepend the base path to the jpeg field
-      const results = data.results.map(result => ({
-        ...result,
-        jpeg: `${IMAGE_BASE_URL}/${result.jpeg.split('/').slice(-2).join('/')}`
-      }));
-
-      searchStore.update(store => ({ ...store, results, loading: false }));
-    } catch (err) {
-      console.error('Search error:', err);
-      searchStore.update(store => ({ ...store, error: err.message, loading: false, results: [] }));
+    if (!query.trim()) {
+      searchActions.clearResults();
+      return;
     }
+
+    searchActions.setQuery(query);
+    searchActions.performSearch();
   }
 </script>
 

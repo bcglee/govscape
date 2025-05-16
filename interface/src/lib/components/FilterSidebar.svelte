@@ -1,5 +1,5 @@
 <script>
-  import { searchStore } from '../stores/search';
+  import { searchStore, searchActions } from '../stores/search';
   
   let dateFrom = '';
   let dateTo = '';
@@ -16,16 +16,13 @@
   ];
   
   function updateFilters() {
-    searchStore.update(state => ({
-      ...state,
-      filters: {
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null,
-        minPages: minPages ? parseInt(minPages) : null,
-        maxPages: maxPages ? parseInt(maxPages) : null,
-        domain: selectedDomain || null
-      }
-    }));
+    searchActions.updateFilters({
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+      minPages: minPages ? parseInt(minPages) : null,
+      maxPages: maxPages ? parseInt(maxPages) : null,
+      domain: selectedDomain || null
+    });
   }
   
   function resetFilters() {
@@ -36,9 +33,16 @@
     selectedDomain = '';
     updateFilters();
   }
+
+  function closeSidebar() {
+    searchStore.update(current => ({ ...current, showFilters: false }));
+  }
 </script>
 
-<div class="filter-sidebar">
+<div class="filter-sidebar" class:visible={$searchStore.showFilters}>
+  <button class="close-sidebar-btn" on:click={closeSidebar} aria-label="Close filters">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </button>
   <div class="filter-section">
     <h3>Date Range</h3>
     <div class="date-inputs">
@@ -109,11 +113,23 @@
 
 <style>
   .filter-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-right: 1px solid #e0e0e0;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     padding: 1.5rem;
-    width: 100%;
+    width: 350px;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    overflow-y: auto;
+  }
+  
+  .filter-sidebar.visible {
+    transform: translateX(0);
   }
   
   .filter-section {
@@ -184,4 +200,21 @@
     background: #e9ecef;
     border-color: #ced4da;
   }
-</style> 
+
+  .close-sidebar-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem; /* Adjust size as needed */
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+    color: #6c757d; /* Match other icon/text colors or choose new */
+  }
+
+  .close-sidebar-btn:hover {
+    color: #343a40;
+  }
+</style>

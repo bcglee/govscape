@@ -1,8 +1,8 @@
 <script>
   import { createEventDispatcher, onMount, afterUpdate } from 'svelte';
-  import { searchStore } from '$lib/stores/search';
   import Masonry from 'masonry-layout';
   import imagesLoaded from 'imagesloaded';
+  import { searchStore } from '$lib/stores/search';
 
   const dispatch = createEventDispatcher();
   let gridElement;
