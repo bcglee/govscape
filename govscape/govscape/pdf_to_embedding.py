@@ -60,7 +60,7 @@ class TextEmbeddingModel(EmbeddingModel):
 
         with torch.no_grad():
             image_embedding = self.model.get_image_features(**inputs)
-        
+
         image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
 
         return np.zeros(1024)

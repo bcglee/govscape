@@ -10,7 +10,6 @@ package-mode = false
 python = "^3.10"
 govscape = { path = "govscape", develop = true }
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
