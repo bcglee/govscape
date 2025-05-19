@@ -61,8 +61,7 @@ export const searchActions = {
     searchStore.update(store => ({ 
       ...store, 
       loading: true, 
-      error: null,
-      showFilters: false
+      error: null
     }));
 
     try {

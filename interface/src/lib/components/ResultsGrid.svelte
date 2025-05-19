@@ -86,8 +86,10 @@
 
 <style>
   .results-grid {
+    padding: 0 1rem;
     width: 100%;
-    margin: 0 auto;
+    max-width: 1200px;
+    margin-top: 1rem;
   }
 
   .grid-sizer,
@@ -140,7 +142,7 @@
   .result-info h5 {
     margin: 0 0 10px 0;
     font-size: 1.2rem;
-    color: var(--text-color);
+    color: var(--text-color-primary);
     word-wrap: break-word;
     word-break: break-word;
   }

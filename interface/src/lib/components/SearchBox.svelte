@@ -1,111 +1,343 @@
 <script>
   import { searchStore, searchActions } from '$lib/stores/search';
+  import { onMount, onDestroy, tick } from 'svelte';
+  import { get } from 'svelte/store';
+  import AdvancedSearch from './AdvancedSearch.svelte';
+  import GlobeIcon from './icons/GlobeIcon.svelte';
+  import FilterIcon from './icons/FilterIcon.svelte';
 
-  let query = '';
+  const suggestions = ['income tax', 'climate change', 'student loans', 'pie charts'];
+
   let searchMode = 'natural'; // 'natural' or 'keywords'
+  let searchInputFocused = false;
+  let showSuggestionsDropdown = false;
+  let searchInputElement;
+  let query = '';
 
-  searchStore.subscribe(store => {
-    if (query !== store.query) {
-      query = store.query;
-    }
-  });
+  $: if (query !== undefined && get(searchStore).query !== query) {
+    searchActions.setQuery(query);
+  }
 
   function setMode(mode) {
     searchMode = mode;
     query = '';
-    searchActions.setQuery('');
   }
 
-  async function onSearch() {
+  function handleSearch() {
     if (!query.trim()) {
       searchActions.clearResults();
       return;
     }
-
-    searchActions.setQuery(query);
     searchActions.performSearch();
+    
+    if (searchInputElement) searchInputElement.blur();
+  }
+
+  function handleFilterToggle() {
+    searchActions.toggleFilters();
+  }
+
+  async function applySuggestion(suggestion) {
+    query = suggestion;
+    await tick();
+    searchActions.performSearch();
+    showSuggestionsDropdown = false;
+  }
+
+  function handleInputFocus() {
+    showSuggestionsDropdown = true;
+    searchInputFocused = true;
+  }
+
+  function handleInputBlur() {
+    showSuggestionsDropdown = false;
+    searchInputFocused = false;
   }
 </script>
 
 <div class="search-container">
-  <div class="search-tabs">
-    <button type="button" class:active-tab={searchMode==='natural'} on:click={() => setMode('natural')}>Natural Language</button>
-    <button type="button" class:active-tab={searchMode==='keywords'} on:click={() => setMode('keywords')}>Keywords</button>
+  <div class="search-mode-tabs">
+    <div
+      class="search-mode-toggle-bg"
+      class:toggle-left={searchMode === 'natural'}
+      class:toggle-right={searchMode === 'keywords'}
+    ></div>
+    <button
+      type="button"
+      class:active-tab={searchMode === 'natural'}
+      on:click={() => setMode('natural')}
+      aria-label="Natural Language"
+    >
+      Natural Language
+    </button>
+    <button
+      type="button"
+      class:active-tab={searchMode === 'keywords'}
+      on:click={() => setMode('keywords')}
+      aria-label="Keywords Search"
+    >
+      Keywords Search
+    </button>
   </div>
-  <form on:submit|preventDefault={onSearch}>
-    <div class="search-input-wrapper">
-      <input 
-        type="text" 
-        bind:value={query} 
-        placeholder={searchMode==='natural' ? 'Explore PDFs using natural language search...' : 'Enter keywords, separated by commas'}
-        aria-label="Search input"
-      />
-      <button type="submit" disabled={$searchStore.loading}>
-        Search
-      </button>
+  
+  <div class="flexbox">
+    <div class="suggestions-dropdown-wrapper">
+      <form on:submit|preventDefault={handleSearch}>
+        <div class="search-input-wrapper" class:input-focused={searchInputFocused}>
+          <GlobeIcon />
+          <input
+            class="search-input"
+            type="text"
+            placeholder={searchMode === 'natural' ? 'Search PDFs with natural language...' : 'Enter keywords for search...'}
+            bind:this={searchInputElement}
+            bind:value={query}
+            on:focus={handleInputFocus}
+            on:blur={handleInputBlur}
+            aria-label="Search input"
+          />
+          <button 
+            type="button" 
+            on:click={handleFilterToggle} 
+            class="filter-toggle-button" 
+            class:active={$searchStore.showFilters} 
+            aria-label="Toggle advanced search filters"
+            aria-pressed={$searchStore.showFilters}
+          >
+            <FilterIcon />
+          </button>
+        </div>
+      </form>
+
+      {#if showSuggestionsDropdown}
+        <div class="suggestions-dropdown">
+          <ul>
+            {#each suggestions as suggestionText}
+              <li on:mousedown={() => applySuggestion(suggestionText)} role="option" aria-selected="false" tabindex="0">
+                <svg class="suggestion-item-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                <span>{suggestionText}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     </div>
-  </form>
+    <button type="button" class="search-icon-button" on:click={handleSearch} aria-label="Search">
+      <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="9" r="8" />
+        <line x1="21" y1="20" x2="16.65" y2="15.65" />
+      </svg>
+    </button>
+  </div>
+
+  <AdvancedSearch show={$searchStore.showFilters} />
 </div>
 
 <style>
   .search-container {
-    margin-bottom: 3rem;
-    padding: 0 30%;
-    min-width: 500px;
-  }
-  .search-tabs {
     display: flex;
-    justify-content: flex-start;
-    margin-bottom: 0;
-    gap: 0;
+    flex-direction: column;
+    margin-bottom: 1rem;
+    width: 55vw;
+    min-width: 400px;
+  }
+
+  .suggestions-dropdown-wrapper {
     position: relative;
-    z-index: 2;
+    width: 100%;
   }
-  .search-tabs button {
-    background: #f4f4f4;
-    border: 1px solid #ccc;
-    border-bottom: none;
-    border-radius: 4px 4px 0 0;
-    padding: 0.5rem 1.2rem;
-    font-size: 1rem;
-    cursor: pointer;
-    color: #333;
-    outline: none;
-    transition: background 0.18s, color 0.18s;
-    margin-right: 2px;
-  }
-  .search-tabs button:last-child {
-    margin-right: 0;
-  }
-  .search-tabs button.active-tab {
-    background: #fff;
-    color: #007bff;
-    border-bottom: 1.5px solid #fff;
-    font-weight: bold;
-    z-index: 2;
-  }
+
   .search-input-wrapper {
+    flex: 1;
     display: flex;
-    position: relative;
-    top: -1px;
+    align-items: center;
+    border-radius: 24px;
+    background-color: #fff;
+    box-shadow: 0 1px 6px rgba(32, 33, 36, 0.08);
+    padding: 0 10px 0 14px;
+    transition: box-shadow 0.2s, border-radius 0.1s ease-out;
   }
-  input {
+
+  .search-input-wrapper.input-focused {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .search-input {
+    width: 100%;
     flex-grow: 1;
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px 0 0 4px;
+    padding: 12px 8px 12px 12px;
+    border: none;
+    background-color: transparent;
+    color: var(--text-color-primary);
+    font-family: var(--sans-serif-font);
     outline: none;
   }
-  button {
-    padding: 0.5rem 1rem;
-    background-color: #4a4a4a;
-    color: white;
-    border: none;
-    border-radius: 0 4px 4px 0;
-    cursor: pointer;
+
+  .search-input::placeholder {
+    color: var(--text-color-secondary);
+    font-family: var(--serif-font);
+    font-size: 0.9rem;
   }
-  button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
+
+  .filter-toggle-button {
+    background: none;
+    border: none;
+    padding: 8px;
+    margin-left: 8px;
+    cursor: pointer;
+    color: var(--text-color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+  }
+
+  .filter-toggle-button:hover {
+    background-color: rgba(60, 60, 60, 0.08);
+  }
+
+  .filter-toggle-button:active {
+    background: rgba(60, 60, 60, 0.3);
+  }
+
+  .filter-toggle-button.active {
+    background-color: var(--background-color-primary);
+    color: var(--color-primary);
+  }
+
+  .filter-toggle-button.active:hover {
+    box-shadow: 0 2px 8px rgba(32, 33, 36, 0.15);
+  }
+
+  .filter-toggle-button.active:active {
+    background: var(--background-color-secondary);
+    color: var(--text-color-primary);
+  }
+
+  .search-mode-tabs {
+    position: relative;
+    display: flex;
+    background: #fff;
+    border-radius: 999px;
+    padding: 4px;
+    margin: 0 auto 16px auto;
+    width: fit-content;
+    box-shadow: 0 2px 8px rgba(32, 33, 36, 0.08);
+    gap: 8px;
+  }
+
+  .search-mode-toggle-bg {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    height: calc(100% - 8px);
+    background: var(--color-primary);
+    border-radius: 999px;
+    transition: transform 0.25s cubic-bezier(0.4, 1.2, 0.4, 1), background 0.18s;
+  }
+
+  .search-mode-toggle-bg.toggle-left {
+    transform: translateX(0%);
+  }
+
+  .search-mode-toggle-bg.toggle-right {
+    transform: translateX(100%);
+  }
+
+  .search-mode-tabs button {
+    position: relative;
+    min-width: 125px;
+    flex: 1 1 0;
+    border: none;
+    background: transparent;
+    color: var(--text-color-secondary);
+    font-family: var(--sans-serif-font);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+  }
+
+  .search-mode-tabs button.active-tab {
+    color: #fff;
+  }
+
+  .search-mode-tabs button:not(.active-tab):hover {
+    background: #f3f4f6;
+    color: var(--text-color-primary);
+  }
+
+  .suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid transparent;
+    border-top: none;
+    box-shadow: 0 6px 12px -4px rgba(32, 33, 36, 0.18);
+    border-bottom-left-radius: 24px;
+    border-bottom-right-radius: 24px;
+    z-index: 100;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .suggestions-dropdown ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .suggestions-dropdown li {
+    display: flex;
+    align-items: center;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: var(--sans-serif-font);
+    color: var(--text-color-primary);
+    font-size: 0.9rem;
+  }
+
+  .suggestions-dropdown li:hover {
+    background-color: var(--background-color-secondary);
+  }
+
+  .suggestion-item-icon {
+    margin-right: 12px;
+    color: var(--text-color-primary);
+  }
+
+  .search-icon-button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: none;
+    box-shadow: 0 1px 6px rgba(32, 33, 36, 0.08);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    margin-left: 16px;
+  }
+
+  .search-icon-button:hover {
+    box-shadow: 0 2px 8px rgba(32, 33, 36, 0.25);
+  }
+
+  .search-icon-button:active {
+    background: var(--color-secondary);
+    box-shadow: 0 0 2px rgba(32, 33, 36, 0.3);
   }
 </style>
