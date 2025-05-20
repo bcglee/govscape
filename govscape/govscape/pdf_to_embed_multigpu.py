@@ -229,7 +229,7 @@ def main(txt_path, embed_path, model):
     processor = TxtsToEmbeddings(txt_path, embed_path, model)
 
     # sentences
-    sentences, all_embed_file_paths = processor.convert_txt_to_embedding()
+    sentences, all_embed_file_paths = processor.convert_txt_to_embedding(txt_path)
 
     # Define the model
     model = TextEmbeddingModel()
