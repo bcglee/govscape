@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { apiFetch, IMAGE_BASE_URL } from '../utils/fetch';
 
   export let show = false;
@@ -10,7 +10,7 @@
   let images = [];
   let loading = false;
   let error = null;
-  let currentPage = 1;
+  let currentPageIndex = 0;
   let totalPages = 0;
 
   async function fetchImages() {
@@ -27,11 +27,19 @@
         return `${IMAGE_BASE_URL}/${parts.slice(-2).join('/')}`;
       });
       totalPages = images.length;
-      currentPage = 1;
+      currentPageIndex = parseInt(pdfData.page);
     } catch (e) {
       error = e.message;
     } finally {
       loading = false;
+    }
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
   }
 
@@ -45,16 +53,18 @@
   }
 
   function nextPage() {
-    if (currentPage < totalPages) {
-      currentPage++;
-    }
+    currentPageIndex++;
   }
 
   function prevPage() {
-    if (currentPage > 1) {
-      currentPage--;
-    }
+    currentPageIndex--;
   }
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+  });
 </script>
 
 {#if show}
@@ -62,226 +72,243 @@
     <div class="modal-content" on:click|stopPropagation>
       <div class="modal-header">
         <h5 class="modal-title">{pdfData?.id?.split('/').pop() || ''}</h5>
-        <button class="btn-close" on:click={closeModal}></button>
+        <button class="btn-close" on:click={closeModal}>
+          <i class="bi bi-x"></i>
+        </button>
       </div>
       <div class="modal-body">
-        {#if loading}
-          <p>Loading images...</p>
-        {:else if error}
-          <p style="color:red">{error}</p>
-        {:else if images.length > 0}
-          <div class="pdf-pages pdf-preview-grid">
-            <div class="pdf-main-panel compact">
-              <div class="pdf-image-wrapper compact">
-                <img src={images[currentPage-1]} alt={`Page ${currentPage}`} class="pdf-main-image compact" />
-              </div>
-              <div class="page-navigation">
-                <button class="carousel-nav prev" on:click={prevPage} disabled={currentPage === 1}>
-                  <i class="bi bi-chevron-left"></i>
-                </button>
-                <span class="page-number">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button class="carousel-nav next" on:click={nextPage} disabled={currentPage === totalPages}>
-                  <i class="bi bi-chevron-right"></i>
-                </button>
+        <div class="preview-layout-grid">
+          <div class="preview-main-content">
+            <div class="preview-main-image-container">
+              <img src={images[currentPageIndex]} alt={`Page ${currentPageIndex + 1}`} class="preview-main-image" />
+            </div>
+            <div class="page-navigation">
+              <button class="carousel-nav prev" on:click={prevPage} disabled={currentPageIndex === 0}>
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <span class="page-number">
+                Page {currentPageIndex + 1} of {totalPages}
+              </span>
+              <button class="carousel-nav next" on:click={nextPage} disabled={currentPageIndex === totalPages - 1}>
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+          <aside class="preview-sidebar">
+            <div class="preview-details">
+              <div><b>Subdomain:</b> {pdfData?.subdomain || 'epa.gov'}</div>
+              <div><b>Publish Date:</b> {pdfData?.publish_date || '2022-01-01'}</div>
+            </div>
+            <div class="preview-thumbnail-panel">
+              <h6 class="preview-thumbnail-panel-title">All Pages</h6>
+              <div class="preview-thumbnail-grid">
+                {#each images as img, i}
+                  <img src={img} alt={`Page ${i + 1}`} class="preview-thumbnail-item" class:active={i === currentPageIndex} on:click={() => currentPageIndex = i} />
+                {/each}
               </div>
             </div>
-            <aside class="pdf-side-panel">
-              <div class="metadata-box compact no-border">
-                <div><b>ID:</b> {pdfData?.id || '-'}</div>
-                <div><b>Page:</b> {currentPage} / {totalPages}</div>
-                <div><b>Subdomain:</b> {pdfData?.subdomain || 'epa.gov'}</div>
-                <div><b>Publish Date:</b> {pdfData?.publish_date || '2022-01-01'}</div>
-                {#if pdfData?.title}
-                  <div><b>Title:</b> {pdfData.title}</div>
-                {/if}
-                {#if pdfData?.agency}
-                  <div><b>Agency:</b> {pdfData.agency}</div>
-                {/if}
-              </div>
-              <div class="pdf-thumbnails-panel large">
-                <h6>All Pages</h6>
-                <div class="all-images all-pages-grid">
-                  {#each images as img, i}
-                    <img src={img} alt={`Page ${i+1}`} class:active-thumb={i+1===currentPage} on:click={() => currentPage=i+1} />
-                  {/each}
-                </div>
-              </div>
-            </aside>
-          </div>
-        {:else}
-          <p>No images found.</p>
-        {/if}
+          </aside>
+        </div>
       </div>
     </div>
   </div>
 {/if}
 
 <style>
+  :root {
+    --preview-border-color: #e0e4e8;
+    --preview-spacing-unit: 1rem;
+    --preview-border-radius: 8px;
+  }
+
   .modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1050;
+    padding: var(--preview-spacing-unit);
   }
+
   .modal-content {
-    background: white;
-    width: 80%;
-    max-height: 90vh;
-    border-radius: 4px;
+    background: #fff;
+    width: 90%;
+    max-width: 1300px;
+    max-height: calc(100vh - (var(--preview-spacing-unit) * 2));
+    border-radius: var(--preview-border-radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
+
   .modal-header {
-    padding: 1rem;
-    border-bottom: 1px solid #dee2e6;
+    padding: 10px 12px 10px 16px;
+    border-bottom: 1px solid var(--preview-border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
   }
+
+  .modal-title {
+    font-size: 1.2rem;
+    color: var(--text-color-primary);
+  }
+
+  .btn-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    font-size: 2rem;
+  }
+  .btn-close:hover {
+    opacity: 1;
+  }
+
   .modal-body {
-    padding: 1rem;
+    padding: calc(var(--preview-spacing-unit) * 1.5);
     overflow-y: auto;
+    flex-grow: 1;
   }
-  .pdf-pages {
-    width: 100%;
-  }
-  .pdf-preview-grid {
+
+  .preview-layout-grid {
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 0;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: calc(var(--preview-spacing-unit) * 1.5);
     align-items: flex-start;
     width: 100%;
-    min-height: 60vh;
-    justify-items: center;
   }
-  .pdf-main-panel.compact {
+
+  .preview-main-content {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: var(--preview-spacing-unit);
     width: 100%;
-    max-width: 480px;
-    justify-content: center;
   }
-  .pdf-side-panel {
-    display: flex;
-    flex-direction: column;
+
+  .preview-main-image-container {
     width: 100%;
-    height: 100%;
-    gap: 1.2rem;
+    border: 1px solid var(--preview-border-color);
+    border-radius: var(--preview-border-radius);
+    background-color: #f8f9fa;
   }
+
+  .preview-main-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+
   .page-navigation {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: var(--preview-spacing-unit);
+    padding: calc(var(--preview-spacing-unit) * 0.5) 0;
+    width: 100%;
   }
+
+  .page-number {
+    font-size: 0.95rem;
+    color: var(--text-color-secondary);
+  }
+
   .carousel-nav {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    color: var(--text-color-primary);
     cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--preview-border-radius);
   }
-  .pdf-image-wrapper {
-    overflow: hidden;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  .carousel-nav:disabled {
+    color: var(--preview-border-color);
+    cursor: not-allowed;
   }
-  .pdf-main-image {
-    width: 100%;
-    height: auto;
+  .carousel-nav:not(:disabled):hover {
+    background-color: rgba(0, 123, 255, 0.1);
   }
-  .metadata-box {
+
+  .preview-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-  }
-  .metadata-box.compact {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 16px 0 rgba(60, 80, 120, 0.10);
-    padding: 1.1rem 1.3rem;
-    font-size: 1.04rem;
-    color: #1a2a3a;
-    margin-bottom: 0.5rem;
-    border: 1px solid #e6eaf2;
-  }
-  .metadata-box.compact.no-border {
-    background: none;
-    border: none;
-    box-shadow: none;
-    padding: 0 0 1.1rem 0;
-    font-size: 1.04rem;
-    color: #1a2a3a;
-    margin-bottom: 0.5rem;
-  }
-  .metadata-box.compact.no-border h6 {
-    margin: 0 0 0.7rem 0;
-    font-size: 1.13rem;
-    color: #1a2a3a;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-  .pdf-thumbnails-panel.large {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 16px 0 rgba(60, 80, 120, 0.10);
-    padding: 1.2rem 0.7rem;
-    margin-top: 0.2rem;
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    min-height: 0;
-    border: 1px solid #e6eaf2;
-  }
-  .pdf-thumbnails-panel.large h6 {
-    font-size: 1.08rem;
-    color: #1a2a3a;
-    font-weight: 700;
-    margin-bottom: 0.8rem;
-    letter-spacing: 0.01em;
-  }
-  .all-pages-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-    gap: 18px;
-    align-items: start;
-    width: 100%;
+    gap: calc(var(--preview-spacing-unit) * 1.5);
     height: 100%;
-    max-height: none;
-    overflow-y: auto;
-    padding-right: 4px;
-    justify-items: center;
+  }
+
+  .preview-details {
+    font-size: 0.9rem;
+    color: var(--text-color-primary);
+    padding: var(--preview-spacing-unit) calc(var(--preview-spacing-unit) * 1.25);
+    border-radius: var(--preview-border-radius);
+    border: 1px solid var(--preview-border-color);
+  }
+  .preview-details div {
+    margin-bottom: calc(var(--preview-spacing-unit) * 0.5);
+  }
+  .preview-details div:last-child {
+    margin-bottom: 0;
+  }
+  .preview-details b {
+    font-weight: 600;
+    color: var(--text-color-primary);
+  }
+
+  .preview-thumbnail-panel {
     background: #fff;
-    border-radius: 8px;
-    box-shadow: none;
+    border-radius: var(--preview-border-radius);
+    border: 1px solid var(--preview-border-color);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
   }
-  .all-pages-grid img {
-    width: 76px;
-    height: 104px;
+
+  .preview-thumbnail-panel .preview-thumbnail-panel-title {
+    font-size: 0.9rem;
+    color: var(--text-color-primary);
+    margin: 0 4px 8px 6px;
+  }
+
+  .preview-thumbnail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--preview-spacing-unit);
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: calc(var(--preview-spacing-unit) * 0.25);
+  }
+
+  .preview-thumbnail-item {
+    width: 100%;
+    aspect-ratio: 76 / 104;
+    height: auto;
     object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid #e0e0e0;
-    background: #fafdff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-radius: calc(var(--preview-border-radius) * 0.75);
+    border: 2px solid var(--preview-border-color);
+    background: #f8f9fa;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     cursor: pointer;
-    transition: border 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.04));
+    transition: all 0.2s ease-in-out;
   }
-  .all-pages-grid img.active-thumb {
-    border: 2.5px solid #007bff;
-    box-shadow: 0 4px 16px rgba(0,123,255,0.13);
-    transform: scale(1.10) translateY(-2px);
+  .preview-thumbnail-item:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+  }
+  .preview-thumbnail-item.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+    transform: scale(1.05);
     background: #eaf6ff;
     z-index: 2;
   }

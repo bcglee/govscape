@@ -4,6 +4,7 @@
   import { searchStore } from '$lib/stores/search';
 
   const dispatch = createEventDispatcher();
+
   let gridElement;
   let masonry;
 
@@ -110,7 +111,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .info-subdomain {
     font-size: 0.8rem;
     color: var(--text-color-secondary);

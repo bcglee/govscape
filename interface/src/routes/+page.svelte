@@ -23,6 +23,11 @@
     showPreview = true;
   }
 
+  function handleClosePreview() {
+    showPreview = false;
+    selectedPDF = null;
+  }
+
   onMount(() => {
     function checkScreenSize() {
       isSmallScreen = window.innerWidth < 768;
@@ -46,18 +51,13 @@
       {/if}
     </h1>
   </div>
-
   <SearchBox />
-
   <ResultsGrid on:pdfSelect={handlePDFSelect} />
-
-  {#if showPreview}
-    <PDFPreview 
-      show={showPreview}
-      pdfData={selectedPDF}
-      on:close={() => showPreview = false}
-    />
-  {/if}
+  <PDFPreview 
+    show={showPreview}
+    pdfData={selectedPDF}
+    on:close={handleClosePreview}
+  />
 </main>
 
 <style>
