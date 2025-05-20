@@ -232,7 +232,7 @@ class PDFsToEmbeddings:
     def text_to_embeddings(self, text):
         return self.embedding_model.encode_text(text)
 
-    def txt_to_text(self, text, txt_path):
+    def txt_to_text(self, txt_path):
         text = ""
         with open(txt_path, 'r') as file:
             text = file.read()
