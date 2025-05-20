@@ -90,14 +90,16 @@ def batched_file_download(BATCH_SIZE):
     for i in range(0, len(pdf_files), BATCH_SIZE):
         print("BATCH: ", i)
         batch = pdf_files[i:i + BATCH_SIZE] 
+        local_batch = []
 
         for pdf in batch:
             file_name = os.path.basename(pdf)
             local_path = os.path.join('downloads', file_name)  # save here?
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             s3.download_file(bucket_name, pdf, local_path)
+            local_batch.append(local_path)
         
-        process_pdfs(batch)
+        process_pdfs(local_batch)  #TODO: ?? 
 
         # TODO: DELTE THE TXT FOLDERS AND OTHERS 
     
