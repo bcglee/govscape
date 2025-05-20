@@ -32,7 +32,7 @@ class PdfToJpeg:
         
         # converts to images and provides an output_folder to reduce the memory usage
         try: 
-            convert_from_path(pdf_filename, dpi=self.dpi, output_folder=img_directory, fmt="jpeg")
+            convert_from_path(pdf_filename, dpi=self.dpi, output_folder=img_directory, fmt="jpeg", use_pdftocairo=True) # last is useFast option
         except FileNotFoundError:
             print("FILE WAS NOT FOUND")
         except NotImplementedError:
