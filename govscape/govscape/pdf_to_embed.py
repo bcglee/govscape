@@ -287,7 +287,7 @@ class PDFsToEmbeddings:
     # set so the number of page files matches the batch size. 
     def convert_subdirs_to_embeddings(self, txt_subdir_paths):
         text_batch = []
-        corresponding_file_batch = []
+        file_batch = []
         for txt_subdir_path in txt_subdir_paths:
             embed_name = os.path.basename(txt_subdir_path)
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
@@ -300,7 +300,7 @@ class PDFsToEmbeddings:
                 txt_path = os.path.join(txt_subdir_path, txt_file)
                 text = self.txt_to_text(txt_path)
                 text_batch.append(text)
-                corresponding_file_batch.append((txt_file, embedding_dir))
+                file_batch.append((txt_file, embedding_dir))
                 if len(text_batch) == BATCH_SIZE:
                     batch_embedding = self.embedding_model.encode_text_batch(text_batch)
 
@@ -310,7 +310,7 @@ class PDFsToEmbeddings:
                         np.save(output_path, embedding)
                     
                     text_batch = []
-                    corresponding_file_batch = []
+                    file_batch = []
         
         # don't forget remaining 
         if text_batch:
