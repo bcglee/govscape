@@ -67,7 +67,7 @@ class TextEmbeddingModel(EmbeddingModel):
         return embeddings  # can only convert embeddings to numpy on cpu?? 
     
     # def encode_text_batch_gpus(self, texts):
-    #     return self.model.encode_multi_process(texts, self.pool)
+    #     return self.model.encode_multi_process(texts, batch_size=GPU_BATCH_SIZE, self.pool)  
 
     def encode_image(self, jpg_path): # output: embed_shape    #TODO: use dataset so it doesn't process sequentially?? 
         image = Image.open(jpg_path)
@@ -243,7 +243,7 @@ def main(txt_path, embed_path, model):
     print("Embeddings computed. Shape:", emb.shape)
 
     # put them into embedding files 
-    processor.convert_txt.to_embed
+    processor.convert_embedding_to_files(emb, all_embed_file_paths)
 
     # Optional: Stop the processes in the pool
     model.stop_multi_process_pool(pool)
