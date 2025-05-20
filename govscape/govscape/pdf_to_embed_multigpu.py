@@ -226,13 +226,7 @@ class TxtsToEmbeddings:
         if not os.path.exists(path):
             os.makedirs(path)
 
-
-if __name__ == "__main__":
-
-    txt_path = "" #TODO: fdlskf lsdflksflsdfl
-    embed_path = ""
-    model = TextEmbeddingModel()
-    
+def main(txt_path, embed_path, model):
     processor = TxtsToEmbeddings(txt_path, embed_path, model)
 
     # sentences
@@ -253,3 +247,7 @@ if __name__ == "__main__":
 
     # Optional: Stop the processes in the pool
     model.stop_multi_process_pool(pool)
+
+if __name__ == "__main__":
+    main()
+
