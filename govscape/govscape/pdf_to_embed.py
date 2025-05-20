@@ -79,7 +79,7 @@ class TextEmbeddingModel(EmbeddingModel):
     # def encode_text_batch_gpus(self, texts):
     #     return self.model.encode_multi_process(texts, self.pool)
 
-    def encode_image(self, jpg_path): # output: embed_shape 
+    def encode_image(self, jpg_path): # output: embed_shape    #TODO: use dataset so it doesn't process sequentially?? 
         image = Image.open(jpg_path)
 
         with torch.no_grad():
@@ -304,6 +304,7 @@ class PDFsToEmbeddings:
                     print("NOW EMBEDDING THE TEXT BATCH")
                     batch_embedding = self.embedding_model.encode_text_batch(text_batch)
                     print("FINISHED EMBEDDING TEXT BATCH")
+                    print(batch_embedding.shape)
                     for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
                         file_name = txt_name.replace('.txt', '.npy')
                         print(f"file_name: {file_name} has been saved.")
@@ -518,9 +519,9 @@ class PDFsToEmbeddings:
         time2 = time.time()
         self.convert_txts_to_embeddings()
         time3 = time.time()
-        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. 
+        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. #TODO: uncomment
         time4 = time.time()
-        self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)
+        # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
         time5 = time.time()
         # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
 
