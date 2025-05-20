@@ -39,7 +39,12 @@ import logging
 # *************************************************************************************************************
 
 # global vars
-BATCH_SIZE = 16
+GPU_BATCH_SIZE = 16
+BATCH_SIZE = 64
+
+logging.basicConfig(
+    format="%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO, handlers=[LoggingHandler()]
+)
 
 class EmbeddingModel(ABC):
     @abstractmethod
@@ -64,7 +69,7 @@ class TextEmbeddingModel(EmbeddingModel):
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
 
         # multi-gpu version: 
-        # self.pool = model.start_multi_process_pool()
+        self.pool = self.model.start_multi_process_pool()
     
     def encode_text(self, text):
         with torch.no_grad():
@@ -73,7 +78,8 @@ class TextEmbeddingModel(EmbeddingModel):
     
     def encode_text_batch(self, texts): # TODO: verify you can put in a list of text files to do this in batches
         with torch.no_grad():
-            embeddings = self.model.encode(texts, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
+            # embeddings = self.model.encode(texts, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
+            embeddings = model.encode_multi_process(texts, batch_size = GPU_BATCH_SIZE, this.pool)
         return embeddings  # can only convert embeddings to numpy on cpu?? 
     
     # def encode_text_batch_gpus(self, texts):
@@ -547,5 +553,19 @@ class PDFsToEmbeddings:
             os.makedirs(path)
     
 
-# if __name__ == "__main__":
-#     sentences = 
+if __name__ == "__main__":
+    # Create a large list of 100k sentences
+    sentences = [f"This is sentence {i}" for i in range(100000)]
+
+    # Define the model
+    this.text_embedding()
+
+    # Start the multi-process pool on all available CUDA devices
+    pool = model.start_multi_process_pool()
+
+    # Compute the embeddings using the multi-process pool
+    emb = model.encode_multi_process(sentences, pool)
+    print("Embeddings computed. Shape:", emb.shape)
+
+    # Optional: Stop the processes in the pool
+    model.stop_multi_process_pool(pool)
