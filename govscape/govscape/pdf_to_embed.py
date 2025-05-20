@@ -159,6 +159,11 @@ class PDFsToEmbeddings:
         self.jpgs_path = jpgs_dir
         self.embedding_model = embedding_model
 
+        print("INITININTININTINITNINITNININTINT")
+        print(self.pdfs_path)
+        print(self.txts_path)
+        print(self.embeddings_path)
+
         # TODO: uncomment for metadata
         #big json file turn into dictionary
         # self.json_file = "/homes/gws/cgong16/govscape/data/test_data/TechnicalReport234PDFs" # input path here, probably want to add to a script later since i assume this will always be there
