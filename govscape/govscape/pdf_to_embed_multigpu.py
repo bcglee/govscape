@@ -231,7 +231,7 @@ def main(txt_path, embed_path, model):
     print("txt_path is ", txt_path)
 
     # sentences
-    sentences, all_embed_file_paths = processor.convert_txts_to_embeddings(txt_path)
+    sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()
 
     # Define the model
     model = TextEmbeddingModel()
