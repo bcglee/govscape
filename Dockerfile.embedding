@@ -1,0 +1,13 @@
+FROM python:3.12-bullseye
+
+RUN pip install poetry==2.1.2
+
+RUN mkdir /home/govscape
+WORKDIR /home/govscape
+COPY . .
+
+EXPOSE 8080
+
+RUN poetry install
+
+ENTRYPOINT ["poetry", "run", "python",  "scripts/run_embedding_pipeline.py", "-p", "data/test_data/TechnicalReport234PDFs", "-d", "data/test_data", "-m", "UAE"]
