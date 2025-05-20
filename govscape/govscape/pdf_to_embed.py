@@ -29,7 +29,7 @@ import re
 import logging
 
 # from govscape import multi_gpu_main
-from .pdf_to_embed_multigpu import main
+from .pdf_to_embed_multigpu import main_multigpu
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
@@ -526,8 +526,8 @@ class PDFsToEmbeddings:
         time1 = time.time()
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
-        self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # multi_gpu_main(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
+        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
         time3 = time.time()
         # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. #TODO: uncomment
         time4 = time.time()
