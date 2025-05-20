@@ -33,8 +33,8 @@ image_directory = os.path.join(DATA_DIR, 'images')
 
 batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
-# model = gs.TextEmbeddingModel()
-# processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+model = gs.TextEmbeddingModel()
+processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
 
 # ****************************************************************************************************
 
@@ -168,8 +168,8 @@ def batched_file_download(BATCH_SIZE, processor):
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
-    model = gs.TextEmbeddingModel()
-    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+    # model = gs.TextEmbeddingModel()
+    # processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
     batched_file_download(BATCH_SIZE, processor)
 
 if __name__ == '__main__':

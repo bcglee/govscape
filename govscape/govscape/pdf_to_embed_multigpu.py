@@ -54,7 +54,7 @@ class TextEmbeddingModel(EmbeddingModel):
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
 
         # multi-gpu version: 
-        # self.pool = model.start_multi_process_pool()
+        self.pool = model.start_multi_process_pool()
     
     def encode_text(self, text):
         with torch.no_grad():
@@ -235,7 +235,7 @@ def main(txt_path, embed_path, model):
     print("txt_path is ", txt_path)
 
     # sentences
-    sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()
+    sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
 
     # Define the model
     model = TextEmbeddingModel()
