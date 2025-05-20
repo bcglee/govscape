@@ -139,6 +139,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         return image_embedding
 
+def natural_key(s):
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(r'(\d+)', s)]
 
 class PDFsToEmbeddings:
     def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, embedding_model):
@@ -279,9 +282,6 @@ class PDFsToEmbeddings:
 
     # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
     # order file names differently)
-    def natural_key(s):
-        return [int(text) if text.isdigit() else text.lower()
-                for text in re.split(r'(\d+)', s)]
     
     # multiple txt subdir paths -> multiple embed dirs
     # set so the number of page files matches the batch size. 
