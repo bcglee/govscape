@@ -297,7 +297,7 @@ class PDFsToEmbeddings:
             txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
 
             for txt_file in txt_files:
-                txt_path = os.path.join(txt_subdir_path, txt_file)
+                txt_path = os.path.join(self.txts_path, txt_subdir_path, txt_file)
                 text = self.txt_to_text(txt_file)
                 text_batch.append(text)
                 corresponding_file_batch.append((txt_file, embedding_dir))
