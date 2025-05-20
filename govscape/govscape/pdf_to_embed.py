@@ -276,6 +276,12 @@ class PDFsToEmbeddings:
             file_name = os.path.splitext(txt_file)[0] + ".npy"
             output_path = os.path.join(embedding_dir, file_name)
             np.save(output_path, embedding)
+
+    # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
+    # order file names differently)
+    def natural_key(s):
+        return [int(text) if text.isdigit() else text.lower()
+                for text in re.split(r'(\d+)', s)]
     
     # multiple txt subdir paths -> multiple embed dirs
     # set so the number of page files matches the batch size. 
@@ -538,9 +544,4 @@ class PDFsToEmbeddings:
         if not os.path.exists(path):
             os.makedirs(path)
     
-    # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
-    # order file names differently)
-    def natural_key(s):
-        return [int(text) if text.isdigit() else text.lower()
-                for text in re.split(r'(\d+)', s)]
 
