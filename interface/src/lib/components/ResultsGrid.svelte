@@ -1,14 +1,12 @@
 <script>
   import { createEventDispatcher, onMount, afterUpdate } from 'svelte';
   import Masonry from 'masonry-layout';
-  import imagesLoaded from 'imagesloaded';
   import { searchStore } from '$lib/stores/search';
 
   const dispatch = createEventDispatcher();
   let gridElement;
   let masonry;
 
-  // Subscribe to searchStore.results
   $: results = $searchStore.results;
 
   function handlePDFSelect(pdf, page) {
@@ -17,29 +15,13 @@
     dispatch('pdfSelect', { pdf, page, id: pdfId });
   }
 
-  function getAgencyName(subdomain) {
-    if (!subdomain) return '';
-    return subdomain;
-  }
-
-  function handleImageError(event, result) {
-    console.error('Image failed to load:', {
-      src: event.target.src,
-      result: result
-    });
-  }
-
   onMount(() => {
     if (typeof window !== 'undefined' && gridElement) {
       masonry = new Masonry(gridElement, {
         itemSelector: '.grid-item',
-        columnWidth: '.grid-sizer',
-        percentPosition: true,
-        gutter: 20
-      });
-
-      imagesLoaded(gridElement).on('progress', () => {
-        masonry?.layout();
+        columnWidth: 280,
+        gutter: 20,
+        fitWidth: true
       });
     }
   });
@@ -49,15 +31,15 @@
       setTimeout(() => {
         masonry.reloadItems();
         masonry.layout();
-      }, 100);
+      }, 0);
     }
   });
 </script>
 
-<div class="results-grid" bind:this={gridElement}>
-  {#if results.length > 0}
-    <div class="grid-sizer"></div>
-    {#each results as result}
+<div class="grid-container">
+  <div bind:this={gridElement}>
+    {#if results.length > 0}
+      {#each results as result}
       <div class="grid-item">
         <div class="result-card" on:click={() => handlePDFSelect(result.pdf, result.page)}>
           <div class="image-container">
@@ -65,60 +47,39 @@
               src={result.jpeg} 
               alt={`PDF Page ${result.page}`}
               loading="lazy"
-              on:error={(e) => handleImageError(e, result)}
             />
           </div>
           <div class="result-info">
-            <h5>{result.pdf.split('/').pop()}</h5>
-            <p>Page: {result.page}</p>
-            {#if result.subdomain}
-              <div class="agency-info">
-                <p class="subdomain">{result.subdomain}</p>
-                <p class="agency-name">{getAgencyName(result.subdomain)}</p>
-              </div>
-            {/if}
+            <div class="info-name">{result.pdf.split('/').pop()}</div>
+            <div class="info-subdomain">{result.subdomain || 'subdomain.gov'}</div>
           </div>
         </div>
       </div>
-    {/each}
-  {/if}
+      {/each}
+    {/if}
+  </div>
 </div>
 
 <style>
-  .results-grid {
-    padding: 0 1rem;
-    width: 100%;
-    max-width: 1200px;
-    margin-top: 1rem;
+  .grid-container {
+    width: 90%;
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    padding: 50px 0 100px 0;
   }
 
-  .grid-sizer,
   .grid-item {
-    width: calc(33.333% - 20px);
+    width: 280px;
     margin-bottom: 20px;
   }
 
-  @media (max-width: 768px) {
-    .grid-sizer,
-    .grid-item {
-      width: calc(50% - 20px);
-    }
-  }
-
-  @media (max-width: 480px) {
-    .grid-sizer,
-    .grid-item {
-      width: 100%;
-    }
-  }
-
   .result-card {
-    background: white;
+    background: #fff;
     border-radius: 8px;
-    padding: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    transition: transform 0.2s;
     overflow: hidden;
   }
 
@@ -129,44 +90,29 @@
   .image-container {
     width: 100%;
     height: 200px;
-    overflow: hidden;
-    margin-bottom: 15px;
   }
 
   .image-container img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: none;
   }
 
-  .result-info h5 {
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
+  .result-info {
+    max-width: 270px;
+    padding: 12px;
     color: var(--text-color-primary);
-    word-wrap: break-word;
-    word-break: break-word;
   }
 
-  .result-info p {
-    margin: 5px 0;
-    color: #666;
-    word-wrap: break-word;
-    word-break: break-word;
+  .info-name {
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-
-  .agency-info {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #eee;
-  }
-
-  .subdomain {
-    color: #007bff;
-    font-weight: bold;
-  }
-
-  .agency-name {
-    color: #666;
-    font-size: 0.9em;
+  
+  .info-subdomain {
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
   }
 </style>
