@@ -64,8 +64,7 @@ class TextEmbeddingModel(EmbeddingModel):
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
 
         # multi-gpu version: 
-        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1", use_fast=True).to(self.device)
-        # self.pool = model.start_multi_process_pool()
+        self.pool = model.start_multi_process_pool()
     
     def encode_text(self, text):
         with torch.no_grad():
@@ -302,10 +301,12 @@ class PDFsToEmbeddings:
                 text_batch.append(text)
                 file_batch.append((txt_file, embedding_dir))
                 if len(text_batch) == BATCH_SIZE:
+                    print("NOW EMBEDDING THE TEXT BATCH")
                     batch_embedding = self.embedding_model.encode_text_batch(text_batch)
-
+                    print("FINISHED EMBEDDING TEXT BATCH")
                     for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
                         file_name = txt_name.replace('.txt', '.npy')
+                        print(f"file_name: {file_name} has been saved.")
                         output_path = os.path.join(embedding_dir, file_name)
                         np.save(output_path, embedding)
                     
@@ -545,3 +546,5 @@ class PDFsToEmbeddings:
             os.makedirs(path)
     
 
+# if __name__ == "__main__":
+#     sentences = 
