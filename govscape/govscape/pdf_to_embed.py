@@ -301,7 +301,7 @@ class PDFsToEmbeddings:
                 text = self.txt_to_text(txt_path)
                 text_batch.append(text)
                 corresponding_file_batch.append((txt_file, embedding_dir))
-                if len(txt_batch) == BATCH_SIZE:
+                if len(text_batch) == BATCH_SIZE:
                     batch_embedding = self.convert_text_batch(text_batch)
 
                     for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
