@@ -146,12 +146,16 @@ class TxtsToEmbeddings:
     def convert_subdirs_to_embeddings(self, txt_subdir_paths):
         text_batch = []
         file_batch = []
+        print(txt_subdir_paths)
         for txt_subdir_path in txt_subdir_paths:
             embed_name = os.path.basename(txt_subdir_path)
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
+            print("TXT SUBDIR PATH IS ", txt_subdir_path)
+            print(self.embeddings_path)
+            print(txt_subdir_path)
             txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
 
             for txt_file in txt_files:
