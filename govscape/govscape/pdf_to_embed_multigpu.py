@@ -166,6 +166,8 @@ class TxtsToEmbeddings:
 
     # 2. MP VERSION with pdf_files
     def convert_txts_to_embeddings(self):
+        print("made it here 1")
+        print(self.txts_path)
         all_texts = []
         all_embed_file_paths = []
         self.ensure_dir(self.embeddings_path)
@@ -180,6 +182,8 @@ class TxtsToEmbeddings:
         txt_subdir_batches = []
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
+        
+        print("txt_subdir_batches ", txt_subdir_batches)
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
