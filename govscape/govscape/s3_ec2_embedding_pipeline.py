@@ -98,6 +98,8 @@ def batched_file_download(BATCH_SIZE):
             s3.download_file(bucket_name, pdf, local_path)
         
         process_pdfs(batch)
+
+        # TODO: DELTE THE TXT FOLDERS AND OTHERS 
     
     overall_end_time = time.time()
 
