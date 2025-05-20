@@ -228,8 +228,10 @@ class TxtsToEmbeddings:
 def main(txt_path, embed_path, model):
     processor = TxtsToEmbeddings(txt_path, embed_path, model)
 
+    print("txt_path is ", txt_path)
+
     # sentences
-    sentences, all_embed_file_paths = processor.convert_txt_to_embedding(txt_path)
+    sentences, all_embed_file_paths = processor.convert_txts_to_embeddings(txt_path)
 
     # Define the model
     model = TextEmbeddingModel()
