@@ -28,7 +28,7 @@ import math
 import re
 import logging
 
-from govscape import multi_gpu_main
+# from govscape import multi_gpu_main
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
