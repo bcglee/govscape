@@ -16,14 +16,8 @@ def main():
     pdf_directory = args.pdf_directory
     txt_directory =  args.data_directory + '/txt'
     embeddings_directory =  args.data_directory + '/embeddings'
+    index_directory =  args.data_directory + '/index'
     image_directory =  args.data_directory + '/images'
-    model = None
-    if args.model == "CLIP":
-            model = gs.CLIPEmbeddingModel()
-    elif args.model == "UAE":
-            model = gs.TextEmbeddingModel()
-    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
-    processor.pdfs_to_embeddings()
 
     bin_file = os.path.join(embeddings_directory, "embeddings.bin")
     page_indices = os.path.join(embeddings_directory, "page_indices.bin")
@@ -33,8 +27,10 @@ def main():
         if os.path.isdir(subdir_path):
             npytobin.convert_pdfdir_to_bin(subdir_path)
     
-    pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
-    pdftojpeg.convert_directory_to_jpegs()
+    indexConfig = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, "Disk")
+    indexBuilder = gs.IndexBuilder(indexConfig)
+    indexBuilder.build_index()
+
 
 if __name__ == '__main__':
          main()
