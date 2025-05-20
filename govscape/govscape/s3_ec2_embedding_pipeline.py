@@ -33,9 +33,8 @@ image_directory = os.path.join(DATA_DIR, 'images')
 
 batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
-model = gs.TextEmbeddingModel()
-
-processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+# model = gs.TextEmbeddingModel()
+# processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
 
 # ****************************************************************************************************
 
@@ -49,7 +48,7 @@ def upload_directory_to_s3(ec2_dir, s3_dir):
             s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
             s3.upload_file(local_file_path, bucket_name, s3_key)
 
-def process_pdfs(pdf_files):
+def process_pdfs(pdf_files, processor):
     print("IN PROCESS_PDFS: ", pdf_files)
     start_time = time.time()
 
@@ -75,7 +74,7 @@ def process_pdfs(pdf_files):
 
 
 # NON-MULTITHREADED VERSION
-def batched_file_download(BATCH_SIZE):
+def batched_file_download(BATCH_SIZE, processor):
     result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
     # Get list of pdf file names
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # note this only returns 1000
@@ -99,7 +98,7 @@ def batched_file_download(BATCH_SIZE):
             s3.download_file(bucket_name, pdf, local_path)
             local_batch.append(local_path)
         
-        process_pdfs(local_batch)  #TODO: ?? 
+        process_pdfs(local_batch, processor)  #TODO: ?? 
 
         # TODO: DELTE THE TXT FOLDERS AND OTHERS 
     
@@ -169,7 +168,9 @@ def batched_file_download(BATCH_SIZE):
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
-    batched_file_download(BATCH_SIZE)
+    model = gs.TextEmbeddingModel()
+    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+    batched_file_download(BATCH_SIZE, processor)
 
 if __name__ == '__main__':
     main()
