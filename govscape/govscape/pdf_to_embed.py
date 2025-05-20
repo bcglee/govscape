@@ -39,7 +39,7 @@ import logging
 # *************************************************************************************************************
 
 # global vars
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 
 class EmbeddingModel(ABC):
     @abstractmethod
@@ -69,7 +69,7 @@ class TextEmbeddingModel(EmbeddingModel):
     
     def encode_text(self, text):
         with torch.no_grad():
-            embeddings = self.model.encode(text, batch_size=32, device=self.device) # hopefully in batches
+            embeddings = self.model.encode(text, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
         return embeddings
     
     def encode_text_batch(self, texts): # TODO: verify you can put in a list of text files to do this in batches
