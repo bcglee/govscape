@@ -525,8 +525,8 @@ class PDFsToEmbeddings:
         time1 = time.time()
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        pdf_to_embed_multigpu.main()
+        self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # pdf_to_embed_multigpu.main()  # for multigpu 
         time3 = time.time()
         # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image. #TODO: uncomment
         time4 = time.time()
