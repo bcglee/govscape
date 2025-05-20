@@ -237,6 +237,8 @@ def main(txt_path, embed_path, model):
     # sentences
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
 
+    print("FINISHE DLSK DJFLKSDJFL KSJDFLK JSLDKFJ L ******************************************")
+
     # Define the model
     model = TextEmbeddingModel()
 
