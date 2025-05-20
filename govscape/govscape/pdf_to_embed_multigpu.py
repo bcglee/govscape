@@ -161,7 +161,7 @@ class TxtsToEmbeddings:
             for txt_file in txt_files:
                 txt_path = os.path.join(txt_subdir_path, txt_file)
                 text = self.txt_to_text(txt_path)
-                output_path = os.path.join(embedding_dir, file_name)
+                output_path = os.path.join(embedding_dir, txt_file)
                 text_batch.append(text)
                 file_batch.append(output_path)
         
