@@ -26,25 +26,27 @@ class Server:
         self.index_type = config.index_type
         self.disk_index = config.disk_index
 
-        # FAISS model
+        # embedding model params
         self.model = config.model
         self.k = self.config.k
         self.d = self.config.d
 
-        # create a new index
-        self.faiss_index = faiss.IndexFlatL2(self.d)
+        # build FAISS index if necessary
+        if self.index_type == "Memory":
+            # create a new index
+            self.faiss_index = faiss.IndexFlatL2(self.d)
 
-        # Train model on test vectors
-        self.npy_files = []
-        for root, _, files in os.walk(self.embedding_directory):
-            for file in files:
-                if file.endswith('.npy'):
-                    self.npy_files.append(os.path.join(root, file))
+            # Add vectors to faiss index
+            self.npy_files = []
+            for root, _, files in os.walk(self.embedding_directory):
+                for file in files:
+                    if file.endswith('.npy'):
+                        self.npy_files.append(os.path.join(root, file))
 
-        # Load each .npy file into an array
-        self.arrays = [np.load(file) for file in self.npy_files]
-        stacked_array = np.vstack(self.arrays)
-        self.faiss_index.add(stacked_array)
+            # Load each .npy file into an array
+            self.arrays = [np.load(file) for file in self.npy_files]
+            stacked_array = np.vstack(self.arrays)
+            self.faiss_index.add(stacked_array)
 
     # Accepts a Query -> Returns JSON with closest results
     # Sample:
