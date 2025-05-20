@@ -297,8 +297,8 @@ class PDFsToEmbeddings:
             txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
 
             for txt_file in txt_files:
-                txt_path = os.path.join(self.txts_path, txt_subdir_path, txt_file)
-                text = self.txt_to_text(txt_file)
+                txt_path = os.path.join(txt_subdir_path, txt_file)
+                text = self.txt_to_text(txt_path)
                 text_batch.append(text)
                 corresponding_file_batch.append((txt_file, embedding_dir))
                 if len(txt_batch) == BATCH_SIZE:
@@ -365,10 +365,6 @@ class PDFsToEmbeddings:
         for txt_subdir in os.scandir(self.txts_path):
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
-        
-
-        print("HIHIHIHIHI")
-        print(txt_subdirs_paths)
         
         # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
         batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
