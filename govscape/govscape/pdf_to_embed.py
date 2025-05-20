@@ -57,7 +57,7 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1", use_fast=True).to(self.device)  # note: max length = 512 
+        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1", tokenizer_args={'use_fast': True}).to(self.device)  # note: max length = 512 
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
         #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
