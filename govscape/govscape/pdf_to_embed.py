@@ -366,6 +366,10 @@ class PDFsToEmbeddings:
             if txt_subdir.is_dir():
                 txt_subdirs_paths.append(txt_subdir.path)
         
+
+        print("HIHIHIHIHI")
+        print(txt_subdirs_paths)
+        
         # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
         batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
         txt_subdir_batches = []
