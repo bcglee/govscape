@@ -8,6 +8,7 @@ import os
 import struct
 import json
 from .api import init_api
+from .filter import Filter
 
 
 # basic pipeline developed:
@@ -46,6 +47,7 @@ class Server:
         self.arrays = [np.load(file) for file in self.npy_files]
         stacked_array = np.vstack(self.arrays)
         self.faiss_index.add(stacked_array)
+        self.filt = Filter(config)
 
         # Accepts a Query -> Returns JSON with closest results
         # Sample:
@@ -117,14 +119,15 @@ class Server:
         self.app.server = self
         self.api = init_api(self.app)
 
-    def search(self, query):
+    def search(self, query, filters=None):
         # Create random array embedding
         query_embedding = self.model.text_to_embeddings(query)
+        search_results = []
+        
         if self.index_type == 'Memory':
             # Search for the k closest arrays
             D, I = self.faiss_index.search(query_embedding, self.k)
 
-            search_results = []
             for i in range(I.shape[0]):
                 for j in range(I.shape[1]):
                     # parse file information for page
@@ -141,22 +144,27 @@ class Server:
                         "jpeg": jpeg
                     })
 
-        if self.index_type == 'Disk':
+        elif self.index_type == 'Disk':
             normalized = query_embedding / np.linalg.norm(query_embedding)
             indices, distances = self.disk_index.search(normalized.flatten(), self.k, self.k * 2)
-            search_results = []
             page_indices = os.path.join(self.embedding_directory, "page_indices.bin")
             with open(page_indices, "rb") as file:
                 for i in range(len(indices)):
                     file.seek(indices[i] * 117, os.SEEK_SET)
                     pdf_name = file.read(113).decode('utf-8').strip()
                     page = str(struct.unpack("i", file.read(4))[0])
+                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+
                     search_results.append({
                         "pdf": pdf_name,
                         "page": page,
-                        "distance": float(distances[i])
+                        "distance": float(distances[i]),
+                        "jpeg": jpeg
                     })
         
+        if filters and search_results:
+            search_results = self.filt.filter_results(search_results, filters)
+            
         return {"results": search_results}
 
     def pdf_pages(self, pdf_id):

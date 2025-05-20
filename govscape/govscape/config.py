@@ -16,7 +16,7 @@ class IndexConfig:
 
         
 class ServerConfig:
-    def __init__(self, index_config : IndexConfig, embedding_model, disk_index, k=3):
+    def __init__(self, index_config : IndexConfig, embedding_model, disk_index=None, k=3):
         self.pdf_directory = index_config.pdf_directory
         self.embedding_directory = index_config.embedding_directory
         self.index_directory = index_config.index_directory

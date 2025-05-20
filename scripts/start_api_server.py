@@ -25,7 +25,7 @@ def main():
     elif args.model == "UAE":
         model = gs.TextEmbeddingModel()
 
-    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory)
+    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, 'Memory')
     server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), k=args.top_k)
     
     server = gs.Server(server_config)
