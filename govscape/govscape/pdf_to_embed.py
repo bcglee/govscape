@@ -229,7 +229,7 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
-        ctx = get_context('fork')
+        ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
