@@ -10,7 +10,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 from io import BytesIO
 import fitz
 from transformers import CLIPProcessor, CLIPModel, AutoModel, AutoTokenizer
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, LoggingHandler
 import torch
 import torch.nn.functional as F
 from transformers import pipeline
@@ -25,7 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 import time
 import math
-
+import re
+import logging
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
@@ -36,6 +37,9 @@ import math
 # handles given a list of pdfs instead of given a dir of pdfs 
 
 # *************************************************************************************************************
+
+# global vars
+BATCH_SIZE = 32
 
 class EmbeddingModel(ABC):
     @abstractmethod
@@ -53,11 +57,15 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512 
+        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1", use_fast=True).to(self.device)  # note: max length = 512 
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
         #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
         self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
+
+        # multi-gpu version: 
+        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1", use_fast=True).to(self.device)
+        # self.pool = model.start_multi_process_pool()
     
     def encode_text(self, text):
         with torch.no_grad():
@@ -66,8 +74,11 @@ class TextEmbeddingModel(EmbeddingModel):
     
     def encode_text_batch(self, texts): # TODO: verify you can put in a list of text files to do this in batches
         with torch.no_grad():
-            embeddings = self.model.encode(texts, batch_size=32, device=self.device) # hopefully in batches
+            embeddings = self.model.encode(texts, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
         return embeddings  # can only convert embeddings to numpy on cpu?? 
+    
+    # def encode_text_batch_gpus(self, texts):
+    #     return self.model.encode_multi_process(texts, self.pool)
 
     def encode_image(self, jpg_path): # output: embed_shape 
         image = Image.open(jpg_path)
@@ -218,11 +229,16 @@ class PDFsToEmbeddings:
     def text_to_embeddings(self, text):
         return self.embedding_model.encode_text(text)
 
+    def txt_to_text(self, text, txt_path):
+        text = ""
+        with open(txt_path, 'r') as file:
+            text = file.read()
+        return text 
+
     # single txt -> embed
     def convert_txt_to_embedding(self, txt_path):
         # need to convert .txt to text
-        with open(txt_path, 'r') as file:
-            text = file.read()
+        text = self.txt_to_text(txt_path)
         return self.embedding_model.encode_text(text)
     
     # TODO: uncomment for metadata
@@ -261,6 +277,44 @@ class PDFsToEmbeddings:
             output_path = os.path.join(embedding_dir, file_name)
             np.save(output_path, embedding)
     
+    # multiple txt subdir paths -> multiple embed dirs
+    # set so the number of page files matches the batch size. 
+    def convert_subdirs_to_embeddings(self, txt_subdir_paths):
+        text_batch = []
+        corresponding_file_batch = []
+        for txt_subdir_path in txt_subdir_paths:
+            embed_name = os.path.basename(txt_subdir_path)
+            embedding_dir = os.path.join(self.embeddings_path, embed_name)
+            self.ensure_dir(embedding_dir)
+
+            #all txt files in the txt subdir 
+            txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
+
+            for txt_file in txt_files:
+                txt_path = os.path.join(txt_subdir_path, txt_file)
+                text = self.txt_to_text((txt_file)
+                text_batch.append(text)
+                corresponding_file_batch.append(txt_file, embedding_dir))
+                if len(txt_batch) == BATCH_SIZE:
+                    batch_embedding = self.convert_text_batch(text_batch)
+
+                    for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
+                        file_name = txt_name.replace('.txt', '.npy')
+                        output_path = os.path.join(embedding_dir, file_name)
+                        np.save(output_path, embedding)
+                    
+                    text_batch = []
+                    corresponding_file_batch = []
+        
+        # don't forget remaining 
+        if text_batch:
+            batch_embedding = self.convert_text_batch(text_batch)
+
+            for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
+                        file_name = txt_name.replace('.txt', '.npy')
+                        output_path = os.path.join(embedding_dir, file_name)
+                        np.save(output_path, embedding)
+
     # version 2 = batch of subdirs: txt subdir -> embed subdir.
     # def convert_subdir_to_embeddings(self, txt_subdir_paths):
     #     #print("Embedding PDF: " + txt_subdir_path)
@@ -314,8 +368,8 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            # pool.map(self.convert_subdir_to_embeddings, txt_subdir_batches)  #TODO: uncomment and figure out batches
-            pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths)
+            pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
+            # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
 
     # *******************************************************************************************************************
@@ -479,8 +533,14 @@ class PDFsToEmbeddings:
     # helper functions
     # *******************************************************************************************************************
 
-    #makes sure that the directory specified is created
+    # makes sure that the directory specified is created
     def ensure_dir(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
+    
+    # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
+    # order file names differently)
+    def natural_key(s):
+        return [int(text) if text.isdigit() else text.lower()
+                for text in re.split(r'(\d+)', s)]
 
