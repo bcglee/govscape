@@ -29,6 +29,7 @@ import re
 import logging
 
 # from govscape import multi_gpu_main
+from .pdf_to_embed_multigpu import main
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
