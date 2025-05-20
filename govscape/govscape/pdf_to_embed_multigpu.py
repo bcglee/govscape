@@ -86,7 +86,6 @@ def natural_key(s):
 
 class TxtsToEmbeddings:
     def __init__(self, txt_directory, embeddings_dir, embedding_model):
-        self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         # self.jpgs_path = jpgs_dir
