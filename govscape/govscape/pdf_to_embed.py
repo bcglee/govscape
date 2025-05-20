@@ -302,7 +302,7 @@ class PDFsToEmbeddings:
                 text_batch.append(text)
                 corresponding_file_batch.append((txt_file, embedding_dir))
                 if len(text_batch) == BATCH_SIZE:
-                    batch_embedding = self.encode_text_batch(text_batch)
+                    batch_embedding = self.embedding_model.encode_text_batch(text_batch)
 
                     for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
                         file_name = txt_name.replace('.txt', '.npy')
@@ -314,7 +314,7 @@ class PDFsToEmbeddings:
         
         # don't forget remaining 
         if text_batch:
-            batch_embedding = self.encode_text_batch(text_batch)
+            batch_embedding = self.embedding_model.encode_text_batch(text_batch)
 
             for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
                         file_name = txt_name.replace('.txt', '.npy')
