@@ -211,9 +211,11 @@ class TxtsToEmbeddings:
         chunks = np.array_split(embed, os.cpu_count())
         chunk_embed_file_paths = []
 
+        print("CHUNKS ", chunks)
+
         curr_start = 0
         for i in range(len(chunks)):
-            end = chunks.shape[0]
+            end = chunks[i].shape[0]
             chunk_embed_file_paths.append(embed_file_paths[start: start + end])
             start = start + end 
         
