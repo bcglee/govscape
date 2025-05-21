@@ -208,7 +208,7 @@ class TxtsToEmbeddings:
 
     def convert_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
-        chunks = np.array_split(embed, processes=os.cpu_count())
+        chunks = np.array_split(embed, os.cpu_count())
         chunk_embed_file_paths = []
 
         curr_start = 0
