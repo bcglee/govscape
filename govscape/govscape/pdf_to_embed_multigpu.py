@@ -244,20 +244,17 @@ def main(txt_path, embed_path, model):
     print("FINISHE DLSK DJFLKSDJFL KSJDFLK JSLDKFJ L ******************************************")
 
     # Define the model
-    model = TextEmbeddingModel()
-
-    # Start the multi-process pool on all available CUDA devices
-    pool = model.start_multi_process_pool()
+    text_model = TextEmbeddingModel()
 
     # Compute the embeddings using the multi-process pool
-    emb = model.encode_multi_process(sentences, pool)
+    emb = text_model.model.encode_multi_process(sentences, text_model.pool)
     print("Embeddings computed. Shape:", emb.shape)
 
     # put them into embedding files 
     processor.convert_embedding_to_files(emb, all_embed_file_paths)
 
     # Optional: Stop the processes in the pool
-    model.stop_multi_process_pool(pool)
+    text_model.model.stop_multi_process_pool(text_model.pool)
 
 if __name__ == "__main__":
     main()
