@@ -200,18 +200,17 @@ class TxtsToEmbeddings:
         
         return all_texts, all_embed_file_paths
     
-    def convert_embedding_to_files_batch(self, embed, embed_file_paths):
+    def convert_embedding_to_files_batch(self, embed_and_paths):
+        embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
-            file_name = txt_name.replace('.txt', '.npy')
+            file_name = output_path.replace('.txt', '.npy')
             print(f"file_name: {file_name} has been saved.")
-            np.save(output_path, embedding)
+            np.save(file_name, embedding)
 
     def convert_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
         chunks = np.array_split(embed, os.cpu_count())
         chunk_embed_file_paths = []
-
-        print("CHUNKS ", chunks)
 
         start = 0
         for i in range(len(chunks)):
@@ -224,7 +223,7 @@ class TxtsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self.convert_embedding_to_files_batch, chunks, chunk_embed_file_paths) # for batch
+            pool.map(self.convert_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths)) # for batch
 
     # *******************************************************************************************************************
     # helper functions
