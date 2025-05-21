@@ -1,5 +1,7 @@
-export const API_BASE_URL = 'http://localhost:8080/api';
-export const IMAGE_BASE_URL = 'http://localhost:8080/images';
+const IS_DEV = import.meta.env.DEV;
+
+export const API_BASE_URL = IS_DEV ? 'http://localhost:8080/api' : '/api';
+export const IMAGE_BASE_URL = IS_DEV ? 'http://localhost:8080/images' : '/images';
 
 export async function apiFetch(endpoint, options = {}) {
     const defaultOptions = {
