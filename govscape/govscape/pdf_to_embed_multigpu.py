@@ -212,7 +212,7 @@ class TxtsToEmbeddings:
         chunk_embed_file_paths = []
 
         curr_start = 0
-        for i in len(chunk):
+        for i in len(chunks):
             end = chunk.shape[0]
             chunk_embed_file_paths.append(embed_file_paths[start: start + end])
             start = start + end 
