@@ -659,7 +659,7 @@ class PDFsToEmbeddings:
     # *******************************************************************************************************************
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
-    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path):
+    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, text_captioning_model):
         pdf_doc = fitz.open(pdf_path)
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -679,7 +679,8 @@ class PDFsToEmbeddings:
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
-                embed = self.embedding_model.encode_image(image_path)
+                # embed = self.embedding_model.encode_image(image_path)
+                embed = text_captioning_model.encode_image
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -687,7 +688,7 @@ class PDFsToEmbeddings:
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
-    def extract_img_pdfs(self, pdf_files):
+    def extract_img_pdfs(self, pdf_files, text_captioning_model):
         # go through entire set of pdfs 
         # pdfs_dir = Path(pdf_files)
         # pdf_paths = list(pdfs_dir.glob("*.pdf"))
@@ -704,7 +705,7 @@ class PDFsToEmbeddings:
             img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
             img_path.mkdir(parents=True, exist_ok=True)
             out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
-            self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path)
+            self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, text_captioning_model)
     
     # *******************************************************************************************************************
     # overall pipeline
@@ -733,20 +734,22 @@ class PDFsToEmbeddings:
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
 
-        # # converting imgs
-        # img_model = CLIPEmbeddingModel()
+        # converting imgs
+        img_model = CLIPEmbeddingModel()
 
-        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
-        # img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
-        # time4 = time.time()
-        # # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
-        # emb = img_model.encode_images(img_paths)
-        # print("Embeddings computed. Shape:", emb.shape)
-        # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        # time5 = time.time()
-        # self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
-        # # TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
-        # time6 = time.time()
+        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
+        time4 = time.time()
+        # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
+        emb = img_model.encode_images(img_paths)
+        print("Embeddings computed. Shape:", emb.shape)
+        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        time5 = time.time()
+
+        text_captioning_model = TextEmbeddingModel()
+        self.extract_img_pdfs(pdf_files, text_captioning_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        # TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
+        time6 = time.time()
 
         first = time2 - time1
         sec = time3 - time2
