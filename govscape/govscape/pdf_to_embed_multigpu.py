@@ -182,7 +182,7 @@ class TxtsToEmbeddings:
         
         # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
         # batch_size = math.ceil(len(txt_subdirs_paths) / (os.cpu_count() // 2))
-        batch_size = math.ceil(len(txt_subdirs_paths) / (4)
+        batch_size = math.ceil(len(txt_subdirs_paths) / 4)
         txt_subdir_batches = []
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
