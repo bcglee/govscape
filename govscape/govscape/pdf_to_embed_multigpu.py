@@ -15,7 +15,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 import json
 import sys
-from .pdf_to_jpeg import PdfToJpeg
+# from .pdf_to_jpeg import PdfToJpeg
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 import time
