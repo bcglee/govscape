@@ -28,6 +28,7 @@ import math
 import re
 import logging
 import pynvml
+from multiprocessing import Manager, Lock
 
 # from govscape import multi_gpu_main
 from .pdf_to_embed_multigpu import main as main_multigpu
@@ -93,7 +94,7 @@ class TextEmbeddingModel(EmbeddingModel):
 
     # generates a caption of image, not a text embedding
     def encode_image(self, jpg_path): # output: embed_shape    #TODO: use dataset so it doesn't process sequentially?? 
-        image = Image.open(jpg_path).convert("L")
+        image = Image.open(jpg_path).convert("RGB")
 
         with torch.no_grad():
             caption = (self.image_to_caption(image))[0]['generated_text']
@@ -103,19 +104,37 @@ class TextEmbeddingModel(EmbeddingModel):
         return image_caption_embed
     
     
-def get_least_used_cuda():
+# def get_least_used_cuda():
+#     pynvml.nvmlInit()
+#     device_count = pynvml.nvmlDeviceGetCount()
+#     min_used_mem = float("inf")
+#     best_device = "cuda:0"
+#     for i in range(device_count):
+#         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+#         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+#         if meminfo.used < min_used_mem:
+#             min_used_mem = meminfo.used
+#             best_device = f"cuda:{i}"
+#     pynvml.nvmlShutdown()
+#     return best_device
+
+def get_available_cuda(gpu_process_map, lock, max_procs_per_gpu=2):
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
-    min_used_mem = float("inf")
-    best_device = "cuda:0"
-    for i in range(device_count):
-        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        if meminfo.used < min_used_mem:
-            min_used_mem = meminfo.used
-            best_device = f"cuda:{i}"
+    chosen_device = None
+
+    with lock:
+        for i in range(device_count):
+            if gpu_process_map[i] < max_procs_per_gpu:
+                gpu_process_map[i] += 1
+                chosen_device = f"cuda:{i}"
+                break
+
     pynvml.nvmlShutdown()
-    return best_device
+    if chosen_device is None:
+        raise RuntimeError("No available GPU with free slots.")
+    return chosen_device
+
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
@@ -304,8 +323,8 @@ class PDFsToEmbeddings:
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
-        # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=2) as pool:
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+        # with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
     # 3. MT VERSION 
@@ -596,8 +615,8 @@ class PDFsToEmbeddings:
         # print("img_subdir_batches ", img_subdir_batches)
 
         ctx = get_context('spawn')
-        # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=2) as pool:
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+        # with ctx.Pool(processes=2) as pool:
             results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
             # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
