@@ -159,23 +159,49 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         return image_embedding
     
-    def encode_images(self, jpg_paths):
-        images = []
-        for jpg_path in jpg_paths:
-            img = Image.open(path)
-            images.append(img)
+    # def encode_images(self, jpg_paths):
+        # batch_size = 32
+        # images = []
+        # for jpg_path in jpg_paths:
+        #     img = Image.open(jpg_path)
+        #     images.append(img)
         
-        inputs = self.processor(images=images, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        # inputs = self.processor(images=images, return_tensors="pt")
+        # inputs = {k: v.to(self.device) for k, v in inputs.items()}
     
-        with torch.no_grad():
-            if isinstance(self.model, torch.nn.DataParallel):  #multi-gpu case
-                embeddings = self.model.module.get_image_features(**inputs)
-            else:
-                embeddings = self.model.get_image_features(**inputs)
-            embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+        # with torch.no_grad():
+        #     if isinstance(self.model, torch.nn.DataParallel):  #multi-gpu case
+        #         embeddings = self.model.module.get_image_features(**inputs)
+        #     else:
+        #         embeddings = self.model.get_image_features(**inputs)
+        #     embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
         
-        return embeddings.cpu().numpy()
+        # return embeddings.cpu().numpy()
+    
+    def encode_images(self, jpg_paths, max_batch_size = 32):
+        all_embeddings = []
+
+        for i in range(0, len(jpg_paths), max_batch_size):
+            batch_paths = jpg_paths[i:i + max_batch_size]
+            images = []
+
+            for p in batch_paths:
+                img = Image.open(p)
+                images.append(img)
+
+            inputs = self.processor(images=images, return_tensors="pt")
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+            with torch.no_grad():
+                if isinstance(self.model, torch.nn.DataParallel):
+                    embeddings = self.model.module.get_image_features(**inputs)
+                else:
+                    embeddings = self.model.get_image_features(**inputs)
+
+                embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+
+            all_embeddings.append(embeddings.cpu())
+        return torch.cat(all_embeddings, dim=0).numpy()
 
 def natural_key(s):
     return [int(text) if text.isdigit() else text.lower()
