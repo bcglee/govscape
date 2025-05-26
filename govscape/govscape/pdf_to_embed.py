@@ -648,7 +648,7 @@ class PDFsToEmbeddings:
         # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
         emb = self.img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
-        processor.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
         self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
