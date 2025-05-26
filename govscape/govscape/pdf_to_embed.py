@@ -324,8 +324,7 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
-        # ctx = get_context('spawn')
-        ctx = get_context('fork')
+        ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
@@ -486,8 +485,8 @@ class PDFsToEmbeddings:
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
 
-        # ctx = get_context('spawn')
-        ctx = get_context('fork')
+        ctx = get_context('spawn')
+        # ctx = get_context('fork')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
         with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
@@ -618,8 +617,8 @@ class PDFsToEmbeddings:
         
         # print("img_subdir_batches ", img_subdir_batches)
 
-        # ctx = get_context('spawn')
-        ctx = get_context('fork')
+        ctx = get_context('spawn')
+        # ctx = get_context('fork')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
             results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
@@ -653,8 +652,8 @@ class PDFsToEmbeddings:
         if len(chunks) != len(chunk_embed_file_paths):
             raise Exception("chunks and chunk_embed_file_paths should be the same length.")
 
-        # ctx = get_context('spawn')
-        ctx = get_context('fork')
+        ctx = get_context('spawn')
+        # ctx = get_context('fork')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
         with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_img_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
