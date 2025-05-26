@@ -643,14 +643,14 @@ class PDFsToEmbeddings:
         img_model = gs.CLIPEmbeddingModel()
 
         # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
-        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
-        time4 = time.time()
-        # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
-        emb = self.img_model.encode_images(img_paths)
-        print("Embeddings computed. Shape:", emb.shape)
-        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        time5 = time.time()
-        self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
+        # img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
+        # time4 = time.time()
+        # # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
+        # emb = self.img_model.encode_images(img_paths)
+        # print("Embeddings computed. Shape:", emb.shape)
+        # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        # time5 = time.time()
+        # self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
         first = time2 - time1
