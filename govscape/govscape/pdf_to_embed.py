@@ -613,7 +613,6 @@ class PDFsToEmbeddings:
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
     def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path):
-        print("HI I AM IN ", pdf_path)
         pdf_doc = fitz.open(pdf_path)
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -640,8 +639,6 @@ class PDFsToEmbeddings:
 
     # pdfs -> extracted imgs, extracted img embeds
     def extract_img_pdfs(self, pdf_files):
-        print("******************************************************************************")
-        print("pdf_files ", pdf_files)
         # go through entire set of pdfs 
         # pdfs_dir = Path(pdf_files)
         # pdf_paths = list(pdfs_dir.glob("*.pdf"))
@@ -656,10 +653,8 @@ class PDFsToEmbeddings:
             # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
             full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
             img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
-            print("img_path ",  img_path)
             img_path.mkdir(parents=True, exist_ok=True)
             out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
-            print("out_embed_path ",  out_embed_path)
             self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path)
     
     # *******************************************************************************************************************
@@ -677,12 +672,12 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        # time1 = time.time()
-        # self.convert_pdfs_to_txt(pdf_files)
-        # time2 = time.time()
-        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
-        # time3 = time.time()
+        time1 = time.time()
+        self.convert_pdfs_to_txt(pdf_files)
+        time2 = time.time()
+        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
+        time3 = time.time()
 
         # converting imgs
         img_model = CLIPEmbeddingModel()
