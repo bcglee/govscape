@@ -369,13 +369,13 @@ class PDFsToEmbeddings:
                 text_batch.append(text)
                 file_batch.append((txt_file, embedding_dir))
                 if len(text_batch) == BATCH_SIZE:
-                    print("NOW EMBEDDING THE TEXT BATCH")
+                    # print("NOW EMBEDDING THE TEXT BATCH")
                     batch_embedding = self.embedding_model.encode_text_batch(text_batch)
-                    print("FINISHED EMBEDDING TEXT BATCH")
-                    print(batch_embedding.shape)
+                    # print("FINISHED EMBEDDING TEXT BATCH")
+                    # print(batch_embedding.shape)
                     for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
                         file_name = txt_name.replace('.txt', '.npy')
-                        print(f"file_name: {file_name} has been saved.")
+                        # print(f"file_name: {file_name} has been saved.")
                         output_path = os.path.join(embedding_dir, file_name)
                         np.save(output_path, embedding)
                     
@@ -531,7 +531,7 @@ class PDFsToEmbeddings:
     def convert_img_subdirs_to_embeddings(self, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
-        print(img_subdir_paths)
+        # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
             # embedding_dir = os.path.join(self.embeddings_path, embed_name)  #changed
@@ -539,9 +539,9 @@ class PDFsToEmbeddings:
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
-            print("IMG SUBDIR PATH IS ", img_subdir_path)
-            print(self.embeddings_img_path)
-            print(img_subdir_path)
+            # print("IMG SUBDIR PATH IS ", img_subdir_path)
+            # print(self.embeddings_img_path)
+            # print(img_subdir_path)
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
             for img_file in img_files:
@@ -569,7 +569,7 @@ class PDFsToEmbeddings:
         for i in range(0, len(img_subdirs_paths), batch_size):
             img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
         
-        print("img_subdir_batches ", img_subdir_batches)
+        # print("img_subdir_batches ", img_subdir_batches)
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
@@ -586,7 +586,7 @@ class PDFsToEmbeddings:
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.jpg', '.npy')
-            print(f"img file_name: {file_name} has been saved.")
+            # print(f"img file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
     
     def convert_img_embedding_to_files(self, embed, embed_file_paths):
@@ -634,7 +634,7 @@ class PDFsToEmbeddings:
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                print(output_path)
+                # print(output_path)
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds

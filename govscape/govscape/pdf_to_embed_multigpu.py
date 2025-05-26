@@ -146,16 +146,16 @@ class TxtsToEmbeddings:
     def convert_subdirs_to_embeddings(self, txt_subdir_paths):
         text_batch = []
         file_batch = []
-        print(txt_subdir_paths)
+        # print(txt_subdir_paths)
         for txt_subdir_path in txt_subdir_paths:
             embed_name = os.path.basename(txt_subdir_path)
             embedding_dir = os.path.join(self.embeddings_path, embed_name)
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
-            print("TXT SUBDIR PATH IS ", txt_subdir_path)
-            print(self.embeddings_path)
-            print(txt_subdir_path)
+            # print("TXT SUBDIR PATH IS ", txt_subdir_path)
+            # print(self.embeddings_path)
+            # print(txt_subdir_path)
             txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
 
             for txt_file in txt_files:
@@ -185,7 +185,7 @@ class TxtsToEmbeddings:
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
         
-        print("txt_subdir_batches ", txt_subdir_batches)
+        # print("txt_subdir_batches ", txt_subdir_batches)
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
@@ -203,7 +203,7 @@ class TxtsToEmbeddings:
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.txt', '.npy')
-            print(f"file_name: {file_name} has been saved.")
+            # print(f"file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
     
     # given an embedding, output each embedding into their respective embedding file paths
@@ -237,7 +237,7 @@ class TxtsToEmbeddings:
 def main(txt_path, embed_path, model):
     processor = TxtsToEmbeddings(txt_path, embed_path, model)
 
-    print("txt_path is ", txt_path)
+    # print("txt_path is ", txt_path)
 
     # sentences
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
