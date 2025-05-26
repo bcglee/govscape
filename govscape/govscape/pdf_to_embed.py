@@ -103,21 +103,20 @@ class TextEmbeddingModel(EmbeddingModel):
         return image_caption_embed
     
     
+def get_least_used_cuda():
+    pynvml.nvmlInit()
+    device_count = pynvml.nvmlDeviceGetCount()
+    min_used_mem = float("inf")
+    best_device = "cuda:0"
+    for i in range(device_count):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        if meminfo.used < min_used_mem:
+            min_used_mem = meminfo.used
+            best_device = f"cuda:{i}"
+    pynvml.nvmlShutdown()
+    return best_device
 class CLIPEmbeddingModel(EmbeddingModel):
-    def get_least_used_cuda():
-        pynvml.nvmlInit()
-        device_count = pynvml.nvmlDeviceGetCount()
-        min_used_mem = float("inf")
-        best_device = "cuda:0"
-        for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            if meminfo.used < min_used_mem:
-                min_used_mem = meminfo.used
-                best_device = f"cuda:{i}"
-        pynvml.nvmlShutdown()
-        return best_device
-
     def __init__(self):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
         # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 

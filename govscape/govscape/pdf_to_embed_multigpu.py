@@ -40,8 +40,7 @@ class EmbeddingModel(ABC):
     def encode_image(self, jpg_path):
         pass
 
-class TextEmbeddingModel(EmbeddingModel):
-    def get_least_used_cuda():
+def get_least_used_cuda():
         pynvml.nvmlInit()
         device_count = pynvml.nvmlDeviceGetCount()
         min_used_mem = float("inf")
@@ -55,6 +54,7 @@ class TextEmbeddingModel(EmbeddingModel):
         pynvml.nvmlShutdown()
         return best_device
 
+class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
         if torch.cuda.is_available():
             print("USING GPU")
