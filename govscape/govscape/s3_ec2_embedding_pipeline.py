@@ -24,7 +24,8 @@ data_dir_s3 = '2008_EOT_PDFs/data_test_100k/' # OUTPUT OVERALL DATA DIR IN S3 HE
 
 # for processing pdfs: 
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+# PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
 print(PROJECT_ROOT)
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
