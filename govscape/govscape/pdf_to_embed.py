@@ -104,7 +104,8 @@ class TextEmbeddingModel(EmbeddingModel):
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
+        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
+        model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(self.device)  # local
 
         if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
@@ -112,8 +113,11 @@ class CLIPEmbeddingModel(EmbeddingModel):
         
         self.model = model
 
-        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
+        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
+        tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")
+
         self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
 
         self.d = 512
