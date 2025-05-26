@@ -199,7 +199,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         
         image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
 
-        return image_embedding
+        return image_embedding[0].to("cpu").numpy()
     
     # def encode_images(self, jpg_paths):
         # batch_size = 32
@@ -660,7 +660,7 @@ class PDFsToEmbeddings:
     # *******************************************************************************************************************
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
-    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, text_captioning_model):
+    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_model):
         pdf_doc = fitz.open(pdf_path)
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -681,7 +681,7 @@ class PDFsToEmbeddings:
 
                 # convert to embedding 
                 # embed = self.embedding_model.encode_image(image_path)
-                embed = text_captioning_model.encode_image(image_path)
+                embed = img_model.encode_image(image_path)
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -691,7 +691,7 @@ class PDFsToEmbeddings:
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
-    def extract_img_pdfs(self, pdf_files, text_captioning_model):
+    def extract_img_pdfs(self, pdf_files, img_model):
         # go through entire set of pdfs 
         # pdfs_dir = Path(pdf_files)
         # pdf_paths = list(pdfs_dir.glob("*.pdf"))
@@ -708,7 +708,7 @@ class PDFsToEmbeddings:
             img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
             img_path.mkdir(parents=True, exist_ok=True)
             out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
-            self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, text_captioning_model)
+            self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, img_model)
     
     # *******************************************************************************************************************
     # overall pipeline
@@ -754,8 +754,7 @@ class PDFsToEmbeddings:
         time5 = time.time()
 
         print("now converting pdfs to extracted imgs and embds")
-        text_captioning_model = TextEmbeddingModel()
-        self.extract_img_pdfs(pdf_files, text_captioning_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        self.extract_img_pdfs(pdf_files, img_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
         first = time2 - time1
