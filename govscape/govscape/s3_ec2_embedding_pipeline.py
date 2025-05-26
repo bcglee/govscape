@@ -121,7 +121,7 @@ def batched_file_download(BATCH_SIZE, processor):
     # temporary: 
     # pdf_files = pdf_files[0:10]
 
-    pdf_files = get_all_pdf_keys()
+    pdf_files = get_n_pdfs()
 
     print("Now starting with total number of PDF files: ", len(pdf_files))
     
