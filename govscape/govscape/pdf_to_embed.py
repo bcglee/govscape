@@ -685,6 +685,8 @@ class PDFsToEmbeddings:
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                print("*************************************************************************************")
+                print(embed.shape)
                 # print(output_path)
                 np.save(output_path, embed)
 
@@ -725,6 +727,7 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
         # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        print("now converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
@@ -732,13 +735,16 @@ class PDFsToEmbeddings:
         # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
         # print(os.getcwd())
         # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
+        print("now converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
 
         # converting imgs
         img_model = CLIPEmbeddingModel()
 
+        print("now converting pdfs to imgs")
         self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
         time4 = time.time()
         # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
@@ -747,6 +753,7 @@ class PDFsToEmbeddings:
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
 
+        print("now converting pdfs to extracted imgs and embds")
         text_captioning_model = TextEmbeddingModel()
         self.extract_img_pdfs(pdf_files, text_captioning_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()

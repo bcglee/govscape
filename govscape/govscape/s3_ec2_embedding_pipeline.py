@@ -26,7 +26,6 @@ data_dir_s3 = '2008_EOT_PDFs/data_test_100k_test/' # OUTPUT OVERALL DATA DIR IN 
 
 # PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-print(PROJECT_ROOT)
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
 #pdf_directory = os.path.join(DATA_DIR, 'small_test')  # for testing a folder of three pdfs
