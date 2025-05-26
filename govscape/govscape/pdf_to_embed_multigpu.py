@@ -170,8 +170,6 @@ class TxtsToEmbeddings:
 
     # 2. MP VERSION with pdf_files
     def convert_txts_to_embeddings(self):
-        print("made it here 1")
-        print(self.txts_path)
         all_texts = []
         all_embed_file_paths = []
         self.ensure_dir(self.embeddings_path)
@@ -200,13 +198,15 @@ class TxtsToEmbeddings:
         
         return all_texts, all_embed_file_paths
     
+    # saves each embedding at the respective file
     def convert_embedding_to_files_batch(self, embed_and_paths):
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.txt', '.npy')
             print(f"file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
-
+    
+    # given an embedding, output each embedding into their respective embedding file paths
     def convert_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
         chunks = np.array_split(embed, os.cpu_count())
@@ -241,8 +241,6 @@ def main(txt_path, embed_path, model):
 
     # sentences
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
-
-    print("FINISHE DLSK DJFLKSDJFL KSJDFLK JSLDKFJ L ******************************************")
 
     # Define the model
     text_model = TextEmbeddingModel()

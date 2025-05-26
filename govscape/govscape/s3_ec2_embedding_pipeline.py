@@ -39,7 +39,7 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directo
 # ****************************************************************************************************
 
 # for analyzing: 
-pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0}
+pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0}
 
 def upload_directory_to_s3(ec2_dir, s3_dir):
     for root, dirs, files in os.walk(ec2_dir):
@@ -53,11 +53,12 @@ def process_pdfs(pdf_files, processor):
     start_time = time.time()
 
     # PROCESS PDFS HERE 
-    one, two, three, four = processor.pdfs_to_embeddings(pdf_files=pdf_files)
+    one, two, three, four, fifth = processor.pdfs_to_embeddings(pdf_files=pdf_files)
     pipeline_times['first'] += one
     pipeline_times['second'] += two
     pipeline_times['third'] += three 
     pipeline_times['fourth'] += four
+    pipeline_times['fifth'] += fifth
 
     end_time = time.time()
     duration = end_time - start_time
@@ -109,6 +110,7 @@ def batched_file_download(BATCH_SIZE, processor):
     print("TOTAL TIME txt -> embed time:", pipeline_times['second'])
     print("TOTAL TIME pdf -> img per page time:", pipeline_times['third'])
     print("TOTAL TIME img per page -> embed time:", pipeline_times['fourth'])
+    print("TOTAL TIME img extracted -> embed time :", pipeline_times['fifth'])
 
 # # MULTITHREADED VERSION??? -- idk if this is really speeding up anything
 # def download_pdf(pdf, batch_download_dir):
