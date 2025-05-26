@@ -727,6 +727,7 @@ class PDFsToEmbeddings:
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
+        print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
         self.convert_pdfs_to_txt(pdf_files)
         # time2 = time.time()
         # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
