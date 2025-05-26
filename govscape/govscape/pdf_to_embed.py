@@ -643,7 +643,7 @@ class PDFsToEmbeddings:
         pdf_paths = pdf_files
 
         # extract_folder = Path(str(self.jpgs_path) + "_extract")
-        extract_folder = self.extracted_jpgs_path
+        extract_folder = Path(self.extracted_jpgs_path)
         extract_folder.mkdir(parents=True, exist_ok=True)
 
         # extract images and put it in images under _IMG_count.png
