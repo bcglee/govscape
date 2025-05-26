@@ -681,7 +681,7 @@ class PDFsToEmbeddings:
 
                 # convert to embedding 
                 # embed = self.embedding_model.encode_image(image_path)
-                embed = text_captioning_model.encode_image
+                embed = text_captioning_model.encode_image(image_path)
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
