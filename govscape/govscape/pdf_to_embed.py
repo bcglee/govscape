@@ -111,7 +111,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
             model = torch.nn.DataParallel(model)
         
         self.model = model
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
         self.d = 512
     
     def encode_text(self, text):  #note: not doing encode_texts version of this yet because currently not in use. 
@@ -640,7 +640,7 @@ class PDFsToEmbeddings:
         time3 = time.time()
 
         # converting imgs
-        img_model = gs.CLIPEmbeddingModel()
+        img_model = CLIPEmbeddingModel()
 
         # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
