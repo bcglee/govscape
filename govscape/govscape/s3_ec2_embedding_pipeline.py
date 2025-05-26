@@ -39,7 +39,7 @@ e_img_embed_dir = os.path.join(DATA_DIR, 'embeddings_img_extracted')
 
 batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
-model = gs.TextEmbeddingModel()
+# model = gs.TextEmbeddingModel()
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
                                 embeddings_directory, img_embeddings_dir, e_img_embed_dir) # removed model
 
