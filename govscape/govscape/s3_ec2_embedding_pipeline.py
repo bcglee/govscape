@@ -41,7 +41,7 @@ batch_download_dir = 'downloads'  # temporary downloading (not sure if actually 
 
 model = gs.TextEmbeddingModel()
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
-                                embeddings_directory, img_embeddings_dir, e_img_embed_dir, model)
+                                embeddings_directory, img_embeddings_dir, e_img_embed_dir) # removed model
 
 
 progress_path = 'progress.json'
