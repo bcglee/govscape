@@ -65,14 +65,15 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512 
+        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512 
+        self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
         #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
         self.d = 1024
-        self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
+        # self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)  # query hugging face 
 
-        # multi-gpu version: 
-        # self.pool = self.model.start_multi_process_pool()
+        device = 0 if torch.cuda.is_available() else -1
+        self.image_to_caption = pipeline("image-to-text", model="./vit-gpt2-image-captioning", device=device)  # local
     
     def encode_text(self, text):
         with torch.no_grad():
