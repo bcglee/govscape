@@ -728,7 +728,7 @@ class PDFsToEmbeddings:
         # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
         print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
         print(os.getcwd())
-        runpy.run_path("pdf_to_embed_multigpu.py")
+        runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
         time3 = time.time()
 
         # # converting imgs
