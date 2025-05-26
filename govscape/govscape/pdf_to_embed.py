@@ -655,10 +655,10 @@ class PDFsToEmbeddings:
         for pdf_path in pdf_paths:
             # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
             full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
-            img_path = Path(self.extracted_jpgs_path) / Path(pdf_path.stem)
+            img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
             print("img_path ",  img_path)
             img_path.mkdir(parents=True, exist_ok=True)
-            out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path.stem)
+            out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
             print("out_embed_path ",  out_embed_path)
             self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path)
     
