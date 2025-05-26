@@ -754,7 +754,7 @@ class PDFsToEmbeddings:
         time5 = time.time()
 
         print("now converting pdfs to extracted imgs and embds")
-        img_extract_model = CLIPEmbeddingModel()
+        img_extract_model = CLIPEmbeddingModel(False)
         self.extract_img_pdfs(pdf_files, img_extract_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
