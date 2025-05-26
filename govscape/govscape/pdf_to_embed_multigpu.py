@@ -251,7 +251,36 @@ class TxtsToEmbeddings:
         if not os.path.exists(path):
             os.makedirs(path)
 
-def main(txt_path, embed_path):
+# def main(txt_path, embed_path):
+
+#     processor = TxtsToEmbeddings(txt_path, embed_path)  # note, we are not using the model in here.
+#     # print("txt_path is ", txt_path)
+
+#     # sentences
+#     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
+
+#     # Define the model
+#     text_model = TextEmbeddingModel()
+#     text_model.pool = text_model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
+
+#     # Compute the embeddings using the multi-process pool
+#     emb = text_model.model.encode_multi_process(sentences, text_model.pool)
+#     print("Embeddings computed. Shape:", emb.shape)
+
+#     # put them into embedding files 
+#     processor.convert_embedding_to_files(emb, all_embed_file_paths)
+
+#     # Optional: Stop the processes in the pool
+#     text_model.model.stop_multi_process_pool(text_model.pool)
+
+# if __name__ == "__main__":
+#     main()
+
+if __name__ == "__main__":
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
+    txt_path = os.path.join(DATA_DIR, 'txt')
+    embed_path = os.path.join(DATA_DIR, 'embeddings')
 
     processor = TxtsToEmbeddings(txt_path, embed_path)  # note, we are not using the model in here.
     # print("txt_path is ", txt_path)
@@ -272,7 +301,4 @@ def main(txt_path, embed_path):
 
     # Optional: Stop the processes in the pool
     text_model.model.stop_multi_process_pool(text_model.pool)
-
-if __name__ == "__main__":
-    main()
 

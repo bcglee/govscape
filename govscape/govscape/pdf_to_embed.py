@@ -29,9 +29,11 @@ import re
 import logging
 import pynvml
 from multiprocessing import Manager, Lock
+import runpy
 
 # from govscape import multi_gpu_main
-from .pdf_to_embed_multigpu import main as main_multigpu
+# from .pdf_to_embed_multigpu import main as main_multigpu
+
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
@@ -724,7 +726,8 @@ class PDFsToEmbeddings:
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu 
+        # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu 
+        runpy.run_path("pdf_to_embed_multigpu.py")
         time3 = time.time()
 
         # converting imgs
