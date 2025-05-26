@@ -662,12 +662,12 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        time1 = time.time()
-        self.convert_pdfs_to_txt(pdf_files)
-        time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
-        time3 = time.time()
+        # time1 = time.time()
+        # self.convert_pdfs_to_txt(pdf_files)
+        # time2 = time.time()
+        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
+        # time3 = time.time()
 
         # converting imgs
         img_model = CLIPEmbeddingModel()
