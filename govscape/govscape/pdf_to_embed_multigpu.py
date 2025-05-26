@@ -22,6 +22,7 @@ import time
 import math
 import re
 import logging
+import pynvml
 
 logging.basicConfig(
     format="%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO, handlers=[LoggingHandler()]
