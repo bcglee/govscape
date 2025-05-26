@@ -727,6 +727,7 @@ class PDFsToEmbeddings:
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
         # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
         print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        print(os.getcwd())
         runpy.run_path("pdf_to_embed_multigpu.py")
         time3 = time.time()
 
