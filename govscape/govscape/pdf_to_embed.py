@@ -91,7 +91,7 @@ class TextEmbeddingModel(EmbeddingModel):
 
     # generates a caption of image, not a text embedding
     def encode_image(self, jpg_path): # output: embed_shape    #TODO: use dataset so it doesn't process sequentially?? 
-        image = Image.open(jpg_path)
+        image = Image.open(jpg_path).convert("RGB")
 
         with torch.no_grad():
             caption = (self.image_to_caption(image))[0]['generated_text']
