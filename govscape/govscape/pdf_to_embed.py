@@ -723,12 +723,12 @@ class PDFsToEmbeddings:
         time1 = time.time()
         print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
         self.convert_pdfs_to_txt(pdf_files)
-        # time2 = time.time()
-        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
-        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        # runpy.run_path("pdf_to_embed_multigpu.py")
-        # time3 = time.time()
+        time2 = time.time()
+        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
+        print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        runpy.run_path("pdf_to_embed_multigpu.py")
+        time3 = time.time()
 
         # # converting imgs
         # img_model = CLIPEmbeddingModel()
@@ -742,14 +742,14 @@ class PDFsToEmbeddings:
         # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         # time5 = time.time()
         # self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
-        #TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
+        # # TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
         # time6 = time.time()
 
-        # first = time2 - time1
-        # sec = time3 - time2
-        # third = time4 - time3
-        # fourth = time5 - time4
-        # fifth = time6 - time5
+        first = time2 - time1
+        sec = time3 - time2
+        third = time4 - time3
+        fourth = time5 - time4
+        fifth = time6 - time5
 
         print("pdf -> txt time: ", time2 - time1)
         print("txt -> embed time: ", time3 - time2)
