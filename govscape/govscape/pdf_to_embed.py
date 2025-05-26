@@ -139,12 +139,12 @@ def get_least_used_cuda():
 #     return chosen_device
 
 class CLIPEmbeddingModel(EmbeddingModel):
-    def __init__(self):
+    def __init__(self, consider_multi=True):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
         # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
         model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(self.device)  # local
 
-        if torch.cuda.device_count() > 1:
+        if torch.cuda.device_count() > 1 and consider_multi:
             print(f"using {torch.cuda.device_count()} gpus")
             model = torch.nn.DataParallel(model)
         
@@ -754,7 +754,8 @@ class PDFsToEmbeddings:
         time5 = time.time()
 
         print("now converting pdfs to extracted imgs and embds")
-        self.extract_img_pdfs(pdf_files, img_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        img_extract_model = CLIPEmbeddingModel()
+        self.extract_img_pdfs(pdf_files, img_extract_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
         first = time2 - time1
