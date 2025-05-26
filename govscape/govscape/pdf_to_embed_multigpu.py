@@ -71,7 +71,9 @@ class TextEmbeddingModel(EmbeddingModel):
         # self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)
 
         # multi-gpu version: 
-        self.pool = self.model.start_multi_process_pool()
+        # self.pool = self.model.start_multi_process_pool()
+        self.pool = self.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
+
     
     def encode_text(self, text):
         with torch.no_grad():
