@@ -582,7 +582,7 @@ class PDFsToEmbeddings:
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.jpg', '.npy')
-            print(f"file_name: {file_name} has been saved.")
+            print(f"img file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
     
     def convert_img_embedding_to_files(self, embed, embed_file_paths):
@@ -632,9 +632,9 @@ class PDFsToEmbeddings:
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
-    def extract_img_pdfs(self):
+    def extract_img_pdfs(self, pdf_files):
         # go through entire set of pdfs 
-        pdfs_dir = Path(self.pdfs_path)
+        pdfs_dir = Path(pdf_files)
         pdf_paths = list(pdfs_dir.glob("*.pdf"))
 
         extract_folder = Path(str(self.jpgs_path) + "_extract")
@@ -680,7 +680,7 @@ class PDFsToEmbeddings:
         print("Embeddings computed. Shape:", emb.shape)
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
-        self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
+        self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
         first = time2 - time1
