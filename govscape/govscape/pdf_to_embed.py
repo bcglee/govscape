@@ -324,7 +324,8 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
-        ctx = get_context('spawn')
+        # ctx = get_context('spawn')
+        ctx = get_context('fork')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
@@ -485,7 +486,8 @@ class PDFsToEmbeddings:
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
 
-        ctx = get_context('spawn')
+        # ctx = get_context('spawn')
+        ctx = get_context('fork')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
         with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
@@ -616,7 +618,8 @@ class PDFsToEmbeddings:
         
         # print("img_subdir_batches ", img_subdir_batches)
 
-        ctx = get_context('spawn')
+        # ctx = get_context('spawn')
+        ctx = get_context('fork')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
             results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
@@ -650,7 +653,8 @@ class PDFsToEmbeddings:
         if len(chunks) != len(chunk_embed_file_paths):
             raise Exception("chunks and chunk_embed_file_paths should be the same length.")
 
-        ctx = get_context('spawn')
+        # ctx = get_context('spawn')
+        ctx = get_context('fork')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
         with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_img_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
@@ -724,32 +728,32 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
         self.convert_pdfs_to_txt(pdf_files)
-        time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
-        print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
-        time3 = time.time()
+        # time2 = time.time()
+        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
+        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        # runpy.run_path("pdf_to_embed_multigpu.py")
+        # time3 = time.time()
 
-        # converting imgs
-        img_model = CLIPEmbeddingModel()
+        # # converting imgs
+        # img_model = CLIPEmbeddingModel()
 
-        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
-        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
-        time4 = time.time()
-        # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
-        emb = img_model.encode_images(img_paths)
-        print("Embeddings computed. Shape:", emb.shape)
-        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        time5 = time.time()
-        self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
-        time6 = time.time()
+        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        # img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
+        # time4 = time.time()
+        # # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
+        # emb = img_model.encode_images(img_paths)
+        # print("Embeddings computed. Shape:", emb.shape)
+        # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        # time5 = time.time()
+        # self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        # time6 = time.time()
 
-        first = time2 - time1
-        sec = time3 - time2
-        third = time4 - time3
-        fourth = time5 - time4
-        fifth = time6 - time5
+        # first = time2 - time1
+        # sec = time3 - time2
+        # third = time4 - time3
+        # fourth = time5 - time4
+        # fifth = time6 - time5
 
         print("pdf -> txt time: ", time2 - time1)
         print("txt -> embed time: ", time3 - time2)
