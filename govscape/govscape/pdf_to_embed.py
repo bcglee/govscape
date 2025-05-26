@@ -104,36 +104,36 @@ class TextEmbeddingModel(EmbeddingModel):
         return image_caption_embed
     
     
-# def get_least_used_cuda():
-#     pynvml.nvmlInit()
-#     device_count = pynvml.nvmlDeviceGetCount()
-#     min_used_mem = float("inf")
-#     best_device = "cuda:0"
-#     for i in range(device_count):
-#         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-#         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-#         if meminfo.used < min_used_mem:
-#             min_used_mem = meminfo.used
-#             best_device = f"cuda:{i}"
-#     pynvml.nvmlShutdown()
-#     return best_device
-
-def get_available_cuda(gpu_process_map, lock, max_procs_per_gpu=2):
+def get_least_used_cuda():
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
-    chosen_device = None
-
-    with lock:
-        for i in range(device_count):
-            if gpu_process_map[i] < max_procs_per_gpu:
-                gpu_process_map[i] += 1
-                chosen_device = f"cuda:{i}"
-                break
-
+    min_used_mem = float("inf")
+    best_device = "cuda:0"
+    for i in range(device_count):
+        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+        meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        if meminfo.used < min_used_mem:
+            min_used_mem = meminfo.used
+            best_device = f"cuda:{i}"
     pynvml.nvmlShutdown()
-    if chosen_device is None:
-        raise RuntimeError("No available GPU with free slots.")
-    return chosen_device
+    return best_device
+
+# def get_available_cuda(gpu_process_map, lock, max_procs_per_gpu=2):
+#     pynvml.nvmlInit()
+#     device_count = pynvml.nvmlDeviceGetCount()
+#     chosen_device = None
+
+#     with lock:
+#         for i in range(device_count):
+#             if gpu_process_map[i] < max_procs_per_gpu:
+#                 gpu_process_map[i] += 1
+#                 chosen_device = f"cuda:{i}"
+#                 break
+
+#     pynvml.nvmlShutdown()
+#     if chosen_device is None:
+#         raise RuntimeError("No available GPU with free slots.")
+#     return chosen_device
 
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
