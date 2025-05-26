@@ -42,7 +42,7 @@ processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, i
                                 embeddings_directory, img_embeddings_dir, e_img_embed_dir, model)
 
 
-progress_path = progress.json
+progress_path = 'progress.json'
 
 # ****************************************************************************************************
 
