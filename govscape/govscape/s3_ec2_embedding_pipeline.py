@@ -81,7 +81,7 @@ def batched_file_download(BATCH_SIZE, processor):
     pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # note this only returns 1000
 
     # temporary: 
-    pdf_files = pdf_files[0:100]
+    pdf_files = pdf_files[0:10]
 
     print("Now starting with total number of PDF files: ", len(pdf_files))
     
