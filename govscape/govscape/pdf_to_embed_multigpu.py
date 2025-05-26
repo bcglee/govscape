@@ -291,15 +291,15 @@ if __name__ == "__main__":
 
     # Define the model
     text_model = TextEmbeddingModel()
-    text_model.pool = text_model.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
+    pool = text_model.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
 
     # Compute the embeddings using the multi-process pool
-    emb = text_model.model.encode_multi_process(sentences, text_model.model.pool)
+    emb = text_model.model.encode_multi_process(sentences, pool)
     print("Embeddings computed. Shape:", emb.shape)
 
     # put them into embedding files 
     processor.convert_embedding_to_files(emb, all_embed_file_paths)
 
     # Optional: Stop the processes in the pool
-    text_model.model.stop_multi_process_pool(text_model.model.pool)
+    text_model.model.stop_multi_process_pool(pool)
 
