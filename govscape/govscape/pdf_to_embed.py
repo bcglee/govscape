@@ -208,11 +208,14 @@ def natural_key(s):
             for text in re.split(r'(\d+)', s)]
 
 class PDFsToEmbeddings:
-    def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, embedding_model):
+    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
-        self.embeddings_path = embeddings_dir
         self.jpgs_path = jpgs_dir
+        self.extracted_jpgs_path = e_jpgs_dir
+        self.embeddings_path = embeddings_dir
+        self.embeddings_img_path = embeddings_img_dir
+        self.embeddings_img_e_path = embeddings_extract_dir
         self.embedding_model = embedding_model
 
         # TODO: uncomment for metadata
@@ -531,12 +534,13 @@ class PDFsToEmbeddings:
         print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_path, embed_name)
+            # embedding_dir = os.path.join(self.embeddings_path, embed_name)  #changed
+            embedding_dir = os.path.join(self.embeddings_img_path, embed_name)
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
             print("IMG SUBDIR PATH IS ", img_subdir_path)
-            print(self.embeddings_path)
+            print(self.embeddings_img_path)
             print(img_subdir_path)
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
@@ -552,7 +556,7 @@ class PDFsToEmbeddings:
     def convert_imgs_to_embeddings(self):
         all_imgs = []
         all_embed_file_paths = []
-        self.ensure_dir(self.embeddings_path)
+        self.ensure_dir(self.embeddings_img_path)
 
         img_subdirs_paths = []
         for img_subdir in os.scandir(self.jpgs_path):
@@ -621,30 +625,33 @@ class PDFsToEmbeddings:
                 image_bytes = image_dict["image"]
                 image = Image.open(io.BytesIO(image_bytes))
 
-                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_IMG_{i}.jpg"
+                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
                 # print("img saved at: ",  image_path)
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
                 embed = self.embedding_model.encode_image(image_path)
 
-                output_path = os.path.join(out_embed_path, f"{title}_{page_num}_IMG_{i}.npy")
+                output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
     def extract_img_pdfs(self, pdf_files):
         # go through entire set of pdfs 
-        pdfs_dir = Path(pdf_files)
-        pdf_paths = list(pdfs_dir.glob("*.pdf"))
+        # pdfs_dir = Path(pdf_files)
+        # pdf_paths = list(pdfs_dir.glob("*.pdf"))
+        pdf_paths = pdf_files
 
-        extract_folder = Path(str(self.jpgs_path) + "_extract")
+        # extract_folder = Path(str(self.jpgs_path) + "_extract")
+        extract_folder = self.extracted_jpgs_path
         extract_folder.mkdir(parents=True, exist_ok=True)
 
         # extract images and put it in images under _IMG_count.png
         for pdf_path in pdf_paths:
-            img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
+            # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
+            img_path = self.extracted_jpgs_path / Path(pdf_path.stem)
             img_path.mkdir(parents=True, exist_ok=True)
-            out_embed_path = Path(self.embeddings_path) / Path(pdf_path.stem)
+            out_embed_path = self.embeddings_img_e_path / Path(pdf_path.stem)
             self.extract_img_embed_pdf(pdf_path, img_path, out_embed_path)
     
     # *******************************************************************************************************************

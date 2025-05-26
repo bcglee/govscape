@@ -28,13 +28,17 @@ DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE 
 #pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
 pdf_directory = 'downloads'
 txt_directory = os.path.join(DATA_DIR, 'txt')
-embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 image_directory = os.path.join(DATA_DIR, 'images')
+img_extracted_dir = os.path.join(DATA_DIR, 'img_extracted')
+embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
+img_embeddings_dir = os.path.join(DATA_DIR, 'embeddings_img_pg')
+e_img_embed_dir = os.path.join(DATA_DIR, 'embeddings_img_extracted')
 
 batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
 model = gs.TextEmbeddingModel()
-processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
+processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
+                                embeddings_directory, img_embeddings_dir, e_img_embed_dir, model)
 
 # ****************************************************************************************************
 
