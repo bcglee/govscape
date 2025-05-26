@@ -221,6 +221,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
         # return embeddings.cpu().numpy()
     
     def encode_images(self, jpg_paths, max_batch_size = 32):
+        if not jpg_paths:
+            return np.empty((0, self.d), dtype=np.float32)
+
         all_embeddings = []
 
         for i in range(0, len(jpg_paths), max_batch_size):
@@ -260,8 +263,6 @@ class PDFsToEmbeddings:
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
         # self.embedding_model = embedding_model
-
-        print("HELOLHELOHELOEHLOE i am in pdftoembeddings **************************************************************************************************")
 
         # TODO: uncomment for metadata
         #big json file turn into dictionary
@@ -723,13 +724,13 @@ class PDFsToEmbeddings:
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
-        print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
         # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
-        print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        print(os.getcwd())
+        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        # print(os.getcwd())
         # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
@@ -748,7 +749,6 @@ class PDFsToEmbeddings:
 
         text_captioning_model = TextEmbeddingModel()
         self.extract_img_pdfs(pdf_files, text_captioning_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
-        # TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
         time6 = time.time()
 
         first = time2 - time1
