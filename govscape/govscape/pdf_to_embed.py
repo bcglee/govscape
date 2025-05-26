@@ -290,7 +290,7 @@ class PDFsToEmbeddings:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
     # 3. MT VERSION 
@@ -444,14 +444,14 @@ class PDFsToEmbeddings:
         
         # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
         # batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
-        batch_size = math.ceil(len(txt_subdirs_paths) / 4)
+        batch_size = math.ceil(len(txt_subdirs_paths) / 2)
         txt_subdir_batches = []
         for i in range(0, len(txt_subdirs_paths), batch_size):
             txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
 
         ctx = get_context('spawn')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
             # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
@@ -573,7 +573,7 @@ class PDFsToEmbeddings:
         
         # splitting into groups for each process:
         # batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
-        batch_size = math.ceil(len(img_subdirs_paths) / 4)
+        batch_size = math.ceil(len(img_subdirs_paths) / 2)
         img_subdir_batches = []
         for i in range(0, len(img_subdirs_paths), batch_size):
             img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
@@ -582,7 +582,7 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=2) as pool:
             results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
             # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
@@ -602,7 +602,7 @@ class PDFsToEmbeddings:
     def convert_img_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
         # chunks = np.array_split(embed, os.cpu_count())
-        chunks = np.array_split(embed, 4)
+        chunks = np.array_split(embed, 2)
         chunk_embed_file_paths = []
 
         start = 0
@@ -616,7 +616,7 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=4) as pool:
+        with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_img_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
     
     # *******************************************************************************************************************
