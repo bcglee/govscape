@@ -724,7 +724,7 @@ class PDFsToEmbeddings:
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        main_multigpu(self.txts_path, self.embeddings_path, self.embedding_model)  # for multigpu 
+        main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu 
         time3 = time.time()
 
         # converting imgs

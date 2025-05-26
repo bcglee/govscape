@@ -72,9 +72,7 @@ class TextEmbeddingModel(EmbeddingModel):
 
         # multi-gpu version: 
         # self.pool = self.model.start_multi_process_pool()
-        self.pool = self.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
 
-    
     def encode_text(self, text):
         with torch.no_grad():
             embeddings = self.model.encode(text, batch_size=GPU_BATCH_SIZE, device=self.device) # hopefully in batches
@@ -104,18 +102,14 @@ def natural_key(s):
             for text in re.split(r'(\d+)', s)]
 
 class TxtsToEmbeddings:
-    def __init__(self, txt_directory, embeddings_dir, embedding_model):
+    def __init__(self, txt_directory, embeddings_dir):
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         # self.jpgs_path = jpgs_dir
-        self.embedding_model = embedding_model
+        # self.embedding_model = embedding_model
 
 
     # (2) txt -> embed
-
-    # str -> embed
-    def text_to_embeddings(self, text):
-        return self.embedding_model.encode_text(text)
 
     def txt_to_text(self, txt_path):
         text = ""
@@ -124,38 +118,38 @@ class TxtsToEmbeddings:
         return text 
 
     # single txt -> embed
-    def convert_txt_to_embedding(self, txt_path):
-        # need to convert .txt to text
-        text = self.txt_to_text(txt_path)
-        return self.embedding_model.encode_text(text)
+    # def convert_txt_to_embedding(self, txt_path):
+    #     # need to convert .txt to text
+    #     text = self.txt_to_text(txt_path)
+    #     return self.embedding_model.encode_text(text)
     
     
     # version 1 = single subdir: txt subdir -> embed subdir.
-    def convert_subdir_to_embeddings(self, txt_subdir_path):
-        #print("Embedding PDF: " + txt_subdir_path)
-        #making the subdir that will hold the embeddings for each PDF 
-        embed_name = os.path.basename(txt_subdir_path)
-        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    # def convert_subdir_to_embeddings(self, txt_subdir_path):
+    #     #print("Embedding PDF: " + txt_subdir_path)
+    #     #making the subdir that will hold the embeddings for each PDF 
+    #     embed_name = os.path.basename(txt_subdir_path)
+    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
         
-        # If the subdir already exists, we assume that this step has already been done.
-        if os.path.exists(embedding_dir):
-            return
+    #     # If the subdir already exists, we assume that this step has already been done.
+    #     if os.path.exists(embedding_dir):
+    #         return
 
-        self.ensure_dir(embedding_dir)
+    #     self.ensure_dir(embedding_dir)
 
-        #all txt files in the txt subdir input 
-        txt_files = os.listdir(txt_subdir_path)
+    #     #all txt files in the txt subdir input 
+    #     txt_files = os.listdir(txt_subdir_path)
 
-        # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
+    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
 
-        for txt_file in txt_files:
-            txt_path = os.path.join(txt_subdir_path, txt_file)
+    #     for txt_file in txt_files:
+    #         txt_path = os.path.join(txt_subdir_path, txt_file)
 
-            embedding = self.convert_txt_to_embedding(txt_path)
+    #         embedding = self.convert_txt_to_embedding(txt_path)
 
-            file_name = os.path.splitext(txt_file)[0] + ".npy"
-            output_path = os.path.join(embedding_dir, file_name)
-            np.save(output_path, embedding)
+    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
+    #         output_path = os.path.join(embedding_dir, file_name)
+    #         np.save(output_path, embedding)
 
     # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
     # order file names differently)
@@ -257,44 +251,17 @@ class TxtsToEmbeddings:
         if not os.path.exists(path):
             os.makedirs(path)
 
-# def main(txt_path, embed_path, model):
-#     processor = TxtsToEmbeddings(txt_path, embed_path, model)
+def main(txt_path, embed_path):
 
-#     # print("txt_path is ", txt_path)
-
-#     # sentences
-#     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
-
-#     text_model = TextEmbeddingModel()
-
-#     # Compute the embeddings using the multi-process pool
-#     emb = text_model.model.encode_multi_process(sentences, text_model.pool)
-#     print("Embeddings computed. Shape:", emb.shape)
-
-#     # put them into embedding files 
-#     processor.convert_embedding_to_files(emb, all_embed_file_paths)
-
-#     # Optional: Stop the processes in the pool
-#     text_model.model.stop_multi_process_pool(text_model.pool)
-
-if __name__ == "__main__":
-    # Define the model
-    # main()
-
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
-    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
-
-    txt_path = os.path.join(DATA_DIR, 'txt')
-    embed_path = os.path.join(DATA_DIR, 'embeddings')
-
-    processor = TxtsToEmbeddings(txt_path, embed_path, model)
-
+    processor = TxtsToEmbeddings(txt_path, embed_path)  # note, we are not using the model in here.
     # print("txt_path is ", txt_path)
 
     # sentences
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
 
+    # Define the model
     text_model = TextEmbeddingModel()
+    text_model.pool = text_model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
 
     # Compute the embeddings using the multi-process pool
     emb = text_model.model.encode_multi_process(sentences, text_model.pool)
@@ -305,4 +272,7 @@ if __name__ == "__main__":
 
     # Optional: Stop the processes in the pool
     text_model.model.stop_multi_process_pool(text_model.pool)
+
+if __name__ == "__main__":
+    main()
 
