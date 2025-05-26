@@ -277,6 +277,7 @@ class TxtsToEmbeddings:
 #     main()
 
 if __name__ == "__main__":
+    print("HIHIHIIHIHIHI ********************************************************************************************************")
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
     DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
     txt_path = os.path.join(DATA_DIR, 'txt')
