@@ -249,7 +249,8 @@ def natural_key(s):
             for text in re.split(r'(\d+)', s)]
 
 class PDFsToEmbeddings:
-    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
+    # def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
+    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.jpgs_path = jpgs_dir
@@ -257,7 +258,9 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
-        self.embedding_model = embedding_model
+        # self.embedding_model = embedding_model
+
+        print("HELOLHELOHELOEHLOE i am in pdftoembeddings **************************************************************************************************")
 
         # TODO: uncomment for metadata
         #big json file turn into dictionary
@@ -338,100 +341,92 @@ class PDFsToEmbeddings:
     # (2) txt -> embed
 
     # str -> embed
-    def text_to_embeddings(self, text):
-        return self.embedding_model.encode_text(text)
+    # def text_to_embeddings(self, text):
+    #     return self.embedding_model.encode_text(text)
 
-    def txt_to_text(self, txt_path):
-        text = ""
-        with open(txt_path, 'r') as file:
-            text = file.read()
-        return text 
+    # def txt_to_text(self, txt_path):
+    #     text = ""
+    #     with open(txt_path, 'r') as file:
+    #         text = file.read()
+    #     return text 
 
     # single txt -> embed
-    def convert_txt_to_embedding(self, txt_path):
-        # need to convert .txt to text
-        text = self.txt_to_text(txt_path)
-        return self.embedding_model.encode_text(text)
+    # def convert_txt_to_embedding(self, txt_path):
+    #     # need to convert .txt to text
+    #     text = self.txt_to_text(txt_path)
+    #     return self.embedding_model.encode_text(text)
     
-    # TODO: uncomment for metadata
-    # creates a json file specifying page_nums with file_name in the embedding_dir
-    def create_json(self, page_nums, embedding_dir, file_name):
-        # probably need to have an exception case where the pdf file name is not found in the self.json...
-        data = {"num_pages" : page_nums, "gov_name" : self.json[file_name][0], "timestamp" : self.json[file_name][1]}
-        json_file_path = os.path.join(embedding_dir, file_name + ".json")
-        with open(json_file_path, "w") as json_file:
-            json.dump(data, json_file, indent=4)
     
     # version 1 = single subdir: txt subdir -> embed subdir.
-    def convert_subdir_to_embeddings(self, txt_subdir_path):
-        #print("Embedding PDF: " + txt_subdir_path)
-        #making the subdir that will hold the embeddings for each PDF 
-        embed_name = os.path.basename(txt_subdir_path)
-        embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    # def convert_subdir_to_embeddings(self, txt_subdir_path):
+    #     #print("Embedding PDF: " + txt_subdir_path)
+    #     #making the subdir that will hold the embeddings for each PDF 
+    #     embed_name = os.path.basename(txt_subdir_path)
+    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
         
-        # If the subdir already exists, we assume that this step has already been done.
-        if os.path.exists(embedding_dir):
-            return
+    #     # If the subdir already exists, we assume that this step has already been done.
+    #     if os.path.exists(embedding_dir):
+    #         return
 
-        self.ensure_dir(embedding_dir)
+    #     self.ensure_dir(embedding_dir)
 
-        #all txt files in the txt subdir input 
-        txt_files = os.listdir(txt_subdir_path)
+    #     #all txt files in the txt subdir input 
+    #     txt_files = os.listdir(txt_subdir_path)
 
-        # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
+    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
 
-        for txt_file in txt_files:
-            txt_path = os.path.join(txt_subdir_path, txt_file)
+    #     for txt_file in txt_files:
+    #         txt_path = os.path.join(txt_subdir_path, txt_file)
 
-            embedding = self.convert_txt_to_embedding(txt_path)
+    #         embedding = self.convert_txt_to_embedding(txt_path)
 
-            file_name = os.path.splitext(txt_file)[0] + ".npy"
-            output_path = os.path.join(embedding_dir, file_name)
-            np.save(output_path, embedding)
+    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
+    #         output_path = os.path.join(embedding_dir, file_name)
+    #         np.save(output_path, embedding)
 
     # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
     # order file names differently)
     
     # multiple txt subdir paths -> multiple embed dirs
     # set so the number of page files matches the batch size. 
-    def convert_subdirs_to_embeddings(self, txt_subdir_paths):
-        text_batch = []
-        file_batch = []
-        for txt_subdir_path in txt_subdir_paths:
-            embed_name = os.path.basename(txt_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_path, embed_name)
-            self.ensure_dir(embedding_dir)
+    # def convert_subdirs_to_embeddings(self, txt_subdir_paths):
+    #     text_batch = []
+    #     file_batch = []
+    #     for txt_subdir_path in txt_subdir_paths:
+    #         embed_name = os.path.basename(txt_subdir_path)
+    #         embedding_dir = os.path.join(self.embeddings_path, embed_name)
+    #         self.ensure_dir(embedding_dir)
 
-            #all txt files in the txt subdir 
-            txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
+    #         #all txt files in the txt subdir 
+    #         txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
 
-            for txt_file in txt_files:
-                txt_path = os.path.join(txt_subdir_path, txt_file)
-                text = self.txt_to_text(txt_path)
-                text_batch.append(text)
-                file_batch.append((txt_file, embedding_dir))
-                if len(text_batch) == BATCH_SIZE:
-                    # print("NOW EMBEDDING THE TEXT BATCH")
-                    batch_embedding = self.embedding_model.encode_text_batch(text_batch)
-                    # print("FINISHED EMBEDDING TEXT BATCH")
-                    # print(batch_embedding.shape)
-                    for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
-                        file_name = txt_name.replace('.txt', '.npy')
-                        # print(f"file_name: {file_name} has been saved.")
-                        output_path = os.path.join(embedding_dir, file_name)
-                        np.save(output_path, embedding)
+    #         for txt_file in txt_files:
+    #             txt_path = os.path.join(txt_subdir_path, txt_file)
+    #             text = self.txt_to_text(txt_path)
+    #             text_batch.append(text)
+    #             file_batch.append((txt_file, embedding_dir))
+    #             if len(text_batch) == BATCH_SIZE:
+    #                 # print("NOW EMBEDDING THE TEXT BATCH")
+    #                 batch_embedding = self.embedding_model.encode_text_batch(text_batch)
+    #                 # print("FINISHED EMBEDDING TEXT BATCH")
+    #                 # print(batch_embedding.shape)
+    #                 for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
+    #                     file_name = txt_name.replace('.txt', '.npy')
+    #                     # print(f"file_name: {file_name} has been saved.")
+    #                     output_path = os.path.join(embedding_dir, file_name)
+    #                     np.save(output_path, embedding)
                     
-                    text_batch = []
-                    file_batch = []
+    #                 text_batch = []
+    #                 file_batch = []
         
-        # don't forget remaining 
-        if text_batch:
-            batch_embedding = self.embedding_model.encode_text_batch(text_batch)
+    #     # don't forget remaining 
+    #     if text_batch:
+    #         batch_embedding = self.embedding_model.encode_text_batch(text_batch)
 
-            for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
-                        file_name = txt_name.replace('.txt', '.npy')
-                        output_path = os.path.join(embedding_dir, file_name)
-                        np.save(output_path, embedding)
+    #         for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
+    #                     file_name = txt_name.replace('.txt', '.npy')
+    #                     output_path = os.path.join(embedding_dir, file_name)
+    #                     np.save(output_path, embedding)
 
     # version 2 = batch of subdirs: txt subdir -> embed subdir.
     # def convert_subdir_to_embeddings(self, txt_subdir_paths):
@@ -470,27 +465,27 @@ class PDFsToEmbeddings:
     #             self.convert_subdir_to_embeddings(subdir)
 
     # 2. MP VERSION with pdf_files
-    def convert_txts_to_embeddings(self):
-        self.ensure_dir(self.embeddings_path)
+    # def convert_txts_to_embeddings(self):
+    #     self.ensure_dir(self.embeddings_path)
 
-        txt_subdirs_paths = []
-        for txt_subdir in os.scandir(self.txts_path):
-            if txt_subdir.is_dir():
-                txt_subdirs_paths.append(txt_subdir.path)
+    #     txt_subdirs_paths = []
+    #     for txt_subdir in os.scandir(self.txts_path):
+    #         if txt_subdir.is_dir():
+    #             txt_subdirs_paths.append(txt_subdir.path)
         
-        # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
-        # batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
-        batch_size = math.ceil(len(txt_subdirs_paths) / 2)
-        txt_subdir_batches = []
-        for i in range(0, len(txt_subdirs_paths), batch_size):
-            txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
+    #     # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
+    #     # batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
+    #     batch_size = math.ceil(len(txt_subdirs_paths) / 2)
+    #     txt_subdir_batches = []
+    #     for i in range(0, len(txt_subdirs_paths), batch_size):
+    #         txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
 
-        ctx = get_context('spawn')
-        # ctx = get_context('fork')
-        # with ctx.Pool(processes=os.cpu_count()) as pool:
-        with ctx.Pool(processes=2) as pool:
-            pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
-            # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
+    #     ctx = get_context('spawn')
+    #     # ctx = get_context('fork')
+    #     # with ctx.Pool(processes=os.cpu_count()) as pool:
+    #     with ctx.Pool(processes=2) as pool:
+    #         pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
+    #         # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
 
     # *******************************************************************************************************************
@@ -747,6 +742,7 @@ class PDFsToEmbeddings:
         # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         # time5 = time.time()
         # self.extract_img_pdfs(pdf_files)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        #TODO: fix handling the model outside ehre instead of using self.embedding_model in there. 
         # time6 = time.time()
 
         # first = time2 - time1
