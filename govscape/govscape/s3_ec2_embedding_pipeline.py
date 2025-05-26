@@ -17,7 +17,7 @@ BATCH_SIZE = 100
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
-data_dir_s3 = '2008_EOT_PDFs/data5/' # OUTPUT OVERALL DATA DIR IN S3 HERE  # TODO: CHANGE THE NAME OF DATA5
+data_dir_s3 = '2008_EOT_PDFs/data_test_before_100k/' # OUTPUT OVERALL DATA DIR IN S3 HERE  # TODO: CHANGE THE NAME OF DATA5
 # data and data1 were for testing cpu file output
 # data2 is for testing single gpu file output
 
@@ -108,8 +108,12 @@ def process_pdfs(pdf_files, processor):
 
     # UPLOADING EMBEDDINGS, TXTS, IMAGES TO S3 HERE 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
+    upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
     upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
-    # upload_directory_to_s3(image_directory, data_dir_s3 + 'images')  # not working yet or idk
+    upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
+    upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
+
     print("finished uploading current batch")
 
 
@@ -128,6 +132,7 @@ def batched_file_download(BATCH_SIZE, processor):
     
     overall_start_time = time.time()
 
+    a = 0
     for i in range(0, len(pdf_files), BATCH_SIZE):
         print("BATCH: ", i)
         batch = pdf_files[i:i + BATCH_SIZE] 
@@ -147,6 +152,10 @@ def batched_file_download(BATCH_SIZE, processor):
             shutil.rmtree('DATA_DIR')
         if os.path.exists('pdf_directory'):
             shutil.rmtree('pdf_directory')
+        
+        a = a + 1
+        if a == 2:
+            break
     
     overall_end_time = time.time()
 

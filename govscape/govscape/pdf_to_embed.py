@@ -627,6 +627,8 @@ class PDFsToEmbeddings:
 
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
                 # print("img saved at: ",  image_path)
+                if image.mode == "RGBA":
+                    image = image.convert("RGB")
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
