@@ -548,14 +548,14 @@ class PDFsToEmbeddings:
         
         return all_imgs, all_embed_file_paths
     
-    def convert_embedding_to_files_batch(self, embed_and_paths):
+    def convert_img_embedding_to_files_batch(self, embed_and_paths):
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.jpg', '.npy')
             print(f"file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
     
-    def convert_embedding_to_files(self, embed, embed_file_paths):
+    def convert_img_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
         chunks = np.array_split(embed, os.cpu_count())
         chunk_embed_file_paths = []
@@ -571,7 +571,7 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self.convert_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
+            pool.map(self.convert_img_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
     
     # *******************************************************************************************************************
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir
@@ -648,7 +648,7 @@ class PDFsToEmbeddings:
         # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
         emb = self.img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
-        processor.convert_embedding_to_files(emb, all_embed_file_paths)
+        processor.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
         self.extract_img_pdfs()  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
