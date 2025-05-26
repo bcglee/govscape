@@ -29,7 +29,7 @@ logging.basicConfig(
 )
 
 # global vars
-GPU_BATCH_SIZE = 4
+GPU_BATCH_SIZE = 2
 BATCH_SIZE = 64
 
 class EmbeddingModel(ABC):
