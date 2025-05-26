@@ -53,12 +53,12 @@ def process_pdfs(pdf_files, processor):
     start_time = time.time()
 
     # PROCESS PDFS HERE 
-    one, two, three, four, fifth = processor.pdfs_to_embeddings(pdf_files=pdf_files)
+    one, two, three, four, five = processor.pdfs_to_embeddings(pdf_files=pdf_files)
     pipeline_times['first'] += one
     pipeline_times['second'] += two
     pipeline_times['third'] += three 
     pipeline_times['fourth'] += four
-    pipeline_times['fifth'] += fifth
+    pipeline_times['fifth'] += five
 
     end_time = time.time()
     duration = end_time - start_time

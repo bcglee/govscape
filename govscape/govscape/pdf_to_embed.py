@@ -9,7 +9,7 @@ from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from io import BytesIO
 import fitz
-from transformers import CLIPProcessor, CLIPModel, AutoModel, AutoTokenizer
+from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer, AutoModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer, LoggingHandler
 import torch
 import torch.nn.functional as F
@@ -106,12 +106,16 @@ class CLIPEmbeddingModel(EmbeddingModel):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
 
-        if torch.cuda.device_count > 1:
+        if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
             model = torch.nn.DataParallel(model)
         
         self.model = model
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
+
+        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+        self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
+
         self.d = 512
     
     def encode_text(self, text):  #note: not doing encode_texts version of this yet because currently not in use. 
