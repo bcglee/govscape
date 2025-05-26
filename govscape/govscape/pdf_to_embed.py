@@ -646,7 +646,7 @@ class PDFsToEmbeddings:
         # converting imgs
         img_model = CLIPEmbeddingModel()
 
-        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
         time4 = time.time()
         # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
