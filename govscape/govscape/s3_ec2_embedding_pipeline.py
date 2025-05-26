@@ -6,6 +6,7 @@ import subprocess
 import govscape as gs
 import concurrent.futures
 import shutil
+import json
 
 s3 = boto3.client('s3')
 
