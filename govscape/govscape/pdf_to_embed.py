@@ -27,6 +27,7 @@ import time
 import math
 import re
 import logging
+import pynvml
 
 # from govscape import multi_gpu_main
 from .pdf_to_embed_multigpu import main as main_multigpu
@@ -103,8 +104,22 @@ class TextEmbeddingModel(EmbeddingModel):
     
     
 class CLIPEmbeddingModel(EmbeddingModel):
+    def get_least_used_cuda():
+        pynvml.nvmlInit()
+        device_count = pynvml.nvmlDeviceGetCount()
+        min_used_mem = float("inf")
+        best_device = "cuda:0"
+        for i in range(device_count):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            if meminfo.used < min_used_mem:
+                min_used_mem = meminfo.used
+                best_device = f"cuda:{i}"
+        pynvml.nvmlShutdown()
+        return best_device
+
     def __init__(self):
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
         # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
         model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(self.device)  # local
 
@@ -113,6 +128,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
             model = torch.nn.DataParallel(model)
         
         self.model = model
+        self.model.eval()
 
         # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
         # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")

@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 
 # global vars
-GPU_BATCH_SIZE = 8
+GPU_BATCH_SIZE = 4
 BATCH_SIZE = 64
 
 class EmbeddingModel(ABC):
@@ -41,12 +41,27 @@ class EmbeddingModel(ABC):
         pass
 
 class TextEmbeddingModel(EmbeddingModel):
+    def get_least_used_cuda():
+        pynvml.nvmlInit()
+        device_count = pynvml.nvmlDeviceGetCount()
+        min_used_mem = float("inf")
+        best_device = "cuda:0"
+        for i in range(device_count):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            if meminfo.used < min_used_mem:
+                min_used_mem = meminfo.used
+                best_device = f"cuda:{i}"
+        pynvml.nvmlShutdown()
+        return best_device
+
     def __init__(self):
         if torch.cuda.is_available():
             print("USING GPU")
         else:
             print("USING CPU")
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
+        # self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512   #for querying hugging face
         self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
         #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
