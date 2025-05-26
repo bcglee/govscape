@@ -28,7 +28,7 @@ class PdfToJpeg:
         os.makedirs(pdf_directory, exist_ok=True)
 
         pdf_filename = os.path.join(self.pdf_directory, pdf_filename)
-        print("Creating JPEG (DPI " + str(self.dpi) + "):" + pdf_filename)
+        # print("Creating JPEG (DPI " + str(self.dpi) + "):" + pdf_filename)
         
         # converts to images and provides an output_folder to reduce the memory usage
         try: 
