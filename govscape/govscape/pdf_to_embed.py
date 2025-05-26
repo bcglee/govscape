@@ -649,7 +649,7 @@ class PDFsToEmbeddings:
         # extract images and put it in images under _IMG_count.png
         for pdf_path in pdf_paths:
             # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
-            pdf_path = Path(self.pdf_directory) / Path(pdf_path)
+            pdf_path = Path(self.pdfs_path) / Path(pdf_path)
             img_path = Path(self.extracted_jpgs_path) / Path(pdf_path.stem)
             img_path.mkdir(parents=True, exist_ok=True)
             out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path.stem)
