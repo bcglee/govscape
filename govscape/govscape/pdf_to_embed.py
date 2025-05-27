@@ -232,7 +232,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
             for p in batch_paths:
                 img = Image.open(p).convert("RGB")
-                print(image.mode, image.size)
+                print(img.mode, img.size)
                 # if (image.mode != "RGB"):
                 #     continue
                 images.append(img)
