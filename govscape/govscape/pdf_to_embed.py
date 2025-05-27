@@ -856,24 +856,20 @@ class PDFsToEmbeddings:
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
-        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        '''print("now converting pdfs to txts")
+
+        print("now converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
-        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        # print(os.getcwd())
-        # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
         print("now converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()'''
+        time3 = time.time()
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
 
         print("now converting pdfs to imgs")
-        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.  #TODO: UNCOMMENT THIS
+        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.  #TODO: UNCOMMENT THIS
         print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
