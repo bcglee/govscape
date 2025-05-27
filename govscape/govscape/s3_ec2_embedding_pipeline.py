@@ -7,6 +7,7 @@ import govscape as gs
 import concurrent.futures
 import shutil
 import json
+from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 config = Config(max_pool_connections=50)
