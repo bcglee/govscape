@@ -569,14 +569,14 @@ class PDFsToEmbeddings:
     #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
     #         # pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches) 
 
-    def convert_img_subdirs_to_embeddings(self, img_subdir_paths):
+    def convert_img_subdirs_to_embeddings(self, img_subdir_paths, overall_embed_path):
         img_paths_batch = []
         file_batch = []
         # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
             # embedding_dir = os.path.join(self.embeddings_path, embed_name)  #changed
-            embedding_dir = os.path.join(self.embeddings_img_path, embed_name)
+            embedding_dir = os.path.join(overall_embed_path, embed_name) #self.embeddings_img_path
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
@@ -617,7 +617,7 @@ class PDFsToEmbeddings:
         # ctx = get_context('fork')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
-            results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
+            results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches, overall_embed_path) # for batch
             # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
             for img_batch, embed_file_path_batch in results:
