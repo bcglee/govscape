@@ -9,7 +9,10 @@ import shutil
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-s3 = boto3.client('s3')
+config = Config(max_pool_connections=50)
+s3 = boto3.client("s3", config=config)
+
+# s3 = boto3.client('s3')
 
 # FIELDS TO SET **************************************************************************************
 
