@@ -106,7 +106,6 @@ class TextEmbeddingModel(EmbeddingModel):
 
         return image_caption_embed
     
-    
 def get_least_used_cuda():
     pynvml.nvmlInit()
     device_count = pynvml.nvmlDeviceGetCount()
@@ -707,6 +706,36 @@ class PDFsToEmbeddings:
             out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
             self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, img_model)
     
+    # multi gpu extract images below 
+    def extract_img_pdfs(self, pdf_path, output_img_dir_path, out_embed_path):
+        full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
+        output_img_dir_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
+        output_img_dir_path.mkdir(parents=True, exist_ok=True)
+        out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
+
+        pdf_doc = fitz.open(pdf_path)
+
+        title = os.path.splitext(os.path.basename(pdf_path))[0]
+
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc[page_num]
+            for i, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                image_dict = pdf_doc.extract_image(xref)
+                image_bytes = image_dict["image"]
+                image = Image.open(io.BytesIO(image_bytes))
+
+                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
+                # print("img saved at: ",  image_path)
+                image = image.convert("RGB")
+                image.save(image_path, "JPEG")
+    
+    def convert_pdfs_to_extracted_imgs(self, pdf_files):
+        ctx = get_context('spawn')
+        # with ctx.Pool(processes=30) as pool:
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            pool.map(self.extract_img_pdfs, pdf_files)
+
     # *******************************************************************************************************************
     # overall pipeline
     # *******************************************************************************************************************
@@ -722,21 +751,21 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        time1 = time.time()
-        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        print("now converting pdfs to txts")
-        self.convert_pdfs_to_txt(pdf_files)
-        time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
-        # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        # print(os.getcwd())
-        # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
-        print("now converting txts to embeddings")
-        subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()
+        # time1 = time.time()
+        # # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        # print("now converting pdfs to txts")
+        # self.convert_pdfs_to_txt(pdf_files)
+        # time2 = time.time()
+        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # # main_multigpu(self.txts_path, self.embeddings_path)  # for multigpu
+        # # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
+        # # print(os.getcwd())
+        # # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
+        # print("now converting txts to embeddings")
+        # subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+        # time3 = time.time()
 
-        # converting imgs
+        # # converting imgs
         img_model = CLIPEmbeddingModel()
 
         print("now converting pdfs to imgs")
@@ -752,7 +781,7 @@ class PDFsToEmbeddings:
 
         print("now converting pdfs to extracted imgs and embds")
         img_extract_model = CLIPEmbeddingModel(False)
-        self.extract_img_pdfs(pdf_files, img_extract_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        self.convert_pdfs_to_extracted_imgs(pdf_files, img_extract_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
         time6 = time.time()
 
         first = time2 - time1
