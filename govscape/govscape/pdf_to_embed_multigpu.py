@@ -296,7 +296,7 @@ if __name__ == "__main__":
     text_model = TextEmbeddingModel()
     pool = text_model.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])
 
-    print("length of sentences is ", len(sentences))
+    # print("length of sentences is ", len(sentences))
 
     # Compute the embeddings using the multi-process pool
     emb = text_model.model.encode_multi_process(sentences, pool)

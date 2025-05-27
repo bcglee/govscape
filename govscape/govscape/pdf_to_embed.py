@@ -685,9 +685,6 @@ class PDFsToEmbeddings:
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                print("*************************************************************************************")
-                print(embed.shape)
-                # print(output_path)
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
