@@ -713,7 +713,7 @@ class PDFsToEmbeddings:
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
         out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
 
-        pdf_doc = fitz.open(pdf_path)
+        pdf_doc = fitz.open(full_pdf_path)
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
 
