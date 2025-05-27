@@ -136,11 +136,17 @@ def process_pdfs(pdf_files, processor):
 
     # UPLOADING EMBEDDINGS, TXTS, IMAGES TO S3 HERE 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    print("finished uploading txt")
     upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
+    print("finished uploading img")
     upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
+    print("finished uploading img extracted")
     upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+    print("finished uploading embed")
     upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
+    print("finished uploading embed img pg")
     upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
+    print("finished uploading embed img extracted")
 
     print("finished uploading current batch")
 
@@ -162,7 +168,7 @@ def batched_file_download(BATCH_SIZE, processor):
 
     # a = 0
     for i in range(0, len(pdf_files), BATCH_SIZE):
-        if i <= 2000:  # already did this one
+        if i <= 3000:  # already did this one
             continue
         print('*****************************************************************************************************')
         print("WE ARE ON BATCH: ", i)
@@ -200,17 +206,15 @@ def batched_file_download(BATCH_SIZE, processor):
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
-    # model = gs.TextEmbeddingModel()
-    # processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
-    # batched_file_download(BATCH_SIZE, processor)  #TODO: UNCOMMENT 
+    batched_file_download(BATCH_SIZE, processor)  #TODO: UNCOMMENT 
 
-    upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
-    upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
-    upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
-    upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
-    upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
-    upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
-    print("finished uploading")
+    # upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    # upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
+    # upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
+    # upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+    # upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
+    # upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
+    # print("finished uploading")
 
 if __name__ == '__main__':
     main()
