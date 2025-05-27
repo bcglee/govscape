@@ -12,7 +12,7 @@ s3 = boto3.client('s3')
 
 # FIELDS TO SET **************************************************************************************
 
-BATCH_SIZE = 10 #TODO: FIX TO 1000
+BATCH_SIZE = 1000 #TODO: FIX TO 1000
 
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
@@ -134,7 +134,7 @@ def batched_file_download(BATCH_SIZE, processor):
     
     overall_start_time = time.time()
 
-    a = 0
+    # a = 0
     for i in range(0, len(pdf_files), BATCH_SIZE):
         print('*****************************************************************************************************')
         print("WE ARE ON BATCH: ", i)
@@ -151,15 +151,15 @@ def batched_file_download(BATCH_SIZE, processor):
         
         process_pdfs(local_batch, processor)  #TODO: ?? 
 
-        # TODO: DELTE THE TXT FOLDERS AND OTHERS   # UNCOMMENT THESE TODO TODO TODO 
-        # if os.path.exists(DATA_DIR):
-        #     shutil.rmtree(DATA_DIR)
-        # if os.path.exists(pdf_directory):
-        #     shutil.rmtree(pdf_directory)
+        # TODO: DELTE THE TXT FOLDERS AND OTHERS
+        if os.path.exists(DATA_DIR):
+            shutil.rmtree(DATA_DIR)
+        if os.path.exists(pdf_directory):
+            shutil.rmtree(pdf_directory)
         
-        a = a + 1
-        if a == 1:
-            break
+        # a = a + 1
+        # if a == 1:
+        #     break
     
     overall_end_time = time.time()
 
