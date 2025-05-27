@@ -869,21 +869,21 @@ class PDFsToEmbeddings:
 
         # print("now converting pdfs to imgs")
         # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
-        # print("now converting imgs to embds")
+        print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
         print("now embeddings this many number of imgs: ", len(img_paths))
         emb = img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
-        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        time5 = time.time()
+        # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        # time5 = time.time()
 
-        print("now converting pdfs to extracted imgs and embds")
-        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
-        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
-        emb_e = img_model.encode_images(extract_img_paths)
-        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
-        time6 = time.time()
+        # print("now converting pdfs to extracted imgs and embds")
+        # self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
+        # extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
+        # emb_e = img_model.encode_images(extract_img_paths)
+        # self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
+        # time6 = time.time()
 
         first = time2 - time1
         sec = time3 - time2
