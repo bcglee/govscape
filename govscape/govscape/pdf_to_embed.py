@@ -189,7 +189,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         return final_embedding
 
     def encode_image(self, jpg_path):
-        image = Image.open(jpg_path)
+        image = Image.open(jpg_path).convert("RGB")
 
         # preprocess image
         inputs = self.processor(images = image, return_tensors="pt").to(self.device)
@@ -231,7 +231,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
             images = []
 
             for p in batch_paths:
-                img = Image.open(p)
+                img = Image.open(p).convert("RGB")
                 images.append(img)
 
             inputs = self.processor(images=images, return_tensors="pt")
@@ -734,7 +734,12 @@ class PDFsToEmbeddings:
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
         out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
 
-        pdf_doc = fitz.open(full_pdf_path)
+        # pdf_doc = fitz.open(full_pdf_path)
+        try:
+            pdf_doc = fitz.open(full_pdf_path)
+        except Exception as e:
+            logging.error(f"can't open PDF {pdf_path}: {e}")
+            return
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
 
