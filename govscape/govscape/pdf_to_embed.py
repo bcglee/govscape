@@ -854,7 +854,7 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        time1 = time.time()
+        '''time1 = time.time()
 
         print("now converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
@@ -862,14 +862,14 @@ class PDFsToEmbeddings:
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
         print("now converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()
+        time3 = time.time()'''
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
 
-        print("now converting pdfs to imgs")
-        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.  #TODO: UNCOMMENT THIS
-        print("now converting imgs to embds")
+        # print("now converting pdfs to imgs")
+        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        # print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
         print("now embeddings this many number of imgs: ", len(img_paths))
