@@ -136,6 +136,8 @@ def batched_file_download(BATCH_SIZE, processor):
 
     # a = 0
     for i in range(0, len(pdf_files), BATCH_SIZE):
+        # if i == 0:  # already did this one
+        #     continue
         print('*****************************************************************************************************')
         print("WE ARE ON BATCH: ", i)
         print('*****************************************************************************************************')

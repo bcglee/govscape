@@ -265,12 +265,12 @@ class CLIPEmbeddingModel(EmbeddingModel):
             for p in batch_paths:
                 try:
                     img = Image.open(p).convert("RGB")
-                    if img.size[0] < 10 or img.size[1] < 10:
-                        print(f"img too small so skipping. has size: {img.size}")
+                    if img.size[0] < 70 or img.size[1] < 70:
+                        # print(f"img too small so skipping. has size: {img.size}")
                         continue
                     images.append(img)
                 except Exception as e:
-                    print(f"error loading img: {e}")
+                    # print(f"error loading img: {e}")
                     continue
 
             if not images:
@@ -809,6 +809,9 @@ class PDFsToEmbeddings:
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
                 # print("img saved at: ",  image_path)
                 image = image.convert("RGB")
+
+                if image.size[0] < 80 or image.size[1] < 80:  #image is too small to be considered
+                    continue
                 image.save(image_path, "JPEG")
         
         if empty:
