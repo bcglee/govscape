@@ -261,7 +261,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
     #     return torch.cat(all_embeddings, dim=0).numpy()
 
 
-    def encode_images(self, jpg_paths, max_batch_size=128):
+    def encode_images(self, jpg_paths, max_batch_size=1024):
         if not jpg_paths:
             return np.empty((0, self.d), dtype=np.float32)
 
