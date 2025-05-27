@@ -142,14 +142,22 @@ class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self, consider_multi=True):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
         # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
-        model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(self.device)  # local
+        model = CLIPModel.from_pretrained("./clip-vit-base-patch32")  # local
 
-        if torch.cuda.device_count() > 1 and consider_multi:
+        if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
+            model = model.cuda()
             model = torch.nn.DataParallel(model)
+        else:
+            model = model.to(self.device)
         
         self.model = model
         self.model.eval()
+
+        if isinstance(self.model, torch.nn.DataParallel):
+            print(f"Model is wrapped in DataParallel. Devices: {self.model.device_ids}")
+        else:
+            print(f"Model running on: {self.device}")
 
         # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
         # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
@@ -865,6 +873,7 @@ class PDFsToEmbeddings:
         print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
+        print("now embeddings this many number of imgs: ", len(img_paths))
         emb = img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
