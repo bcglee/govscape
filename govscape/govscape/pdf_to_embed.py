@@ -146,6 +146,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
+            print("I AM IN DATA PARALLEL")
             model = torch.nn.DataParallel(model)
             # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             # model.to(device)
@@ -323,6 +324,7 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
+        print("hi i have been initialized *******************************************")
         # self.embedding_model = embedding_model
 
         # TODO: uncomment for metadata
@@ -854,7 +856,7 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        '''time1 = time.time()
+        time1 = time.time()
 
         print("now converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
@@ -862,7 +864,7 @@ class PDFsToEmbeddings:
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
         print("now converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()'''
+        time3 = time.time()
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
