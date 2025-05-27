@@ -291,7 +291,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
                 inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 with torch.no_grad():
-                    embeddings = self.model.get_image_features(**inputs)
+
+                    model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
+                    embeddings = model.get_image_features(**inputs)
 
                     embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
 
