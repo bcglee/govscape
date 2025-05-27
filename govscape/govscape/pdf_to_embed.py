@@ -287,7 +287,8 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
             try:
                 inputs = self.processor(images=images, return_tensors="pt", input_data_format="channels_last")
-                inputs = {k: v.to(self.model.device) for k, v in inputs.items()}  #todo: 
+                device = next(self.model.parameters()).device
+                inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 with torch.no_grad():
                     if isinstance(self.model, torch.nn.DataParallel):
@@ -856,7 +857,7 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
         # print("HIHIHIHIHIHHIHI I AM RUNNING ONCE HOPEFULLY **********************************************************************") 
-        print("now converting pdfs to txts")
+        '''print("now converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
         # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
@@ -866,7 +867,7 @@ class PDFsToEmbeddings:
         # runpy.run_path("/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py")
         print("now converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()
+        time3 = time.time()'''
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
