@@ -569,20 +569,39 @@ class PDFsToEmbeddings:
     #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
     #         # pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches) 
 
-    def convert_img_subdirs_to_embeddings(self, img_subdir_paths, overall_embed_path):
+    def convert_img_subdirs_to_embeddings(self, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
         # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
             # embedding_dir = os.path.join(self.embeddings_path, embed_name)  #changed
-            embedding_dir = os.path.join(overall_embed_path, embed_name) #self.embeddings_img_path
+            embedding_dir = os.path.join(self.embeddings_img_path, embed_name)
             self.ensure_dir(embedding_dir)
 
             #all txt files in the txt subdir 
             # print("IMG SUBDIR PATH IS ", img_subdir_path)
             # print(self.embeddings_img_path)
             # print(img_subdir_path)
+            img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
+
+            for img_file in img_files:
+                img_path = os.path.join(img_subdir_path, img_file)
+                output_path = os.path.join(embedding_dir, img_file)
+                img_paths_batch.append(img_path)
+                file_batch.append(output_path)
+        
+        return img_paths_batch, file_batch
+    
+    def convert_img_subdirs_to_embeddings_extracted(self, img_subdir_paths):
+        img_paths_batch = []
+        file_batch = []
+        # print(img_subdir_paths)
+        for img_subdir_path in img_subdir_paths:
+            embed_name = os.path.basename(img_subdir_path)
+            embedding_dir = os.path.join(self.embeddings_img_e_path, embed_name)
+            self.ensure_dir(embedding_dir)
+
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
             for img_file in img_files:
@@ -605,8 +624,8 @@ class PDFsToEmbeddings:
                 img_subdirs_paths.append(img_subdir.path)
         
         # splitting into groups for each process:
-        # batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
-        batch_size = math.ceil(len(img_subdirs_paths) / 2)
+        batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
+        # batch_size = math.ceil(len(img_subdirs_paths) / 2)
         img_subdir_batches = []
         for i in range(0, len(img_subdirs_paths), batch_size):
             img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
@@ -614,10 +633,12 @@ class PDFsToEmbeddings:
         # print("img_subdir_batches ", img_subdir_batches)
 
         ctx = get_context('spawn')
-        # ctx = get_context('fork')
         with ctx.Pool(processes=os.cpu_count()) as pool:
         # with ctx.Pool(processes=2) as pool:
-            results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches, overall_embed_path) # for batch
+            if overall_embed_path == self.embeddings_img_e_path:
+                results = pool.map(self.convert_img_subdirs_to_embeddings_extracted, img_subdir_batches) # for batch
+            else: 
+                results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
             # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
             for img_batch, embed_file_path_batch in results:
@@ -717,9 +738,12 @@ class PDFsToEmbeddings:
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
 
+        empty = True
         for page_num in range(len(pdf_doc)):
             page = pdf_doc[page_num]
             for i, img in enumerate(page.get_images(full=True)):
+                empty = False
+
                 xref = img[0]
                 image_dict = pdf_doc.extract_image(xref)
                 image_bytes = image_dict["image"]
@@ -729,6 +753,9 @@ class PDFsToEmbeddings:
                 # print("img saved at: ",  image_path)
                 image = image.convert("RGB")
                 image.save(image_path, "JPEG")
+        
+        if empty:
+            shutil.rmtree(output_img_dir_path)
     
     def convert_pdfs_to_extracted_imgs(self, pdf_files):
         ctx = get_context('spawn')
