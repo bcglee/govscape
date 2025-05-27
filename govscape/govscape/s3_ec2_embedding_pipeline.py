@@ -82,12 +82,33 @@ def get_n_pdfs(limit=100000):
 
     return pdf_files
 
-def upload_directory_to_s3(ec2_dir, s3_dir):
-    for root, dirs, files in os.walk(ec2_dir):
-        for file in files:
-            local_file_path = os.path.join(root, file)
-            s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
-            s3.upload_file(local_file_path, bucket_name, s3_key)
+
+# sequential version 
+# def upload_directory_to_s3(ec2_dir, s3_dir):
+#     for root, dirs, files in os.walk(ec2_dir):
+#         for file in files:
+#             local_file_path = os.path.join(root, file)
+#             s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
+#             s3.upload_file(local_file_path, bucket_name, s3_key)
+
+
+def upload_file(local_file_path, s3_key):
+    s3.upload_file(local_file_path, bucket_name, s3_key)
+
+def upload_directory_to_s3(ec2_dir, s3_dir, max_workers=48):
+    upload_tasks = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for root, dirs, files in os.walk(ec2_dir):
+            for file in files:
+                local_file_path = os.path.join(root, file)
+                s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
+                upload_tasks.append(executor.submit(upload_file, local_file_path, s3_key))
+
+        for future in as_completed(upload_tasks):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Error uploading: {e}")
 
 def process_pdfs(pdf_files, processor):
     print("IN PROCESS_PDFS: ", pdf_files)

@@ -804,13 +804,18 @@ class PDFsToEmbeddings:
                 xref = img[0]
                 image_dict = pdf_doc.extract_image(xref)
                 image_bytes = image_dict["image"]
-                image = Image.open(io.BytesIO(image_bytes))
+
+                try:
+                    image = Image.open(io.BytesIO(image_bytes))
+                    image.load()
+                except Exception as e:
+                    continue
 
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
                 # print("img saved at: ",  image_path)
                 image = image.convert("RGB")
 
-                if image.size[0] < 80 or image.size[1] < 80:  #image is too small to be considered
+                if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
                     continue
                 image.save(image_path, "JPEG")
         
