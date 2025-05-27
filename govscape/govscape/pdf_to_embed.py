@@ -146,8 +146,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
-            model = model.cuda()
             model = torch.nn.DataParallel(model)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            model.to(device)
         else:
             model = model.to(self.device)
         
@@ -807,6 +808,8 @@ class PDFsToEmbeddings:
         for page_num in range(len(pdf_doc)):
             page = pdf_doc[page_num]
             for i, img in enumerate(page.get_images(full=True)):
+                if i == 4:  # four images max per page extracted
+                    break
                 empty = False
 
                 xref = img[0]

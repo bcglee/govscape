@@ -7,6 +7,7 @@ import govscape as gs
 import concurrent.futures
 import shutil
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 s3 = boto3.client('s3')
 
@@ -197,7 +198,15 @@ def batched_file_download(BATCH_SIZE, processor):
 def main():
     # model = gs.TextEmbeddingModel()
     # processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
-    batched_file_download(BATCH_SIZE, processor)
+    # batched_file_download(BATCH_SIZE, processor)  #TODO: UNCOMMENT 
+
+    upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+    upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
+    upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
+    upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+    upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
+    upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
+    print("finished uploading")
 
 if __name__ == '__main__':
     main()
