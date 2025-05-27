@@ -147,8 +147,8 @@ class CLIPEmbeddingModel(EmbeddingModel):
         if torch.cuda.device_count() > 1:
             print(f"using {torch.cuda.device_count()} gpus")
             model = torch.nn.DataParallel(model)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            model.to(device)
+            # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # model.to(device)
         else:
             model = model.to(self.device)
         
