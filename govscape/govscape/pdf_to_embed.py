@@ -594,13 +594,13 @@ class PDFsToEmbeddings:
         return img_paths_batch, file_batch
     
     # 3. batching version for multi-gpus
-    def convert_imgs_to_embeddings(self):
+    def convert_imgs_to_embeddings(self, overall_embed_path, overall_img_path):
         all_imgs = []
         all_embed_file_paths = []
-        self.ensure_dir(self.embeddings_img_path)
+        self.ensure_dir(overall_embed_path) #self.embeddings_img_path
 
         img_subdirs_paths = []
-        for img_subdir in os.scandir(self.jpgs_path):
+        for img_subdir in os.scandir(overall_img_path): #self.jpgs_path
             if img_subdir.is_dir():
                 img_subdirs_paths.append(img_subdir.path)
         
@@ -658,56 +658,56 @@ class PDFsToEmbeddings:
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir
     # *******************************************************************************************************************
 
-    # single pdf -> extracted img, extracted img embedding (using og embed dir)
-    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_model):
-        pdf_doc = fitz.open(pdf_path)
+    # single pdf -> extracted img, extracted img embedding (using og embed dir)  #single gpu, no batch, sequential version
+    # def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_model):
+    #     pdf_doc = fitz.open(pdf_path)
 
-        title = os.path.splitext(os.path.basename(pdf_path))[0]
+    #     title = os.path.splitext(os.path.basename(pdf_path))[0]
 
-        for page_num in range(len(pdf_doc)):
-            page = pdf_doc[page_num]
-            for i, img in enumerate(page.get_images(full=True)):
-                xref = img[0]
-                image_dict = pdf_doc.extract_image(xref)
-                image_bytes = image_dict["image"]
-                image = Image.open(io.BytesIO(image_bytes))
+    #     for page_num in range(len(pdf_doc)):
+    #         page = pdf_doc[page_num]
+    #         for i, img in enumerate(page.get_images(full=True)):
+    #             xref = img[0]
+    #             image_dict = pdf_doc.extract_image(xref)
+    #             image_bytes = image_dict["image"]
+    #             image = Image.open(io.BytesIO(image_bytes))
 
-                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
-                # print("img saved at: ",  image_path)
-                if image.mode == "RGBA":
-                    image = image.convert("RGB")
-                image.save(image_path, "JPEG")
+    #             image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
+    #             # print("img saved at: ",  image_path)
+    #             if image.mode == "RGBA":
+    #                 image = image.convert("RGB")
+    #             image.save(image_path, "JPEG")
 
-                # convert to embedding 
-                # embed = self.embedding_model.encode_image(image_path)
-                embed = img_model.encode_image(image_path)
+    #             # convert to embedding 
+    #             # embed = self.embedding_model.encode_image(image_path)
+    #             embed = img_model.encode_image(image_path)
 
-                output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                np.save(output_path, embed)
+    #             output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
+    #             os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    #             np.save(output_path, embed)
 
-    # pdfs -> extracted imgs, extracted img embeds
-    def extract_img_pdfs(self, pdf_files, img_model):
-        # go through entire set of pdfs 
-        # pdfs_dir = Path(pdf_files)
-        # pdf_paths = list(pdfs_dir.glob("*.pdf"))
-        pdf_paths = pdf_files
+    # # pdfs -> extracted imgs, extracted img embeds
+    # def extract_img_pdfs(self, pdf_files, img_model):
+    #     # go through entire set of pdfs 
+    #     # pdfs_dir = Path(pdf_files)
+    #     # pdf_paths = list(pdfs_dir.glob("*.pdf"))
+    #     pdf_paths = pdf_files
 
-        # extract_folder = Path(str(self.jpgs_path) + "_extract")
-        extract_folder = Path(self.extracted_jpgs_path)
-        extract_folder.mkdir(parents=True, exist_ok=True)
+    #     # extract_folder = Path(str(self.jpgs_path) + "_extract")
+    #     extract_folder = Path(self.extracted_jpgs_path)
+    #     extract_folder.mkdir(parents=True, exist_ok=True)
 
-        # extract images and put it in images under _IMG_count.png
-        for pdf_path in pdf_paths:
-            # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
-            full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
-            img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
-            img_path.mkdir(parents=True, exist_ok=True)
-            out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
-            self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, img_model)
+    #     # extract images and put it in images under _IMG_count.png
+    #     for pdf_path in pdf_paths:
+    #         # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
+    #         full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
+    #         img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
+    #         img_path.mkdir(parents=True, exist_ok=True)
+    #         out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
+    #         self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, img_model)
     
     # multi gpu extract images below 
-    def extract_img_pdfs(self, pdf_path, output_img_dir_path, out_embed_path):
+    def extract_img_pdfs(self, pdf_path):
         full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
         output_img_dir_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
@@ -767,21 +767,24 @@ class PDFsToEmbeddings:
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
+        '''
 
         print("now converting pdfs to imgs")
         self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
         print("now converting imgs to embds")
-        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings()
+        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
         # self.convert_imgs_to_embeddings()  # image of entire pdf page (for document type in future)  #TODO: uncomment
         emb = img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        time5 = time.time()
+        time5 = time.time()'''
 
         print("now converting pdfs to extracted imgs and embds")
-        img_extract_model = CLIPEmbeddingModel(False)
-        self.convert_pdfs_to_extracted_imgs(pdf_files, img_extract_model)  # extracted images and their embeddings #TODO: figure out this later + speed 
+        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
+        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
+        emb_e = img_model.encode_images(extract_img_paths)
+        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()
 
         first = time2 - time1
