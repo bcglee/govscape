@@ -287,7 +287,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
             try:
                 inputs = self.processor(images=images, return_tensors="pt", input_data_format="channels_last")
-                inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                inputs = {k: v.to(self.model.device) for k, v in inputs.items()}  #todo: 
 
                 with torch.no_grad():
                     if isinstance(self.model, torch.nn.DataParallel):
