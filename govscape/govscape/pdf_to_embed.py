@@ -232,6 +232,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
             for p in batch_paths:
                 img = Image.open(p).convert("RGB")
+                print(image.mode, image.size)
+                # if (image.mode != "RGB"):
+                #     continue
                 images.append(img)
 
             inputs = self.processor(images=images, return_tensors="pt")
