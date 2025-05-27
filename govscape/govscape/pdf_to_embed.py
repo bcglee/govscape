@@ -31,6 +31,7 @@ import pynvml
 from multiprocessing import Manager, Lock
 import runpy
 import subprocess
+import shutil
 
 # from govscape import multi_gpu_main
 # from .pdf_to_embed_multigpu import main as main_multigpu
