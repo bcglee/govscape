@@ -220,7 +220,39 @@ class CLIPEmbeddingModel(EmbeddingModel):
         
         # return embeddings.cpu().numpy()
     
-    def encode_images(self, jpg_paths, max_batch_size = 32):
+    # def encode_images(self, jpg_paths, max_batch_size = 32):
+    #     if not jpg_paths:
+    #         return np.empty((0, self.d), dtype=np.float32)
+
+    #     all_embeddings = []
+
+    #     for i in range(0, len(jpg_paths), max_batch_size):
+    #         batch_paths = jpg_paths[i:i + max_batch_size]
+    #         images = []
+
+    #         for p in batch_paths:
+    #             img = Image.open(p).convert("RGB")
+    #             print(img.mode, img.size)
+    #             # if (img.mode != "RGB"):
+    #             #     continue
+    #             images.append(img)
+
+    #         inputs = self.processor(images=images, return_tensors="pt")
+    #         inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+    #         with torch.no_grad():
+    #             if isinstance(self.model, torch.nn.DataParallel):
+    #                 embeddings = self.model.module.get_image_features(**inputs)
+    #             else:
+    #                 embeddings = self.model.get_image_features(**inputs)
+
+    #             embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+
+    #         all_embeddings.append(embeddings.cpu())
+    #     return torch.cat(all_embeddings, dim=0).numpy()
+
+
+    def encode_images(self, jpg_paths, max_batch_size=32):
         if not jpg_paths:
             return np.empty((0, self.d), dtype=np.float32)
 
@@ -231,25 +263,42 @@ class CLIPEmbeddingModel(EmbeddingModel):
             images = []
 
             for p in batch_paths:
-                img = Image.open(p).convert("RGB")
-                print(img.mode, img.size)
-                # if (image.mode != "RGB"):
-                #     continue
-                images.append(img)
+                try:
+                    img = Image.open(p).convert("RGB")
+                    if img.size[0] < 10 or img.size[1] < 10:
+                        print(f"img too small so skipping. has size: {img.size}")
+                        continue
+                    images.append(img)
+                except Exception as e:
+                    print(f"error loading img: {e}")
+                    continue
 
-            inputs = self.processor(images=images, return_tensors="pt")
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            if not images:
+                continue
 
-            with torch.no_grad():
-                if isinstance(self.model, torch.nn.DataParallel):
-                    embeddings = self.model.module.get_image_features(**inputs)
-                else:
-                    embeddings = self.model.get_image_features(**inputs)
+            try:
+                inputs = self.processor(images=images, return_tensors="pt", input_data_format="channels_last")
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-                embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+                with torch.no_grad():
+                    if isinstance(self.model, torch.nn.DataParallel):
+                        embeddings = self.model.module.get_image_features(**inputs)
+                    else:
+                        embeddings = self.model.get_image_features(**inputs)
 
-            all_embeddings.append(embeddings.cpu())
-        return torch.cat(all_embeddings, dim=0).numpy()
+                    embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+
+                all_embeddings.append(embeddings.cpu())
+
+            except Exception as e:
+                print(f"Error processing batch {i}: {e}")
+                continue
+
+        if all_embeddings:
+            return torch.cat(all_embeddings, dim=0).numpy()
+        else:
+            return np.empty((0, self.d), dtype=np.float32)
+
 
 def natural_key(s):
     return [int(text) if text.isdigit() else text.lower()
