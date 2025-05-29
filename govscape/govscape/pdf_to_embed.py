@@ -304,8 +304,8 @@ class CLIPEmbeddingModel(EmbeddingModel):
         outputs = manager.dict()
         processes = []
 
-        for gpu_id in range(gpu_count):
-            p = mp.Process(target=self.encode_images_per_gpu, args=(list(jpg_splits[gpu_id]), gpu_id, max_batch_size, outputs))
+        for i in range(gpu_count):
+            p = mp.Process(target=self.encode_images_per_gpu, args=(list(jpg_paths_split[i]), i, max_batch_size, outputs))
             p.start()
             processes.append(p)
 
@@ -313,8 +313,8 @@ class CLIPEmbeddingModel(EmbeddingModel):
             p.join()
         
         all_embeddings = []
-        for gpu_id in range(gpu_count):
-            embeddings = outputs[gpu_id]
+        for i in range(gpu_count):
+            embeddings = outputs[i]
             all_embeddings.append(embeddings)
 
         return np.concatenate(all_embeddings, axis=0)
