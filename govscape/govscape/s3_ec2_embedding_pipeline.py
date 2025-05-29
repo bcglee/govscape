@@ -17,7 +17,7 @@ s3 = boto3.client("s3", config=config)
 
 # FIELDS TO SET **************************************************************************************
 
-BATCH_SIZE = 1000 #TODO: FIX TO 1000
+BATCH_SIZE = 1000 #TODO: FIX TO 10000
 
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'

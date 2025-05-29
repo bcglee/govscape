@@ -107,19 +107,6 @@ class TextEmbeddingModel(EmbeddingModel):
 
         return image_caption_embed
     
-def get_least_used_cuda():
-    pynvml.nvmlInit()
-    device_count = pynvml.nvmlDeviceGetCount()
-    min_used_mem = float("inf")
-    best_device = "cuda:0"
-    for i in range(device_count):
-        handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        if meminfo.used < min_used_mem:
-            min_used_mem = meminfo.used
-            best_device = f"cuda:{i}"
-    pynvml.nvmlShutdown()
-    return best_device
 
 # def get_available_cuda(gpu_process_map, lock, max_procs_per_gpu=2):
 #     pynvml.nvmlInit()
@@ -139,37 +126,24 @@ def get_least_used_cuda():
 #     return chosen_device
 
 class CLIPEmbeddingModel(EmbeddingModel):
-    def __init__(self, consider_multi=True):
-        self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
-        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
-        model = CLIPModel.from_pretrained("./clip-vit-base-patch32")  # local
+    def __init__(self, multi_gpu=True):
 
-        if torch.cuda.device_count() > 1:
-            print(f"using {torch.cuda.device_count()} gpus")
-            print("I AM IN DATA PARALLEL")
-            model = torch.nn.DataParallel(model)
-            # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            # model.to(device)
-        else:
-            model = model.to(self.device)
-        
-        self.model = model
-        self.model.eval()
+        if not multi_gpu:  #note: single gpu methods may no longer be working, haven't checked 
+            self.device = 'cuda' if torch.cuda.is_available() else "cpu"  # this is for the encode_image, encode_text single cases
+            # self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
+            self.model = CLIPModel.from_pretrained("./clip-vit-base-patch32")  # local
 
-        if isinstance(self.model, torch.nn.DataParallel):
-            print(f"Model is wrapped in DataParallel. Devices: {self.model.device_ids}")
-        else:
-            print(f"Model running on: {self.device}")
+            self.model.eval()
 
-        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
-        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-        image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
-        tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")
+            # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
+            # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  #querying hugging face
+            image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
+            tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
 
-        self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
+            self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
 
         self.d = 512
-    
+
     def encode_text(self, text):  #note: not doing encode_texts version of this yet because currently not in use. 
         #tokenize text
         inputs = self.processor(text=text, return_tensors="pt").to(self.device)
@@ -260,11 +234,28 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
     #         all_embeddings.append(embeddings.cpu())
     #     return torch.cat(all_embeddings, dim=0).numpy()
+    
+    # for multi-gpus: 
+
+    def create_model_and_processor(self, gpu_id):
+        torch.cuda.set_device(gpu_id)
+        device = torch.device(f"cuda:{gpu_id}")
+        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
+        model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(device)
+        model.eval()
+
+        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
+        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  #querying hugging face
+        image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
+        tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
+
+        processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
+
+        return model, processor, device
 
 
-    def encode_images(self, jpg_paths, max_batch_size=1024):
-        if not jpg_paths:
-            return np.empty((0, self.d), dtype=np.float32)
+    def encode_images_per_gpu(self, jpg_paths, gpu_id, max_batch_size=1024, results):
+        model, processor, device = create_model_and_processor()
 
         all_embeddings = []
 
@@ -276,26 +267,20 @@ class CLIPEmbeddingModel(EmbeddingModel):
                 try:
                     img = Image.open(p).convert("RGB")
                     if img.size[0] < 70 or img.size[1] < 70:
-                        # print(f"img too small so skipping. has size: {img.size}")
                         continue
                     images.append(img)
                 except Exception as e:
-                    # print(f"error loading img: {e}")
                     continue
 
             if not images:
                 continue
 
             try:
-                inputs = self.processor(images=images, return_tensors="pt", input_data_format="channels_last")
-                device = next(self.model.parameters()).device
+                inputs = processor(images=images, return_tensors="pt", input_data_format="channels_last")
                 inputs = {k: v.to(device) for k, v in inputs.items()}
 
                 with torch.no_grad():
-
-                    model = self.model.module if isinstance(self.model, torch.nn.DataParallel) else self.model
                     embeddings = model.get_image_features(**inputs)
-
                     embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
 
                 all_embeddings.append(embeddings.cpu())
@@ -308,7 +293,30 @@ class CLIPEmbeddingModel(EmbeddingModel):
             return torch.cat(all_embeddings, dim=0).numpy()
         else:
             return np.empty((0, self.d), dtype=np.float32)
+    
+    def encode_images(self, jpg_paths, max_batch_size=1024):
+        gpu_count = torch.cuda.device_count()
 
+        jpg_paths_split = np.array_split(jpg_paths, num_gpus)
+
+        manager = mp.Manager()
+        outputs = manager.dict()
+        processes = []
+
+        for gpu_id in range(num_gpus):
+            p = mp.Process(target=self.encode_images_on_gpu, args=(list(jpg_splits[gpu_id]), gpu_id, max_batch_size, outputs))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+        
+        all_embeddings = []
+        for gpu_id in range(num_gpus):
+            embeddings = outputs[gpu_id]
+            all_embeddings.append(embeddings)
+
+        return np.concatenate(all_embeddings, axis=0)
 
 def natural_key(s):
     return [int(text) if text.isdigit() else text.lower()
@@ -324,7 +332,6 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
-        print("hi i have been initialized *******************************************")
         # self.embedding_model = embedding_model
 
         # TODO: uncomment for metadata
@@ -856,15 +863,15 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        time1 = time.time()
+        # time1 = time.time()
 
-        print("now converting pdfs to txts")
-        self.convert_pdfs_to_txt(pdf_files)
-        time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        print("now converting txts to embeddings")
-        subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        time3 = time.time()
+        # print("now converting pdfs to txts")
+        # self.convert_pdfs_to_txt(pdf_files)
+        # time2 = time.time()
+        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        # print("now converting txts to embeddings")
+        # subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+        # time3 = time.time()
 
         # # converting imgs
         img_model = CLIPEmbeddingModel()
