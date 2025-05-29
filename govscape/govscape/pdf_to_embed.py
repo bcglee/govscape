@@ -297,13 +297,13 @@ class CLIPEmbeddingModel(EmbeddingModel):
     def encode_images(self, jpg_paths, max_batch_size=1024):
         gpu_count = torch.cuda.device_count()
 
-        jpg_paths_split = np.array_split(jpg_paths, num_gpus)
+        jpg_paths_split = np.array_split(jpg_paths, gpu_count)
 
         manager = mp.Manager()
         outputs = manager.dict()
         processes = []
 
-        for gpu_id in range(num_gpus):
+        for gpu_id in range(gpu_count):
             p = mp.Process(target=self.encode_images_on_gpu, args=(list(jpg_splits[gpu_id]), gpu_id, max_batch_size, outputs))
             p.start()
             processes.append(p)
@@ -312,7 +312,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
             p.join()
         
         all_embeddings = []
-        for gpu_id in range(num_gpus):
+        for gpu_id in range(gpu_count):
             embeddings = outputs[gpu_id]
             all_embeddings.append(embeddings)
 
