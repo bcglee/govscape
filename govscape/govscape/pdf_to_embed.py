@@ -305,7 +305,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         processes = []
 
         for gpu_id in range(gpu_count):
-            p = mp.Process(target=self.encode_images_on_gpu, args=(list(jpg_splits[gpu_id]), gpu_id, max_batch_size, outputs))
+            p = mp.Process(target=self.encode_images_per_gpu, args=(list(jpg_splits[gpu_id]), gpu_id, max_batch_size, outputs))
             p.start()
             processes.append(p)
 
