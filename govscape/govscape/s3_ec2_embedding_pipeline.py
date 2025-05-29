@@ -22,8 +22,8 @@ BATCH_SIZE = 1000 #TODO: FIX TO 10000
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
-data_dir_s3 = '2008_EOT_PDFs/data_test_100k_2/' # OUTPUT OVERALL DATA DIR IN S3 HERE  # TODO: CHANGE THE NAME OF DATA5
-# data_dir_s3 = '2008_EOT_PDFs/data_test_100k_single_gpu_1/' # OUTPUT OVERALL DATA DIR IN S3 HERE  # TODO: CHANGE THE NAME OF DATA5
+data_dir_s3 = '2008_EOT_PDFs/data_test_100k_final/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
+# data_dir_s3 = '2008_EOT_PDFs/data_test_100k_single_gpu_1/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
 # data and data1 were for testing cpu file output
 # data2 is for testing single gpu file output
 
@@ -168,8 +168,8 @@ def batched_file_download(BATCH_SIZE, processor):
 
     # a = 0
     for i in range(0, len(pdf_files), BATCH_SIZE):
-        if i <= 6000:  # already did this one
-            continue
+        # if i <= 6000:  # already did this one
+        #     continue
         print('*****************************************************************************************************')
         print("WE ARE ON BATCH: ", i)
         print('*****************************************************************************************************')
@@ -183,7 +183,7 @@ def batched_file_download(BATCH_SIZE, processor):
             s3.download_file(bucket_name, pdf, local_path)
             local_batch.append(file_name)
         
-        process_pdfs(local_batch, processor)  #TODO: ?? 
+        process_pdfs(local_batch, processor)
 
         # TODO: DELTE THE TXT FOLDERS AND OTHERS
         if os.path.exists(DATA_DIR):
@@ -206,8 +206,9 @@ def batched_file_download(BATCH_SIZE, processor):
 
 #poetry run python s3_ec2_embedding_pipeline.py
 def main():
-    batched_file_download(BATCH_SIZE, processor)  #TODO: UNCOMMENT 
+    batched_file_download(BATCH_SIZE, processor) 
 
+    # # some testing testing below:
     # upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     # upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
     # upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')

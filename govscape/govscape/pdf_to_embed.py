@@ -260,7 +260,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         all_embeddings = []
 
-        for i in range(0, len(jpg_paths), max_batch_size):
+        for i in range(0, len(jpg_paths), max_batch_size):  # idea: move this into a multiprocessing method and then pass in the images instead of jpg paths into the gpus. 
             batch_paths = jpg_paths[i:i + max_batch_size]
             images = []
 
@@ -864,36 +864,36 @@ class PDFsToEmbeddings:
     # version2: by list of pdf_files
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
-        # time1 = time.time()
+        time1 = time.time()
 
-        # print("now converting pdfs to txts")
-        # self.convert_pdfs_to_txt(pdf_files)
-        # time2 = time.time()
-        # # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        # print("now converting txts to embeddings")
-        # subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
-        # time3 = time.time()
+        print("now converting pdfs to txts")
+        self.convert_pdfs_to_txt(pdf_files)
+        time2 = time.time()
+        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
+        print("now converting txts to embeddings")
+        subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+        time3 = time.time()
 
-        # # converting imgs
+        # converting imgs
         img_model = CLIPEmbeddingModel()
 
-        # print("now converting pdfs to imgs")
-        # self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
+        print("now converting pdfs to imgs")
+        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
         print("now converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
         print("now embeddings this many number of imgs: ", len(img_paths))
         emb = img_model.encode_images(img_paths)
         print("Embeddings computed. Shape:", emb.shape)
-        # self.convert_img_embedding_to_files(emb, all_embed_file_paths)
-        # time5 = time.time()
+        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        time5 = time.time()
 
-        # print("now converting pdfs to extracted imgs and embds")
-        # self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
-        # extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
-        # emb_e = img_model.encode_images(extract_img_paths)
-        # self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
-        # time6 = time.time()
+        print("now converting pdfs to extracted imgs and embds")
+        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
+        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
+        emb_e = img_model.encode_images(extract_img_paths)
+        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
+        time6 = time.time()
 
         first = time2 - time1
         sec = time3 - time2
