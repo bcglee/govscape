@@ -254,7 +254,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         return model, processor, device
 
 
-    def encode_images_per_gpu(self, jpg_paths, gpu_id, max_batch_size=1024, results):
+    def encode_images_per_gpu(self, jpg_paths, gpu_id, max_batch_size, results):
         model, processor, device = create_model_and_processor()
 
         all_embeddings = []
@@ -290,9 +290,9 @@ class CLIPEmbeddingModel(EmbeddingModel):
                 continue
 
         if all_embeddings:
-            return torch.cat(all_embeddings, dim=0).numpy()
+            results[gpu_id] = torch.cat(all_embeddings, dim=0).numpy()
         else:
-            return np.empty((0, self.d), dtype=np.float32)
+            results[gpu_id] = np.empty((0, self.d), dtype=np.float32)
     
     def encode_images(self, jpg_paths, max_batch_size=1024):
         gpu_count = torch.cuda.device_count()
