@@ -256,7 +256,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
 
     def encode_images_per_gpu(self, jpg_paths, gpu_id, max_batch_size, results):
-        model, processor, device = create_model_and_processor()
+        model, processor, device = self.create_model_and_processor(gpu_id)
 
         all_embeddings = []
 
