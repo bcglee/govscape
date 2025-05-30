@@ -552,14 +552,14 @@ class PDFsToEmbeddings:
         # with open("seq_times.txt", "a") as f:
         #     f.write(f"txt -> embed time: {time3 - time2}\n")
         # self.convert_pdfs_to_single_jpg(pdf_files)
-        time4 = time.time()
+        # time4 = time.time()
         # with open("seq_times.txt", "a") as f:
         #     f.write(f"pdf -> img per page time: {time4 - time3}\n")
         img_embed_model = CLIPEmbeddingModel()
-        self.convert_imgs_to_embeddings(img_embed_model)
+        # self.convert_imgs_to_embeddings(img_embed_model)
         time5 = time.time()
-        with open("seq_times.txt", "a") as f:
-            f.write(f"img per page -> embed time: {time5 - time4}\n")
+        # with open("seq_times.txt", "a") as f:
+        #     f.write(f"img per page -> embed time: {time5 - time4}\n")
         self.extract_img_pdfs(img_embed_model)
         time6 = time.time()
         with open("seq_times.txt", "a") as f:
