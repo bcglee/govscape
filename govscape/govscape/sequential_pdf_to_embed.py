@@ -28,7 +28,7 @@ import math
 import re
 import logging
 
-import pdf_to_embed_multigpu
+# import pdf_to_embed_multigpu
 
 # NOTE FOR THIS VERSION: *******************************************************************************************************
 
