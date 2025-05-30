@@ -142,7 +142,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         
         image_embedding = image_embedding / image_embedding.norm(dim=-1, keepdim=True)
 
-        return image_embedding
+        return image_embedding.to("cpu").numpy()
 
 def natural_key(s):
     return [int(text) if text.isdigit() else text.lower()
@@ -526,20 +526,20 @@ class PDFsToEmbeddings:
         
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
 
-        text_embed_model = TextEmbeddingModel()
-        time1 = time.time()
-        self.convert_pdfs_to_txt(pdf_files)
-        time2 = time.time()
-        with open("seq_times.txt", "a") as f:
-            f.write(f"pdf -> txt time: {time2 - time1}\n")
-        self.convert_txts_to_embeddings(pdf_files, text_embed_model)
-        time3 = time.time()
-        with open("seq_times.txt", "a") as f:
-            f.write(f"txt -> embed time: {time3 - time2}\n")
-        self.convert_pdfs_to_single_jpg(pdf_files)
+        # text_embed_model = TextEmbeddingModel()
+        # time1 = time.time()
+        # self.convert_pdfs_to_txt(pdf_files)
+        # time2 = time.time()
+        # with open("seq_times.txt", "a") as f:
+        #     f.write(f"pdf -> txt time: {time2 - time1}\n")
+        # self.convert_txts_to_embeddings(pdf_files, text_embed_model)
+        # time3 = time.time()
+        # with open("seq_times.txt", "a") as f:
+        #     f.write(f"txt -> embed time: {time3 - time2}\n")
+        # self.convert_pdfs_to_single_jpg(pdf_files)
         time4 = time.time()
-        with open("seq_times.txt", "a") as f:
-            f.write(f"pdf -> img per page time: {time4 - time3}\n")
+        # with open("seq_times.txt", "a") as f:
+        #     f.write(f"pdf -> img per page time: {time4 - time3}\n")
         img_embed_model = CLIPEmbeddingModel()
         self.convert_imgs_to_embeddings(img_embed_model)
         time5 = time.time()
