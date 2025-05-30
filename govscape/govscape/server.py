@@ -104,8 +104,8 @@ class Server:
 
         # Initialize Flask app and API
         self.app = Flask(__name__, static_folder=build_dir, static_url_path="")
-        # Allow CORS for frontend dev server only
-        CORS(self.app, origins=["http://localhost:5173"], supports_credentials=True)
+        # TODO: Remove localhost:5173 soon for security concerns
+        CORS(self.app, origins=["http://3.20.135.189", "http://localhost:5173"], supports_credentials=True)
 
         @self.app.route("/")
         def serve_index():
