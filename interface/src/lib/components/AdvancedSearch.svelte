@@ -3,16 +3,16 @@
   import { searchStore, searchActions } from '$lib/stores/search';
   export let show = false;
 
-  let publicationDate = '';
+  let crawlDate = '2024';
   let subdomain = '';
   let pageCount = '';
 
-  const publicationDateOptions = [
-    { value: '', label: 'Any time' },
-    { value: 'past_24_hours', label: 'Past 24 hours' },
-    { value: 'past_week', label: 'Past week' },
-    { value: 'past_month', label: 'Past month' },
-    { value: 'past_year', label: 'Past year' },
+  const crawlDateOptions = [
+    { value: '2024', label: '2024' },
+    { value: '2020', label: '2020' },
+    { value: '2016', label: '2016' },
+    { value: '2012', label: '2012' },
+    { value: '2008', label: '2008' },
   ];
 
   const subdomainOptions = [
@@ -40,7 +40,7 @@
     }
 
     searchActions.updateFilters({
-      date: publicationDate || null,
+      crawlDate: crawlDate || null,
       subdomain: subdomain || null,
       minPages: minPages,
       maxPages: maxPages,
@@ -54,9 +54,9 @@
       <div class="advanced-search-title">Search Filters</div>
       <div class="filters-grid">
         <div class="filter-item">
-          <label for="publicationDate">Publication Date</label>
-          <select id="publicationDate" bind:value={publicationDate} on:change={applyFilters}>
-            {#each publicationDateOptions as option}
+          <label for="crawlDate">Crawl Date</label>
+          <select id="crawlDate" bind:value={crawlDate} on:change={applyFilters}>
+            {#each crawlDateOptions as option}
               <option value={option.value}>{option.label}</option>
             {/each}
           </select>
