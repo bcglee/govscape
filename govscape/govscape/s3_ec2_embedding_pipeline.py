@@ -172,32 +172,34 @@ def batched_file_download(BATCH_SIZE, processor):
     
     overall_start_time = time.time()
 
+    process_pdfs(local_batch, processor)
+
     # a = 0
-    for i in range(0, len(pdf_files), BATCH_SIZE):
-        # if i <= 6000:  # already did this one
-        #     continue
-        print('*****************************************************************************************************')
-        print("WE ARE ON BATCH: ", i)
-        print('*****************************************************************************************************')
-        batch = pdf_files[i:i + BATCH_SIZE] 
-        local_batch = []
+    # for i in range(0, len(pdf_files), BATCH_SIZE):
+    #     # if i <= 6000:  # already did this one
+    #     #     continue
+    #     print('*****************************************************************************************************')
+    #     print("WE ARE ON BATCH: ", i)
+    #     print('*****************************************************************************************************')
+    #     batch = pdf_files[i:i + BATCH_SIZE] 
+    #     local_batch = []
 
-        for pdf in batch:
-            file_name = os.path.basename(pdf)
-            local_path = os.path.join('downloads', file_name)  # save here?
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            s3.download_file(bucket_name, pdf, local_path)
-            local_batch.append(file_name)
+    #     for pdf in batch:
+    #         file_name = os.path.basename(pdf)
+    #         local_path = os.path.join('downloads', file_name)  # save here?
+    #         os.makedirs(os.path.dirname(local_path), exist_ok=True)
+    #         s3.download_file(bucket_name, pdf, local_path)
+    #         local_batch.append(file_name)
         
-        process_pdfs(local_batch, processor)
+    #     process_pdfs(local_batch, processor)
 
-        # TODO: DELTE THE TXT FOLDERS AND OTHERS
-        if os.path.exists(DATA_DIR):
-            shutil.rmtree(DATA_DIR)
-        if os.path.exists(pdf_directory):
-            shutil.rmtree(pdf_directory)
+    #     # TODO: DELTE THE TXT FOLDERS AND OTHERS
+    #     if os.path.exists(DATA_DIR):
+    #         shutil.rmtree(DATA_DIR)
+    #     if os.path.exists(pdf_directory):
+    #         shutil.rmtree(pdf_directory)
         
-        break # TODO: REMOVE THIS 
+    #     break # TODO: REMOVE THIS 
         
         # a = a + 1
         # if a == 1:
