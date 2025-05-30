@@ -9,7 +9,7 @@
   const suggestions = ['income tax', 'climate change', 'student loans', 'pie charts'];
   const searchModes = [
     { id: 'textual', label: 'Textual Search', placeholder: 'Search PDFs with context-rich text search...' },
-    { id: 'semantic', label: 'Semantic Search', placeholder: 'Search PDFs using image & text semantics...' },
+    { id: 'visual', label: 'Visual Search', placeholder: 'Search PDFs using image semantics...' },
     { id: 'keyword', label: 'Keyword Search', placeholder: 'Enter keywords for search...' },
   ];
 
@@ -65,7 +65,7 @@
     <div
       class="search-mode-toggle-bg"
       class:toggle-left={currentSearchMode.id === 'textual'}
-      class:toggle-middle={currentSearchMode.id === 'semantic'}
+      class:toggle-middle={currentSearchMode.id === 'visual'}
       class:toggle-right={currentSearchMode.id === 'keyword'}
     ></div>
     {#each searchModes as mode}

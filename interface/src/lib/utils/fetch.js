@@ -3,13 +3,13 @@ const IS_DEV = import.meta.env.DEV;
 const ENDPOINTS = {
     DEV: {
         textual: 'http://localhost:8080',
-        semantic: 'http://localhost:8080',
+        visual: 'http://localhost:8080',
         keyword: 'http://localhost:8080',
     },
     PROD: {
-        textual: 'http://3.20.135.189:8000',
-        semantic: 'http://3.20.135.189:8001',
-        keyword: 'http://3.20.135.189:8000',
+        textual: 'https://govscape.net/uae/api',
+        visual: 'https://govscape.net/clip/api',
+        keyword: 'https://govscape.net/uae/api', // TODO: update to api endpoint
     }
 };
 
