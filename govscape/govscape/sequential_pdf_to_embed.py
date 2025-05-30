@@ -565,17 +565,21 @@ class PDFsToEmbeddings:
         with open("seq_times.txt", "a") as f:
             f.write(f"extracted img -> embed time: {time6 - time5}\n")
 
-        first = time2 - time1
-        sec = time3 - time2
-        third = time4 - time3
-        fourth = time5 - time4
-        fifth = time6 - time5
+        # first = time2 - time1
+        # sec = time3 - time2
+        # third = time4 - time3
+        # fourth = time5 - time4
+        # fifth = time6 - time5
+        first = 1
+        sec = 2
+        third = 3
+        fourth = 4
 
-        print("pdf -> txt time: ", time2 - time1)
-        print("txt -> embed time: ", time3 - time2)
-        print("pdf -> img per page time: ", time4 - time3)
-        print("img per page -> embed time: ", time5 - time4)
-        print("extracted img -> embed time: ", time6 - time5)
+        # print("pdf -> txt time: ", time2 - time1)
+        # print("txt -> embed time: ", time3 - time2)
+        # print("pdf -> img per page time: ", time4 - time3)
+        # print("img per page -> embed time: ", time5 - time4)
+        # print("extracted img -> embed time: ", time6 - time5)
 
         return first, sec, third, fourth
 
