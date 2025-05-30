@@ -133,7 +133,8 @@ def process_pdfs(pdf_files, processor):
         throughput = len(pdf_files) / duration
     else:
         throughput = 0
-
+    
+    time1 = time.time()
     # UPLOADING EMBEDDINGS, TXTS, IMAGES TO S3 HERE 
     upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
     print("finished uploading txt")
@@ -147,6 +148,11 @@ def process_pdfs(pdf_files, processor):
     print("finished uploading embed img pg")
     upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
     print("finished uploading embed img extracted")
+
+    time2 = time.time()
+
+    with open("seq_times.txt", "a") as f:
+        f.write(f"uploading all files to s3: {time2 - time1}\n")
 
     print("finished uploading current batch")
 
