@@ -172,6 +172,8 @@ def batched_file_download(BATCH_SIZE, processor):
     
     overall_start_time = time.time()
 
+    local_batch = []
+
     process_pdfs(local_batch, processor)
 
     # a = 0
