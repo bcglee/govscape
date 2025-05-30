@@ -38,6 +38,8 @@ import logging
 
 # handles given a list of pdfs instead of given a dir of pdfs 
 
+# note: not updated to agreed upon file structure yet (TODO)
+
 # *************************************************************************************************************
 
 # global vars
@@ -471,7 +473,11 @@ class PDFsToEmbeddings:
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
     def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_embed_model):
-        pdf_doc = fitz.open(pdf_path)
+        try:
+            pdf_doc = fitz.open(full_pdf_path)
+        except Exception as e:
+            logging.error(f"can't open PDF {pdf_path}: {e}")
+            return
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
 
@@ -481,10 +487,19 @@ class PDFsToEmbeddings:
                 xref = img[0]
                 image_dict = pdf_doc.extract_image(xref)
                 image_bytes = image_dict["image"]
-                image = Image.open(io.BytesIO(image_bytes))
+                
+                try:
+                    image = Image.open(io.BytesIO(image_bytes))
+                    image.load()
+                except Exception as e:
+                    continue
 
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_IMG_{i}.jpg"
+                image = image.convert("RGB")
                 # print("img saved at: ",  image_path)
+
+                if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
+                    continue
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
