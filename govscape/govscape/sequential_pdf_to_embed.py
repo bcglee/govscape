@@ -475,7 +475,7 @@ class PDFsToEmbeddings:
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
     def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_embed_model):
         try:
-            pdf_doc = fitz.open(full_pdf_path)
+            pdf_doc = fitz.open(pdf_path)
         except Exception as e:
             logging.error(f"can't open PDF {pdf_path}: {e}")
             return
@@ -577,6 +577,7 @@ class PDFsToEmbeddings:
         sec = 2
         third = 3
         fourth = 4
+        fifth = 5
 
         # print("pdf -> txt time: ", time2 - time1)
         # print("txt -> embed time: ", time3 - time2)
@@ -584,7 +585,7 @@ class PDFsToEmbeddings:
         # print("img per page -> embed time: ", time5 - time4)
         # print("extracted img -> embed time: ", time6 - time5)
 
-        return first, sec, third, fourth
+        return first, sec, third, fourth, fifth 
 
     # *******************************************************************************************************************
     # helper functions
