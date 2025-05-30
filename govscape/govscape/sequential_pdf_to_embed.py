@@ -514,6 +514,8 @@ class PDFsToEmbeddings:
         pdfs_dir = Path(self.pdfs_path)
         pdf_paths = list(pdfs_dir.glob("*.pdf"))
 
+        print(pdf_paths)
+
         extract_folder = Path(str(self.jpgs_path) + "_extract")
         extract_folder.mkdir(parents=True, exist_ok=True)
 
