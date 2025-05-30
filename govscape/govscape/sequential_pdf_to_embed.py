@@ -153,7 +153,8 @@ def natural_key(s):
 class PDFsToEmbeddings:
     # def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, embedding_model):
     def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir):
-        self.pdfs_path = pdf_directory
+        # self.pdfs_path = pdf_directory
+        self.pdfs_path = '/home/ec2-user/govscape/downloads'  # TODO: HORRIBLE REMOVE THIS
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         self.jpgs_path = jpgs_dir
