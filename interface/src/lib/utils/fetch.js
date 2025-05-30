@@ -7,9 +7,9 @@ const ENDPOINTS = {
         keyword: 'http://localhost:8080',
     },
     PROD: {
-        textual: 'https://govscape.net/uae/api',
-        visual: 'https://govscape.net/clip/api',
-        keyword: 'https://govscape.net/uae/api', // TODO: update to api endpoint
+        textual: 'https://govscape.net/uae',
+        visual: 'https://govscape.net/clip',
+        keyword: 'https://govscape.net/uae', // TODO: update to api endpoint
     }
 };
 
