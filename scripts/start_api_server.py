@@ -36,7 +36,12 @@ def main():
     if args.index_type == 'Disk':
         i.load_index()
     
-    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), i)
+    server_config = gs.ServerConfig(
+        index_config, 
+        gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), 
+        i,
+        k=args.top_k
+    )
     server = gs.Server(server_config)
     server.run(host=args.host, port=args.port, debug=args.debug)
 
