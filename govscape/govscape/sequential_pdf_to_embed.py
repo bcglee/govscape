@@ -401,7 +401,7 @@ class PDFsToEmbeddings:
         parser.convert_directory_to_jpegs(pdf_files)
     
     # img subdir -> embeds
-    def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
+    def convert_img_subdir_to_embeddings(self, jpg_subdir_path, img_embed_model):
         print("Embedding PDF Img: " + jpg_subdir_path)
         #making the subdir that will hold the embeddings for each PDF 
         embed_name = os.path.basename(jpg_subdir_path)
@@ -420,7 +420,7 @@ class PDFsToEmbeddings:
             if os.stat(jpg_path).st_size == 0:
                 continue
             try:
-                embedding = self.embedding_model.encode_image(jpg_path)
+                embedding = img_embed_model.encode_image(jpg_path)
             except: 
                 continue
             file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
@@ -429,14 +429,14 @@ class PDFsToEmbeddings:
 
 
     # dir of imgs/pg -> dir of embeds
-    1. OG VERSION 
-    def convert_imgs_to_embeddings(self):
+    # 1. OG VERSION 
+    def convert_imgs_to_embeddings(self, img_embed_model):
         if not os.path.exists(self.embeddings_path):
             os.makedirs(self.embeddings_path)
 
         for jpg_subdir in os.scandir(self.jpgs_path):
             if jpg_subdir.is_dir():
-                self.convert_img_subdir_to_embeddings(jpg_subdir.path)
+                self.convert_img_subdir_to_embeddings(jpg_subdir.path, img_embed_model)
     # 2. MP VERSION
     # def convert_imgs_to_embeddings(self):
     #     if not os.path.exists(self.embeddings_path):
@@ -462,7 +462,7 @@ class PDFsToEmbeddings:
     # *******************************************************************************************************************
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)
-    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path):
+    def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_embed_model):
         pdf_doc = fitz.open(pdf_path)
 
         title = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -480,13 +480,13 @@ class PDFsToEmbeddings:
                 image.save(image_path, "JPEG")
 
                 # convert to embedding 
-                embed = self.embedding_model.encode_image(image_path)
+                embed = img_embed_model.encode_image(image_path)
 
                 output_path = os.path.join(out_embed_path, f"{title}_{page_num}_IMG_{i}.npy")
                 np.save(output_path, embed)
 
     # pdfs -> extracted imgs, extracted img embeds
-    def extract_img_pdfs(self):
+    def extract_img_pdfs(self, img_embed_model):
         # go through entire set of pdfs 
         pdfs_dir = Path(self.pdfs_path)
         pdf_paths = list(pdfs_dir.glob("*.pdf"))
@@ -499,7 +499,7 @@ class PDFsToEmbeddings:
             img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
             img_path.mkdir(parents=True, exist_ok=True)
             out_embed_path = Path(self.embeddings_path) / Path(pdf_path.stem)
-            self.extract_img_embed_pdf(pdf_path, img_path, out_embed_path)
+            self.extract_img_embed_pdf(pdf_path, img_path, out_embed_path, img_embed_model)
     
     # *******************************************************************************************************************
     # overall pipeline
@@ -526,9 +526,10 @@ class PDFsToEmbeddings:
         time3 = time.time()
         self.convert_pdfs_to_single_jpg(pdf_files)
         time4 = time.time()
-        self.convert_imgs_to_embeddings()
+        img_embed_model = CLIPEmbeddingModel()
+        self.convert_imgs_to_embeddings(img_embed_model)
         time5 = time.time()
-        self.extract_img_pdfs()
+        self.extract_img_pdfs(img_embed_model)
         time6 = time.time()
 
         first = time2 - time1
