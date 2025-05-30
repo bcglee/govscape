@@ -191,6 +191,8 @@ def batched_file_download(BATCH_SIZE, processor):
         if os.path.exists(pdf_directory):
             shutil.rmtree(pdf_directory)
         
+        break # TODO: REMOVE THIS 
+        
         # a = a + 1
         # if a == 1:
         #     break
