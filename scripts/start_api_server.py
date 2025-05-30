@@ -7,6 +7,7 @@ def main():
     parser.add_argument('-d', '--data-directory', default='data/test_data', help='Directory containing data files')
     parser.add_argument('-m', '--model', default='CLIP', choices=['CLIP', 'UAE'], help='The model to use for embedding.')
     parser.add_argument('-k', '--top-k', type=int, default=20, help='Number of top results to return')
+    parser.add_argument('-i', '--index_type', default='Memory', help='The type of index of use')
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--host', default='0.0.0.0', help='Host to run the server on')
     parser.add_argument('--port', type=int, default=8080, help='Port to run the server on')
@@ -25,9 +26,10 @@ def main():
     elif args.model == "UAE":
         model = gs.TextEmbeddingModel()
 
-    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, 'Memory')
-    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), k=args.top_k)
-    
+    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, args.index_type)
+    i = gs.IndexBuilder(index_config)
+    i.load_index()
+    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), i)
     server = gs.Server(server_config)
     server.run(host=args.host, port=args.port, debug=args.debug)
 
