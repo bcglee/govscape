@@ -1,14 +1,19 @@
 <script>
   import { searchStore, searchActions } from '$lib/stores/search';
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
   import AdvancedSearch from './AdvancedSearch.svelte';
   import GlobeIcon from './icons/GlobeIcon.svelte';
   import FilterIcon from './icons/FilterIcon.svelte';
 
   const suggestions = ['income tax', 'climate change', 'student loans', 'pie charts'];
+  const searchModes = [
+    { id: 'textual', label: 'Textual Search', placeholder: 'Search PDFs with context-rich text search...' },
+    { id: 'semantic', label: 'Semantic Search', placeholder: 'Search PDFs using image & text semantics...' },
+    { id: 'keyword', label: 'Keyword Search', placeholder: 'Enter keywords for search...' },
+  ];
 
-  let searchMode = 'natural'; // 'natural' or 'keywords'
+  let currentSearchMode = searchModes[0];
   let searchInputFocused = false;
   let showSuggestionsDropdown = false;
   let searchInputElement;
@@ -19,7 +24,8 @@
   }
 
   function setMode(mode) {
-    searchMode = mode;
+    currentSearchMode = mode;
+    searchActions.setSearchMode(mode.id);
     query = '';
   }
 
@@ -28,8 +34,7 @@
       searchActions.clearResults();
       return;
     }
-    searchActions.performSearch();
-    
+    searchActions.performSearch(currentSearchMode.id);
     if (searchInputElement) searchInputElement.blur();
   }
 
@@ -40,7 +45,7 @@
   async function applySuggestion(suggestion) {
     query = suggestion;
     await tick();
-    searchActions.performSearch();
+    searchActions.performSearch(currentSearchMode.id);
     showSuggestionsDropdown = false;
   }
 
@@ -59,25 +64,20 @@
   <div class="search-mode-tabs">
     <div
       class="search-mode-toggle-bg"
-      class:toggle-left={searchMode === 'natural'}
-      class:toggle-right={searchMode === 'keywords'}
+      class:toggle-left={currentSearchMode.id === 'textual'}
+      class:toggle-middle={currentSearchMode.id === 'semantic'}
+      class:toggle-right={currentSearchMode.id === 'keyword'}
     ></div>
-    <button
-      type="button"
-      class:active-tab={searchMode === 'natural'}
-      on:click={() => setMode('natural')}
-      aria-label="Natural Language"
-    >
-      Natural Language
-    </button>
-    <button
-      type="button"
-      class:active-tab={searchMode === 'keywords'}
-      on:click={() => setMode('keywords')}
-      aria-label="Keywords Search"
-    >
-      Keywords Search
-    </button>
+    {#each searchModes as mode}
+      <button
+        type="button"
+        class:active-tab={currentSearchMode.id === mode.id}
+        on:click={() => setMode(mode)}
+        aria-label={mode.label}
+      >
+        {mode.label}
+      </button>
+    {/each}
   </div>
   
   <div class="flexbox">
@@ -88,7 +88,7 @@
           <input
             class="search-input"
             type="text"
-            placeholder={searchMode === 'natural' ? 'Search PDFs with natural language...' : 'Enter keywords for search...'}
+            placeholder={currentSearchMode.placeholder}
             bind:this={searchInputElement}
             bind:value={query}
             on:focus={handleInputFocus}
@@ -108,7 +108,7 @@
         </div>
       </form>
 
-      {#if showSuggestionsDropdown}
+      {#if showSuggestionsDropdown && suggestions.length > 0}
         <div class="suggestions-dropdown">
           <ul>
             {#each suggestions as suggestionText}
@@ -222,7 +222,7 @@
     display: flex;
     background: #fff;
     border-radius: 999px;
-    padding: 4px;
+    padding: 4px 14px;
     margin: 0 auto 16px auto;
     width: fit-content;
     box-shadow: 0 2px 8px rgba(32, 33, 36, 0.08);
@@ -233,7 +233,7 @@
     position: absolute;
     top: 4px;
     left: 4px;
-    width: calc(50% - 4px);
+    width: calc(33.33% - 4px);
     height: calc(100% - 8px);
     background: var(--color-primary);
     border-radius: 999px;
@@ -244,8 +244,12 @@
     transform: translateX(0%);
   }
 
-  .search-mode-toggle-bg.toggle-right {
+  .search-mode-toggle-bg.toggle-middle {
     transform: translateX(100%);
+  }
+
+  .search-mode-toggle-bg.toggle-right {
+    transform: translateX(200%);
   }
 
   .search-mode-tabs button {

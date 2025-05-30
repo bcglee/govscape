@@ -1,10 +1,11 @@
 import { writable, get } from 'svelte/store';
-import { apiFetch, IMAGE_BASE_URL } from '../utils/fetch';
+import { apiFetch, getImageBaseUrl } from '../utils/fetch';
 
 export const searchStore = writable({
   query: '',
   results: [],
   filters: {},
+  currentSearchMode: 'textual',
   showFilters: false,
   loading: false,
   error: null
@@ -15,6 +16,15 @@ export const searchActions = {
     searchStore.update(store => ({
       ...store,
       query
+    }));
+  },
+  
+  setSearchMode: (mode) => {
+    searchStore.update(store => ({
+      ...store,
+      currentSearchMode: mode,
+      results: [],
+      error: null,
     }));
   },
   
@@ -48,14 +58,17 @@ export const searchActions = {
       query: '',
       filters: {},
       results: [],
+      currentSearchMode: 'textual',
       loading: false,
       error: null,
       showFilters: false
     });
   },
   
-  performSearch: async () => {
+  performSearch: async (searchMode) => {
     const currentStore = get(searchStore);
+    const mode = searchMode || currentStore.currentSearchMode;
+
     const { query, filters } = currentStore;
 
     searchStore.update(store => ({ 
@@ -71,12 +84,13 @@ export const searchActions = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ query, filters }) 
-      }); 
+      }, mode); 
       
+      const imageBase = getImageBaseUrl(mode);
       const results = (responseData.results || []).map(result => ({
         ...result,
         jpeg: result.jpeg && typeof result.jpeg === 'string' 
-              ? `${IMAGE_BASE_URL}/${result.jpeg.split('/').slice(-2).join('/')}` 
+              ? `${imageBase}/${result.jpeg.split('/').slice(-2).join('/')}` 
               : null
       }));
 

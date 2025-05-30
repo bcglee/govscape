@@ -1,9 +1,31 @@
 const IS_DEV = import.meta.env.DEV;
 
-export const API_BASE_URL = IS_DEV ? 'http://localhost:8080/api' : '/api';
-export const IMAGE_BASE_URL = IS_DEV ? 'http://localhost:8080/images' : '/images';
+const ENDPOINTS = {
+    DEV: {
+        textual: 'http://localhost:8080',
+        semantic: 'http://localhost:8080',
+        keyword: 'http://localhost:8080',
+    },
+    PROD: {
+        textual: 'http://3.20.135.189:8000',
+        semantic: 'http://3.20.135.189:8001',
+        keyword: 'http://3.20.135.189:8000',
+    }
+};
 
-export async function apiFetch(endpoint, options = {}) {
+export const getApiBaseUrl = (searchMode = 'textual') => {
+  if (IS_DEV) return ENDPOINTS.DEV[searchMode] + '/api';
+
+  return ENDPOINTS.PROD[searchMode] + '/api';
+};
+
+export const getImageBaseUrl = (searchMode = 'textual') => {
+  if (IS_DEV) return ENDPOINTS.DEV[searchMode] + '/images';
+  
+  return ENDPOINTS.PROD[searchMode] + '/images';
+};
+
+export async function apiFetch(endpoint, options = {}, searchMode = 'textual') {
     const defaultOptions = {
         method: 'POST',
         headers: {
@@ -22,7 +44,8 @@ export async function apiFetch(endpoint, options = {}) {
     };
 
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, mergedOptions);
+        const apiUrl = getApiBaseUrl(searchMode);
+        const response = await fetch(`${apiUrl}${endpoint}`, mergedOptions);
 
         if (!response.ok) {
             const errorText = await response.text();

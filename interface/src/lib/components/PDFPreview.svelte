@@ -1,6 +1,8 @@
 <script>
   import { createEventDispatcher, onDestroy } from 'svelte';
-  import { apiFetch, IMAGE_BASE_URL } from '../utils/fetch';
+  import { get } from 'svelte/store';
+  import { searchStore } from '$lib/stores/search';
+  import { apiFetch, getImageBaseUrl } from '../utils/fetch';
 
   export let show = false;
   export let pdfData = null;
@@ -22,9 +24,12 @@
 
     try {
       const data = await apiFetch(`/pages/${pdfData.id}`, { method: 'GET' });
+      const mode = get(searchStore).currentSearchMode;
+      const imageBase = getImageBaseUrl(mode);
+      
       images = (data.images || []).map(img => {
         const parts = img.split('/');
-        return `${IMAGE_BASE_URL}/${parts.slice(-2).join('/')}`;
+        return `${imageBase}/${parts.slice(-2).join('/')}`;
       });
       totalPages = images.length;
       currentPageIndex = parseInt(pdfData.page);
