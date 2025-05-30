@@ -155,7 +155,7 @@ class PDFsToEmbeddings:
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         self.jpgs_path = jpgs_dir
-        self.embedding_model = embedding_model
+        # self.embedding_model = embedding_model
 
         self.extracted_jpgs_path = e_jpgs_dir
         self.embeddings_img_path = embeddings_img_dir
