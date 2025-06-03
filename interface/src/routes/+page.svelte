@@ -58,6 +58,15 @@
     pdfData={selectedPDF}
     on:close={handleClosePreview}
   />
+  <footer class="coming-soon-banner">
+    <div class="banner-content">
+      <p class="uw-text">University of Washington Project</p>
+      <p class="main-text">GovScape is coming soon</p>
+      <p class="contact-text">
+        For questions, please visit our <a href="/about">About page</a>
+      </p>
+    </div>
+  </footer>
 </main>
 
 <style>
@@ -67,6 +76,7 @@
     flex-direction: column;
     align-items: center;
     padding-top: 150px;
+    min-height: 100vh;
   }
 
   .title-container {
@@ -85,5 +95,56 @@
     font-size: 2.5rem;
     font-weight: 700;
     line-height: 1.35;
+  }
+
+  .coming-soon-banner {
+    width: 100%;
+    background: var(--color-secondary);
+    color: white;
+    padding: 2.5rem 0;
+    margin-top: auto;
+  }
+
+  .banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    text-align: center;
+  }
+
+  .uw-text {
+    font-family: var(--sans-serif-font);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.75rem;
+  }
+
+  .main-text {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: white;
+  }
+
+  .contact-text {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .contact-text a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .contact-text a:hover {
+    opacity: 0.8;
+    text-decoration: underline;
   }
 </style>
