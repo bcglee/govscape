@@ -222,7 +222,7 @@
     display: flex;
     background: #fff;
     border-radius: 999px;
-    padding: 4px 14px;
+    padding: 4px;
     margin: 0 auto 16px auto;
     width: fit-content;
     box-shadow: 0 2px 8px rgba(32, 33, 36, 0.08);

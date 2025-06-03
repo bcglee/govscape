@@ -4,9 +4,6 @@ from flask_restx import Namespace, Resource, fields
 # Create namespace
 ns = Namespace("pages", description="PDF pages operations")
 
-# Define models
-image_model = fields.String(description="Image file path")
-
 pages_response = ns.model(
     "PagesResponse",
     {"images": fields.List(fields.String, description="List of image paths for pages")},
