@@ -5,13 +5,14 @@ import pytest
 import sys  # to find pdf_to_embedding.py
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../govscape'))) # for finding the pdf_to_embedding file
+import numpy as np
 from reportlab.pdfgen import canvas
-from pdf_to_embedding import * 
+from govscape import * 
 from reportlab.lib.pagesizes import letter
 import shutil  # for deleting test_files/text, test_files/embeddings after pytest has finished running 
 
 model = CLIPEmbeddingModel()
-embed_pipeline = PDFsToEmbeddings('test_files/pdfs', 'test_files/text', 'test_files/embeddings', model)
+embed_pipeline = PDFsToEmbeddings('test_files/pdfs', 'test_files/text', 'test_files/embeddings', 'test_files/images', model)
 pdf_directory = 'test_files/pdfs'
 txt_directory = 'test_files/text'
 embed_directory = 'test_files/embeddings'
@@ -46,7 +47,7 @@ def test_convert_pdfs_to_txt():
 
     for subdir in subdirs_txt:
         txt_files = [f for f in os.listdir(subdir) if f.endswith(".txt")]
-        assert len(txt_files) > 0
+        assert len(txt_files) > 0, f"{subdir}"
 
 # checks that the text creates an embedding of type np.ndarray
 def test_text_to_embeddings():
@@ -82,7 +83,7 @@ def test_convert_txts_to_embeddings():
     for subdir in subdirs_txt:
         file_count = sum(1 for filename in os.listdir(subdir) if os.path.isfile(os.path.join(subdir, filename)))
         assert((npy_counts[os.path.basename(subdir)] - 1) == file_count)  # -1 to account for the json file
-    
+
 # checks if same file structure and that the final embeddings contains at least two files (json and embedding file)
 def test_pdfs_to_embeddings():
     embed_pipeline.pdfs_to_embeddings()

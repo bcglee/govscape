@@ -50,6 +50,3 @@ def test_server(test_args):
     server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), k = 5)
     s = gs.Server(server_config)
     serve('data/test_data/queries/test.txt', s)
-
-if __name__ == '__main__':
-         main()
