@@ -22,25 +22,24 @@ def serve(file, server):
                 pdf = f.readline()
                 correct = 0
 
-def test_server(test_args):
+def test_server():
     data_directory='data/test_data'
-    model='UAE'
+    model_type='UAE'
     verbose=False
-    index = "Memory"
+    index_type = "Memory"
     pdf_directory='data/test_data/TechnicalReport234PDFs'
     txt_directory = os.path.join(data_directory, 'txt')
     embeddings_directory = os.path.join(data_directory, 'embeddings')
     index_directory = os.path.join(data_directory, 'index')
     image_directory = os.path.join(data_directory, 'images')
-    index_type = test_args.index
 
-    if test_args.model == "CLIP":
+    if model_type == "CLIP":
         model = gs.CLIPEmbeddingModel()
-    elif test_args.model == "UAE":
+    elif model_type == "UAE":
         model = gs.TextEmbeddingModel()
     else:
         raise ValueError("Unsupported model type")
-    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, test_args.index)
+    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, index_type)
     server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), k = 5)
     s = gs.Server(server_config)
     serve('data/test_data/queries/test.txt', s)
