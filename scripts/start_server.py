@@ -23,9 +23,7 @@ def main():
     elif args.model == "UAE":
             model = gs.TextEmbeddingModel()
     index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, args.index_type)
-    i = gs.IndexBuilder(index_config)
-    i.load_index()
-    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model), i)
+    server_config = gs.ServerConfig(index_config, gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model))
     s = gs.Server(server_config)
     s.serve()
 
