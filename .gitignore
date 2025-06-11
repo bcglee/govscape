@@ -4,5 +4,5 @@ govscape/tests/**/__pycache__
 .venv
 data
 poetry.lock
-govscape/interface/.svelte-kit
-govscape/interface/node_modules
+interface/.svelte-kit
+interface/node_modules
