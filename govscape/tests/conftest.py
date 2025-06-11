@@ -2,12 +2,9 @@ import pytest
 import shutil
 import os
 
-dirs_to_remove = ["test_files/small_test_data/text",
-                  "test_files/small_test_data/embeddings",
-                  "test_files/small_test_data/images",
-                  "test_files/large_test_data/text",
-                  "test_files/large_test_data/embeddings",
-                  "test_files/large_test_data/images"]
+dirs_to_remove = ["tests/test_data/small/text",
+                  "tests/test_data/small/embeddings",
+                  "tests/test_data/small/images"]
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_directories():
