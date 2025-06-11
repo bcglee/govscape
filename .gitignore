@@ -2,3 +2,5 @@ dist
 govscape/govscape/**/__pycache__
 data
 poetry.lock
+govscape/interface/.svelte-kit
+govscape/interface/node_modules
