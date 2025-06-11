@@ -2,17 +2,7 @@ import govscape as gs
 import argparse
 import pytest
 import os
-from argparse import Namespace
 
-@pytest.mark.usefixtures()
-def test_args():
-    return Namespace(
-        pdf_directory='data/test_data/TechnicalReport234PDFs',
-        data_directory='data/test_data',
-        model='UAE',
-        verbose=False,
-        index = "Memory"
-    )
 
 def serve(file, server):
     with open(file, 'r', encoding='utf-8') as f:
@@ -33,11 +23,15 @@ def serve(file, server):
                 correct = 0
 
 def test_server(test_args):
-    pdf_directory = test_args.pdf_directory
-    txt_directory = os.path.join(test_args.data_directory, 'txt')
-    embeddings_directory = os.path.join(test_args.data_directory, 'embeddings')
-    index_directory = os.path.join(test_args.data_directory, 'index')
-    image_directory = os.path.join(test_args.data_directory, 'images')
+    data_directory='data/test_data'
+    model='UAE'
+    verbose=False
+    index = "Memory"
+    pdf_directory='data/test_data/TechnicalReport234PDFs'
+    txt_directory = os.path.join(data_directory, 'txt')
+    embeddings_directory = os.path.join(data_directory, 'embeddings')
+    index_directory = os.path.join(data_directory, 'index')
+    image_directory = os.path.join(data_directory, 'images')
     index_type = test_args.index
 
     if test_args.model == "CLIP":
