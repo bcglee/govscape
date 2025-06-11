@@ -36,12 +36,12 @@ class NpyToBin:
                     total_points += data_points
 
                     # 114 bytes for pdf name, 4 bytes for page number
-                    index_file.write(page[0:113].encode('utf-8'))
+                    index_file.write(page[0:32].encode('utf-8'))
                     # if img file take out '_img'
                     if page.endswith("_img", len(page) - 8, len(page) - 4):
-                        index_file.write(struct.pack("i", int(page[114:(len(page) - 8)])))
+                        index_file.write(struct.pack("i", int(page[33:(len(page) - 8)])))
                     else:
-                        index_file.write(struct.pack("i", int(page[114:(len(page) - 4)])))
+                        index_file.write(struct.pack("i", int(page[33:(len(page) - 4)])))
 
                     if dimension == 0:
                         dimension = data_dimension
