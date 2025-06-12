@@ -8,6 +8,7 @@ import os
 import struct
 import json
 from .api import init_api
+from .filter import Filter
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected

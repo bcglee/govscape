@@ -31,7 +31,6 @@ def main():
         model = gs.TextEmbeddingModel()
 
     index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, images_directory, args.index_type)
-    i = gs.IndexBuilder(index_config)
     
     if args.index_type == 'Disk':
         i.load_index()
@@ -39,7 +38,6 @@ def main():
     server_config = gs.ServerConfig(
         index_config, 
         gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, images_directory, model), 
-        i,
         k=args.top_k
     )
     server = gs.Server(server_config)
