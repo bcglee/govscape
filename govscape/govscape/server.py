@@ -49,6 +49,7 @@ class Server:
         self.arrays = [np.load(file) for file in self.npy_files]
         stacked_array = np.vstack(self.arrays)
         self.faiss_index.add(stacked_array)
+        self.filt = Filter(config)
 
         # Accepts a Query -> Returns JSON with closest results
         # Sample:
