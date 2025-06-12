@@ -20,6 +20,7 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
     folders = [
         'img',
         'txt',
+        'index',
         'img_extracted',
         'embeddings',
         'embeddings_img_pg',
