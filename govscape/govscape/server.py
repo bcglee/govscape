@@ -8,8 +8,6 @@ import os
 import struct
 import json
 from .api import init_api
-from .filter import Filter
-
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -26,28 +24,31 @@ class Server:
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
         self.index_type = config.index_type
-        self.disk_index = config.disk_index
 
-        # FAISS model
-        self.model = config.model
-        self.k = self.config.k
-        self.d = self.config.d
+        if self.index_type == 'Disk':
+            disk_index = IndexBuilder(self.index_config)
+            disk_index.load_index()
+            self.disk_index = disk_index
+        elif self.index_type == 'Memory':
+            # FAISS model
+            self.model = config.model
+            self.k = self.config.k
+            self.d = self.config.d
 
-        # create a new index
-        self.faiss_index = faiss.IndexFlatL2(self.d)
+            # create a new index
+            self.faiss_index = faiss.IndexFlatL2(self.d)
 
         # Train model on test vectors
-        self.npy_files = []
-        for root, _, files in os.walk(self.embedding_directory):
-            for file in files:
-                if file.endswith(".npy"):
-                    self.npy_files.append(os.path.join(root, file))
+            self.npy_files = []
+            for root, _, files in os.walk(self.embedding_directory):
+                for file in files:
+                    if file.endswith(".npy"):
+                        self.npy_files.append(os.path.join(root, file))
 
         # Load each .npy file into an array
         self.arrays = [np.load(file) for file in self.npy_files]
         stacked_array = np.vstack(self.arrays)
         self.faiss_index.add(stacked_array)
-        self.filt = Filter(config)
 
         # Accepts a Query -> Returns JSON with closest results
         # Sample:
