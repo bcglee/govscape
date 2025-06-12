@@ -9,6 +9,9 @@ package-mode = false
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
 govscape = { path = "govscape", develop = true }
+warcio = "^1.7.5"
+boto3 = "^1.38.36"
+pyarrow = "^20.0.0"
 
 
 [build-system]
