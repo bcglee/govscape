@@ -1,0 +1,17 @@
+FROM python:3.11-bullseye
+
+RUN pip install --upgrade pip setuptools wheel
+
+RUN pip install poetry==2.1.2
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /home/govscape
+WORKDIR /home/govscape
+COPY . .
+RUN poetry install
+
+CMD ["poetry", "run", "python", "scripts/start_api_server.py"]
