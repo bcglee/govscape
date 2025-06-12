@@ -144,47 +144,17 @@ class PDFsToEmbeddings:
                 text = []
                 for page in pdf.pages:
                     text.append(page.extract_text())
-        except:
+        except Exception as e:
+            print(f"Error while reading PDF '{pdf_path}': {e}")
             text = ["",]
             
 
         for page_num, page_text in enumerate(text):
             txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
-            if len(page_text) == 0:
-                continue
             with open(txt_file_path, 'w', encoding='utf-8') as text_file:
                 text_file.write(page_text)
 
-    # # extracts the images from each pdf and saves as a jpeg
-    # def convert_pdfs_to_jpg(self):
-    #     if not os.path.exists(self.jpgs_path):
-    #         os.makedirs(self.jpgs_path)
-        
-    #     pdf_files = os.listdir(self.pdfs_path)
 
-    #     for pdf_file in pdf_files:
-    #         pdf_path = os.path.join(self.pdfs_path, pdf_file)
-            
-    #         #subdir for each pdf 
-    #         pdf_subdir = os.path.join(self.jpgs_path, os.path.splitext(pdf_file)[0])
-    #         if not os.path.exists(pdf_subdir):
-    #             os.makedirs(pdf_subdir)
-            
-    #         pdf = fitz.open(pdf_path)
-
-    #         for page_num, page in enumerate(pdf):
-    #             images = page.get_images(full=True)
-    #             for img_ind, img in enumerate(images):
-    #                     # way to reference the image
-    #                     img_ref = img[0]
-    #                     base_img = pdf.extract_image(img_ref)
-    #                     img_bytes = base_img["image"]
-
-    #                     new_jpg = Image.open(BytesIO(img_bytes))
-
-    #                     img_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}_{img_ind}.jpg')
-    #                     new_jpg.save(img_file_path, "JPEG")
-    
     # converts each pdf to an image
     def convert_pdfs_to_single_jpg(self):
         if not os.path.exists(self.jpgs_path):

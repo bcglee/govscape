@@ -1,5 +1,6 @@
 import govscape as gs
 import argparse
+import os
 
 def main():
     parser = argparse.ArgumentParser(
@@ -24,6 +25,18 @@ def main():
             model = gs.TextEmbeddingModel()
     processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, embeddings_directory, image_directory, model)
     processor.pdfs_to_embeddings()
+
+    bin_file = os.path.join(embeddings_directory, "embeddings.bin")
+    page_indices = os.path.join(embeddings_directory, "page_indices.bin")
+    npytobin = gs.NpyToBin(bin_file, page_indices)
+    for subdir in os.listdir(embeddings_directory):
+        subdir_path = os.path.join(embeddings_directory, subdir)
+        if os.path.isdir(subdir_path):
+            npytobin.convert_pdfdir_to_bin(subdir_path)
+    
+    indexConfig = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, "Disk")
+    indexBuilder = gs.IndexBuilder(indexConfig)
+    indexBuilder.build_index()
 
     pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)
     pdftojpeg.convert_directory_to_jpegs()
