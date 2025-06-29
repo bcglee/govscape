@@ -1,8 +1,3 @@
-# pip install pdfplumber 
-# pip install torch
-# pip install transformers 
-# pip install numpy
-
 import pdfplumber 
 import os
 from PIL import ImageFile, Image
@@ -34,23 +29,69 @@ import subprocess
 import shutil
 import multiprocessing as mp
 
-# from govscape import multi_gpu_main
-# from .pdf_to_embed_multigpu import main as main_multigpu
+
+# OVERALL NOTE FOR THIS VERSION: ********************************************************************************************
+# 1. pdf -> txt -> embed.
+# 2. pdf -> img/pg -> embed. this calls the pdf_to_jpeg file and i believe the image embedding model is in this file.
+# 3. pdf -> extracted img -> embed
+
+# note: handles given a list of pdfs instead of given a dir of pdfs which i am now realizing might not be necessary 
+# since s3_ec2_embedding_pipeline deletes all directories after uploading all generated files to s3...
+
+# note: text embedding model for multi-gpu use is in pdf_to_embed_multigpu.py
+# *******************************************************************************************************************
 
 
-# NOTE FOR THIS VERSION: *******************************************************************************************************
+# NOTE for setting up an ec2 instance *******************************************************************************
+# sudo yum update -y
+# sudo yum install git -y
+# git clone https://github.com/bcglee/govscape.git
+# curl -sSL https://install.python-poetry.org | python3 -
 
-# 1. pdf -> txt -> embed
-# 2. pdf -> img/pg -> embed
-# 3.  pdf -> extracted img -> embed (not yet implemented)
+# curl -O https://bootstrap.pypa.io/get-pip.py
+# python3 get-pip.py --user
 
-# handles given a list of pdfs instead of given a dir of pdfs 
+# sudo yum groupinstall "Development Tools" -y
+# sudo yum install gcc openssl-devel bzip2-devel libffi-devel xz-devel wget make -y
 
-# *************************************************************************************************************
+# cd /usr/src
+# sudo wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz
+# sudo tar xzf Python-3.10.14.tgz
+# cd Python-3.10.14
+# sudo ./configure --enable-optimizations
+# sudo make altinstall
 
-# global vars
+# poetry install
+# poetry add boto3  # these probably should be added into the poetry file
+# poetry add nvidia-ml-py3
+
+# sudo yum install -y poppler-utils # for pdf -> img conversion 
+
+# aws configure
+
+# # for activating gpu: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html i think it's a little different depending on ec2 instance type
+
+# # nice to have: 
+# sudo yum install tmux
+# aws s3 ls s3://bcgl-public-bucket/2008_EOT_PDFs/data_test_100k_2/embeddings/ --recursive | awk -F'/' '{print $4}' | sort | uniq | wc -l  # ex. for checking how many are in a file
+
+# *******************************************************************************************************************
+
+# IMPORTANT NOTE!!! ********************************************************************************************
+# this code can support using the model from hugging face online (currently commented out) and also local when bulk requests are limited. 
+
+# to download the models locally: 
+# pip install huggingface_hub
+# huggingface-cli download WhereIsAI/UAE-Large-V1 --local-dir ./uae-large-v1  # text model 
+# git clone https://huggingface.co/openai/clip-vit-base-patch32  # image model 
+# git clone https://huggingface.co/nlpconnect/vit-gpt2-image-captioning  # optional, if wanting to put extracted images -> caption -> uae text model to be searched in the same space as text
+# *******************************************************************************************************************
+
+
+# global vars *******************************************************************************************************
 GPU_BATCH_SIZE = 2
 BATCH_SIZE = 64
+# *******************************************************************************************************************
 
 logging.basicConfig(
     format="%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO, handlers=[LoggingHandler()]
@@ -65,6 +106,7 @@ class EmbeddingModel(ABC):
     def encode_image(self, jpg_path):
         pass
 
+# note: this class is not used for multi-gpu but kept this here for possible single cpu case.
 class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
         if torch.cuda.is_available():
@@ -72,13 +114,16 @@ class TextEmbeddingModel(EmbeddingModel):
         else:
             print("USING CPU")
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # note: max length = 512 
-        # self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
-        #self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)
-        #self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)
-        self.d = 1024
-        # self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)  # query hugging face 
 
+        # text model 
+        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # for online use, note: max length = 512 
+        # self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
+        # self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)  # online use, smaller model version of uae-large to experiment with 
+        # self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)  # online use, another model used to experiment 
+        self.d = 1024
+        
+        # image captioning model 
+        # self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)  # online use
         device = 0 if torch.cuda.is_available() else -1
         self.image_to_caption = pipeline("image-to-text", model="./vit-gpt2-image-captioning", device=device)  # local
     
@@ -96,48 +141,29 @@ class TextEmbeddingModel(EmbeddingModel):
     # def encode_text_batch_gpus(self, texts):
     #     return self.model.encode_multi_process(texts, self.pool)
 
-
     # generates a caption of image, not a text embedding
-    def encode_image(self, jpg_path): # output: embed_shape    #TODO: use dataset so it doesn't process sequentially?? 
+    def encode_image(self, jpg_path): # output: embed_shape
         image = Image.open(jpg_path).convert("RGB")
 
         with torch.no_grad():
             caption = (self.image_to_caption(image))[0]['generated_text']
-        # print(caption)
         image_caption_embed = self.model.encode([caption])
 
         return image_caption_embed
-    
-
-# def get_available_cuda(gpu_process_map, lock, max_procs_per_gpu=2):
-#     pynvml.nvmlInit()
-#     device_count = pynvml.nvmlDeviceGetCount()
-#     chosen_device = None
-
-#     with lock:
-#         for i in range(device_count):
-#             if gpu_process_map[i] < max_procs_per_gpu:
-#                 gpu_process_map[i] += 1
-#                 chosen_device = f"cuda:{i}"
-#                 break
-
-#     pynvml.nvmlShutdown()
-#     if chosen_device is None:
-#         raise RuntimeError("No available GPU with free slots.")
-#     return chosen_device
 
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self, multi_gpu=True):
+        # note mult_gpu case model is intialized in create_model_and_processor
 
-        if not multi_gpu:  #note: single gpu methods may no longer be working, haven't checked 
-            self.device = 'cuda' if torch.cuda.is_available() else "cpu"  # this is for the encode_image, encode_text single cases
-            # self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
+        if not multi_gpu:  #note: haven't verified if single gpu methods are still working 
+            self.device = 'cuda' if torch.cuda.is_available() else "cpu"
+            # self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # online
             self.model = CLIPModel.from_pretrained("./clip-vit-base-patch32")  # local
 
             self.model.eval()
 
-            # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
-            # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  #querying hugging face
+            # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
+            # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
             image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
             tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
 
@@ -186,6 +212,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
         return image_embedding[0].to("cpu").numpy()
     
+    # single gpu case 
     # def encode_images(self, jpg_paths):
         # batch_size = 32
         # images = []
@@ -205,48 +232,17 @@ class CLIPEmbeddingModel(EmbeddingModel):
         
         # return embeddings.cpu().numpy()
     
-    # def encode_images(self, jpg_paths, max_batch_size = 32):
-    #     if not jpg_paths:
-    #         return np.empty((0, self.d), dtype=np.float32)
-
-    #     all_embeddings = []
-
-    #     for i in range(0, len(jpg_paths), max_batch_size):
-    #         batch_paths = jpg_paths[i:i + max_batch_size]
-    #         images = []
-
-    #         for p in batch_paths:
-    #             img = Image.open(p).convert("RGB")
-    #             print(img.mode, img.size)
-    #             # if (img.mode != "RGB"):
-    #             #     continue
-    #             images.append(img)
-
-    #         inputs = self.processor(images=images, return_tensors="pt")
-    #         inputs = {k: v.to(self.device) for k, v in inputs.items()}
-
-    #         with torch.no_grad():
-    #             if isinstance(self.model, torch.nn.DataParallel):
-    #                 embeddings = self.model.module.get_image_features(**inputs)
-    #             else:
-    #                 embeddings = self.model.get_image_features(**inputs)
-
-    #             embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
-
-    #         all_embeddings.append(embeddings.cpu())
-    #     return torch.cat(all_embeddings, dim=0).numpy()
-    
     # for multi-gpus: 
 
     def create_model_and_processor(self, gpu_id):
         torch.cuda.set_device(gpu_id)
         device = torch.device(f"cuda:{gpu_id}")
-        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # querying hugging face 
+        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # online
         model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(device)
         model.eval()
 
-        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  #querying hugging face
-        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  #querying hugging face
+        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
+        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
         image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
         tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
 
@@ -333,25 +329,6 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
-        # self.embedding_model = embedding_model
-
-        # TODO: uncomment for metadata
-        #big json file turn into dictionary
-        # self.json_file = "/homes/gws/cgong16/govscape/data/test_data/TechnicalReport234PDFs" # input path here, probably want to add to a script later since i assume this will always be there
-        # self.json = {}
-        # self.convert_json_to_dict(self.json_file)
-        # print("FINISHED WITH JSON DICTIONARY")
-
-    # TODO: uncomment for metadata
-    # converts json file of metadata to a dictionary where key = digest, value = (govname, timestamp)
-    # def convert_json_to_dict(self, json_file):
-    #     with open(json_file, 'r') as file:
-    #         data = json.load(file)
-    #     for row in data:
-    #         govname = row['govname']
-    #         timestamp = row['timestamp']
-    #         digest = row['digest']
-    #         self.json[digest] = (govname, timestamp)
 
 
     # *******************************************************************************************************************
@@ -364,7 +341,6 @@ class PDFsToEmbeddings:
     def convert_pdf_to_txt(self, pdf_file):
         # print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(self.pdfs_path, pdf_file)
-        # print(pdf_path)
         #subdir for each pdf 
         pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
 
@@ -402,16 +378,9 @@ class PDFsToEmbeddings:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-        # with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
-    # 3. MT VERSION 
-    # def convert_pdfs_to_txt(self, pdf_files):
-    #     self.ensure_dir(self.txts_path)
-    #     with ThreadPoolExecutor() as executor:
-    #         executor.map(self.convert_pdf_to_txt, pdf_files)
-
-    # (2) txt -> embed
+    # (2) txt -> embed  (handled in pdf_to_embed_multigpu.py if mutli-gpu use)
 
     # str -> embed
     # def text_to_embeddings(self, text):
@@ -688,25 +657,22 @@ class PDFsToEmbeddings:
     def convert_imgs_to_embeddings(self, overall_embed_path, overall_img_path):
         all_imgs = []
         all_embed_file_paths = []
-        self.ensure_dir(overall_embed_path) #self.embeddings_img_path
+        self.ensure_dir(overall_embed_path) # self.embeddings_img_path
 
         img_subdirs_paths = []
-        for img_subdir in os.scandir(overall_img_path): #self.jpgs_path
+        for img_subdir in os.scandir(overall_img_path): # self.jpgs_path
             if img_subdir.is_dir():
                 img_subdirs_paths.append(img_subdir.path)
         
         # splitting into groups for each process:
         batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
-        # batch_size = math.ceil(len(img_subdirs_paths) / 2)
         img_subdir_batches = []
         for i in range(0, len(img_subdirs_paths), batch_size):
             img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
         
-        # print("img_subdir_batches ", img_subdir_batches)
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-        # with ctx.Pool(processes=2) as pool:
             if overall_embed_path == self.embeddings_img_e_path:
                 results = pool.map(self.convert_img_subdirs_to_embeddings_extracted, img_subdir_batches) # for batch
             else: 
@@ -805,7 +771,6 @@ class PDFsToEmbeddings:
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
         out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
 
-        # pdf_doc = fitz.open(full_pdf_path)
         try:
             pdf_doc = fitz.open(full_pdf_path)
         except Exception as e:
@@ -833,7 +798,6 @@ class PDFsToEmbeddings:
                     continue
 
                 image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
-                # print("img saved at: ",  image_path)
                 image = image.convert("RGB")
 
                 if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
@@ -845,7 +809,6 @@ class PDFsToEmbeddings:
     
     def convert_pdfs_to_extracted_imgs(self, pdf_files):
         ctx = get_context('spawn')
-        # with ctx.Pool(processes=30) as pool:
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.map(self.extract_img_pdfs, pdf_files)
 
@@ -853,15 +816,7 @@ class PDFsToEmbeddings:
     # overall pipeline
     # *******************************************************************************************************************
 
-    # version1: entire path
-    # def pdfs_to_embeddings(self):
-    #     self.convert_pdfs_to_txt()
-    #     self.convert_txts_to_embeddings()
-    #     # self.convert_pdfs_to_single_jpg()
-    #     #self.convert_imgs_to_embeddings()  # i think this is for img of pdf -> embeddings ??
-    #     #self.extract_img_pdfs() # add param to embed pipeline to use  # i think this is for extract img -> caption -> embeddings
-
-    # version2: by list of pdf_files
+    # given list of pdf_files. TODO: update code to handle case where pdf_files is None
     def pdfs_to_embeddings(self, pdf_files=None):
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
@@ -901,10 +856,10 @@ class PDFsToEmbeddings:
         fourth = time5 - time4
         fifth = time6 - time5
 
-        print("pdf -> txt time: ", time2 - time1)
-        print("txt -> embed time: ", time3 - time2)
-        print("pdf -> img per page time: ", time4 - time3)
-        print("img per page -> embed time: ", time5 - time4)
+        print("pdf -> txt time: ", first)
+        print("txt -> embed time: ", sec)
+        print("pdf -> img per page time: ", third)
+        print("img per page -> embed time: ", fourth)
         print("extracted img -> embed time: ", fifth)
 
         return first, sec, third, fourth, fifth

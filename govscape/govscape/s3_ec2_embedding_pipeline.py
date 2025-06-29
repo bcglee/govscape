@@ -10,31 +10,30 @@ import json
 from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# ****************************************************************************************************
+# to run this file: poetry run python s3_ec2_embedding_pipeline.py
+# ****************************************************************************************************
+
 config = Config(max_pool_connections=50)
 s3 = boto3.client("s3", config=config)
 
-# s3 = boto3.client('s3')
-
 # FIELDS TO SET **************************************************************************************
 
-BATCH_SIZE = 1000 #TODO: FIX TO 10000
+BATCH_SIZE = 1000 # number of files we are processing at a time
 
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
 pdfs_dir = '2008_EOT_PDFs/PDFs/'
 data_dir_s3 = '2008_EOT_PDFs/data_test_100k_final/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
-# data_dir_s3 = '2008_EOT_PDFs/data_test_100k_single_gpu_1/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
 # data and data1 were for testing cpu file output
 # data2 is for testing single gpu file output
+# data_test_100k_final is for the final 50k
 
 # for processing pdfs: 
 
-# PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
-#pdf_directory = os.path.join(DATA_DIR, 'small_test')  # for testing a folder of three pdfs
-#pdf_directory = os.path.join(DATA_DIR, 'TechnicalReport234PDFs')
 pdf_directory = 'downloads'
 txt_directory = os.path.join(DATA_DIR, 'txt')
 image_directory = os.path.join(DATA_DIR, 'img')
@@ -45,18 +44,18 @@ e_img_embed_dir = os.path.join(DATA_DIR, 'embeddings_img_extracted')
 
 batch_download_dir = 'downloads'  # temporary downloading (not sure if actually temp)
 
-# model = gs.TextEmbeddingModel()
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
                                 embeddings_directory, img_embeddings_dir, e_img_embed_dir) # removed model
 
 
-progress_path = 'progress.json'
+progress_path = 'progress.json'  # when downloading files, keeps track of which page you last downloaded so you can resume later. haven't used this yet
 
 # ****************************************************************************************************
 
 # for analyzing: 
 pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0}
 
+# gets pdfs from s3
 def get_n_pdfs(limit=100000):
     pdf_files = []
     continuation_token = None
@@ -97,9 +96,11 @@ def get_n_pdfs(limit=100000):
 #             s3.upload_file(local_file_path, bucket_name, s3_key)
 
 
+# uploads single file to s3
 def upload_file(local_file_path, s3_key):
     s3.upload_file(local_file_path, bucket_name, s3_key)
 
+# uploads dir of files to s3
 def upload_directory_to_s3(ec2_dir, s3_dir, max_workers=48):
     upload_tasks = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -115,6 +116,7 @@ def upload_directory_to_s3(ec2_dir, s3_dir, max_workers=48):
             except Exception as e:
                 print(f"Error uploading: {e}")
 
+# processing the pdfs: running through embedding pipeline and uploading to s3
 def process_pdfs(pdf_files, processor):
     print("IN PROCESS_PDFS: ", pdf_files)
     start_time = time.time()
@@ -157,14 +159,11 @@ def process_pdfs(pdf_files, processor):
     print("finished uploading current batch")
 
 
-# NON-MULTITHREADED VERSION
+# overall method that gets the files in batches and runs them through the pipeline
 def batched_file_download(BATCH_SIZE, processor):
     # result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
-    # # Get list of pdf file names
+    # # get list of pdf file names
     # pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # note this only returns 1000
-
-    # temporary: 
-    # pdf_files = pdf_files[0:10]
 
     pdf_files = get_n_pdfs()
 
@@ -176,36 +175,27 @@ def batched_file_download(BATCH_SIZE, processor):
 
     process_pdfs(local_batch, processor)
 
-    # a = 0
-    # for i in range(0, len(pdf_files), BATCH_SIZE):
-    #     # if i <= 6000:  # already did this one
-    #     #     continue
-    #     print('*****************************************************************************************************')
-    #     print("WE ARE ON BATCH: ", i)
-    #     print('*****************************************************************************************************')
-    #     batch = pdf_files[i:i + BATCH_SIZE] 
-    #     local_batch = []
+    for i in range(0, len(pdf_files), BATCH_SIZE):
+        print('*****************************************************************************************************')
+        print("WE ARE ON BATCH: ", i)
+        print('*****************************************************************************************************')
+        batch = pdf_files[i:i + BATCH_SIZE] 
+        local_batch = []
 
-    #     for pdf in batch:
-    #         file_name = os.path.basename(pdf)
-    #         local_path = os.path.join('downloads', file_name)  # save here?
-    #         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-    #         s3.download_file(bucket_name, pdf, local_path)
-    #         local_batch.append(file_name)
+        for pdf in batch:
+            file_name = os.path.basename(pdf)
+            local_path = os.path.join('downloads', file_name)  # save here?
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            s3.download_file(bucket_name, pdf, local_path)
+            local_batch.append(file_name)
         
-    #     process_pdfs(local_batch, processor)
+        process_pdfs(local_batch, processor)
 
-    #     # TODO: DELTE THE TXT FOLDERS AND OTHERS
-    #     if os.path.exists(DATA_DIR):
-    #         shutil.rmtree(DATA_DIR)
-    #     if os.path.exists(pdf_directory):
-    #         shutil.rmtree(pdf_directory)
-        
-    #     break # TODO: REMOVE THIS 
-        
-        # a = a + 1
-        # if a == 1:
-        #     break
+        # delete the directories 
+        if os.path.exists(DATA_DIR):
+            shutil.rmtree(DATA_DIR)
+        if os.path.exists(pdf_directory):
+            shutil.rmtree(pdf_directory)
     
     overall_end_time = time.time()
 
@@ -216,18 +206,8 @@ def batched_file_download(BATCH_SIZE, processor):
     print("TOTAL TIME img per page -> embed time:", pipeline_times['fourth'])
     print("TOTAL TIME img extracted -> embed time :", pipeline_times['fifth'])
 
-#poetry run python s3_ec2_embedding_pipeline.py
 def main():
     batched_file_download(BATCH_SIZE, processor) 
-
-    # # some testing testing below:
-    # upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
-    # upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
-    # upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
-    # upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
-    # upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
-    # upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
-    # print("finished uploading")
 
 if __name__ == '__main__':
     main()
