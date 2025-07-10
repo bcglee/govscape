@@ -17,6 +17,8 @@ torch = "^2.6.0"
 argparse = "^1.4.0"
 pymupdf = "^1.25.5"
 sentence-transformers = "^4.0.1"
+pynvml = "^12.0.0"
+boto3 = "^1.39.4"
 
 
 [build-system]

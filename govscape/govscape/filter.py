@@ -1,5 +1,4 @@
 from .config import ServerConfig
-from .pdf_to_embedding import PDFsToEmbeddings
 import json
 import os
 

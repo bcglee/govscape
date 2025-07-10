@@ -7,8 +7,6 @@ import fitz
 from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer, AutoModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer, LoggingHandler
 import torch
-import torch.nn.functional as F
-from transformers import pipeline
 from pathlib import Path
 import io
 import numpy as np
@@ -16,15 +14,11 @@ from abc import ABC, abstractmethod
 import json
 import sys
 from .pdf_to_jpeg import PdfToJpeg
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 import time
 import math
 import re
 import logging
-import pynvml
-from multiprocessing import Manager, Lock
-import runpy
 import subprocess
 import shutil
 import multiprocessing as mp
@@ -526,7 +520,7 @@ class PDFsToEmbeddings:
         time4 = time.time()
         print("Embedding this many images: ", len(img_paths))
         emb = img_model.encode_images(img_paths)
-        
+
         print("Embeddings computed. Shape:", emb.shape)
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
