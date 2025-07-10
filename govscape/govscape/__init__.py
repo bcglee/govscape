@@ -3,4 +3,5 @@ from .indexing import IndexBuilder
 from .pdf_to_embed import PDFsToEmbeddings, CLIPEmbeddingModel  #HELP
 #from .sequential_pdf_to_embed import PDFsToEmbeddings, CLIPEmbeddingModel, TextEmbeddingModel  #HELP
 from .pdf_to_jpeg import PdfToJpeg
+from .npy_to_bin import NpyToBin
 from .server import Server

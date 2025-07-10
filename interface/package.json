@@ -1,0 +1,24 @@
+{
+	"name": "interface",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"engines": {
+		"node": ">=20.0.0 <21.0.0",
+		"npm": ">=10.0.0"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.8",
+		"@sveltejs/kit": "^2.20.7",
+		"svelte": "^5.28.2",
+		"vite": "^6.3.3"
+	},
+	"dependencies": {
+		"masonry-layout": "^4.2.2"
+	}
+}
