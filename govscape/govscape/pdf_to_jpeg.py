@@ -28,7 +28,7 @@ class PdfToJpeg:
         os.makedirs(pdf_directory, exist_ok=True)
 
         pdf_filename = os.path.join(self.pdf_directory, pdf_filename)
-        # print("Creating JPEG (DPI " + str(self.dpi) + "):" + pdf_filename)
+        print("Creating JPEG (DPI " + str(self.dpi) + "):" + pdf_filename)
         
         # converts to images and provides an output_folder to reduce the memory usage
         try: 
@@ -63,30 +63,9 @@ class PdfToJpeg:
         
         return output_img_files
 
-
-
     # pdf_directory -> directory to source pdfs
-    # save_directory -> directory to save images
-    # def convert_directory_to_jpegs(self):
-    #     # recursively finds the pdfs in pdf_directory
-    #     pdf_files = []
-    #     for root, _, files in os.walk(self.pdf_directory):
-    #         for filename in files:
-    #             pdf_files.append(os.path.join(root, filename))
-
-    #     ctx = get_context('spawn')
-    #     with ctx.Pool(processes=30) as pool:
-    #         pool.map(self.convert_pdf_to_jpeg, pdf_files)
-
     def convert_directory_to_jpegs(self, pdf_files):
-        # recursively finds the pdfs in pdf_directory
-        # pdf_files = []
-        # for root, _, files in os.walk(self.pdf_directory):
-        #     for filename in files:
-        #         pdf_files.append(os.path.join(root, filename))
-
         ctx = get_context('spawn')
-        # with ctx.Pool(processes=30) as pool:
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.map(self.convert_pdf_to_jpeg, pdf_files)
 

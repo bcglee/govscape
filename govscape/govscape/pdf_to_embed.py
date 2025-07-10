@@ -106,51 +106,6 @@ class EmbeddingModel(ABC):
     def encode_image(self, jpg_path):
         pass
 
-# note: this class is not used for multi-gpu but kept this here for possible single cpu case.
-class TextEmbeddingModel(EmbeddingModel):
-    def __init__(self):
-        if torch.cuda.is_available():
-            print("USING GPU")
-        else:
-            print("USING CPU")
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-
-        # text model 
-        # self.model = SentenceTransformer("WhereIsAI/UAE-Large-V1").to(self.device)  # for online use, note: max length = 512 
-        # self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
-        # self.model = SentenceTransformer("WhereIsAI/UAE-Small-V1", device=self.device)  # online use, smaller model version of uae-large to experiment with 
-        # self.model = SentenceTransformer('distilbert-base-nli-mean-tokens').to(self.device)  # online use, another model used to experiment 
-        self.d = 1024
-        
-        # image captioning model 
-        # self.image_to_caption = pipeline("image-to-text", model="nlpconnect/vit-gpt2-image-captioning", device=0 if torch.cuda.is_available() else -1)  # online use
-        device = 0 if torch.cuda.is_available() else -1
-        self.image_to_caption = pipeline("image-to-text", model="./vit-gpt2-image-captioning", device=device)  # local
-    
-    def encode_text(self, text):
-        with torch.no_grad():
-            embeddings = self.model.encode(text, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
-        return embeddings
-    
-    def encode_text_batch(self, texts): # TODO: verify you can put in a list of text files to do this in batches
-        with torch.no_grad():
-            # embeddings = self.model.encode(texts, batch_size=BATCH_SIZE, device=self.device) # hopefully in batches
-            embeddings = model.encode_multi_process(texts, batch_size=GPU_BATCH_SIZE, pool=this.pool)
-        return embeddings  # can only convert embeddings to numpy on cpu?? 
-    
-    # def encode_text_batch_gpus(self, texts):
-    #     return self.model.encode_multi_process(texts, self.pool)
-
-    # generates a caption of image, not a text embedding
-    def encode_image(self, jpg_path): # output: embed_shape
-        image = Image.open(jpg_path).convert("RGB")
-
-        with torch.no_grad():
-            caption = (self.image_to_caption(image))[0]['generated_text']
-        image_caption_embed = self.model.encode([caption])
-
-        return image_caption_embed
-
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self, multi_gpu=True):
         # note mult_gpu case model is intialized in create_model_and_processor
@@ -380,155 +335,6 @@ class PDFsToEmbeddings:
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.map(self.convert_pdf_to_txt, pdf_files)
 
-    # (2) txt -> embed  (handled in pdf_to_embed_multigpu.py if mutli-gpu use)
-
-    # str -> embed
-    # def text_to_embeddings(self, text):
-    #     return self.embedding_model.encode_text(text)
-
-    # def txt_to_text(self, txt_path):
-    #     text = ""
-    #     with open(txt_path, 'r') as file:
-    #         text = file.read()
-    #     return text 
-
-    # single txt -> embed
-    # def convert_txt_to_embedding(self, txt_path):
-    #     # need to convert .txt to text
-    #     text = self.txt_to_text(txt_path)
-    #     return self.embedding_model.encode_text(text)
-    
-    
-    # version 1 = single subdir: txt subdir -> embed subdir.
-    # def convert_subdir_to_embeddings(self, txt_subdir_path):
-    #     #print("Embedding PDF: " + txt_subdir_path)
-    #     #making the subdir that will hold the embeddings for each PDF 
-    #     embed_name = os.path.basename(txt_subdir_path)
-    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
-        
-    #     # If the subdir already exists, we assume that this step has already been done.
-    #     if os.path.exists(embedding_dir):
-    #         return
-
-    #     self.ensure_dir(embedding_dir)
-
-    #     #all txt files in the txt subdir input 
-    #     txt_files = os.listdir(txt_subdir_path)
-
-    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
-
-    #     for txt_file in txt_files:
-    #         txt_path = os.path.join(txt_subdir_path, txt_file)
-
-    #         embedding = self.convert_txt_to_embedding(txt_path)
-
-    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
-    #         output_path = os.path.join(embedding_dir, file_name)
-    #         np.save(output_path, embedding)
-
-    # for sorting file names with page numbers to ensure consistency when batching between txt and npy files (OS could 
-    # order file names differently)
-    
-    # multiple txt subdir paths -> multiple embed dirs
-    # set so the number of page files matches the batch size. 
-    # def convert_subdirs_to_embeddings(self, txt_subdir_paths):
-    #     text_batch = []
-    #     file_batch = []
-    #     for txt_subdir_path in txt_subdir_paths:
-    #         embed_name = os.path.basename(txt_subdir_path)
-    #         embedding_dir = os.path.join(self.embeddings_path, embed_name)
-    #         self.ensure_dir(embedding_dir)
-
-    #         #all txt files in the txt subdir 
-    #         txt_files = sorted(os.listdir(txt_subdir_path), key = natural_key)
-
-    #         for txt_file in txt_files:
-    #             txt_path = os.path.join(txt_subdir_path, txt_file)
-    #             text = self.txt_to_text(txt_path)
-    #             text_batch.append(text)
-    #             file_batch.append((txt_file, embedding_dir))
-    #             if len(text_batch) == BATCH_SIZE:
-    #                 # print("NOW EMBEDDING THE TEXT BATCH")
-    #                 batch_embedding = self.embedding_model.encode_text_batch(text_batch)
-    #                 # print("FINISHED EMBEDDING TEXT BATCH")
-    #                 # print(batch_embedding.shape)
-    #                 for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
-    #                     file_name = txt_name.replace('.txt', '.npy')
-    #                     # print(f"file_name: {file_name} has been saved.")
-    #                     output_path = os.path.join(embedding_dir, file_name)
-    #                     np.save(output_path, embedding)
-                    
-    #                 text_batch = []
-    #                 file_batch = []
-        
-    #     # don't forget remaining 
-    #     if text_batch:
-    #         batch_embedding = self.embedding_model.encode_text_batch(text_batch)
-
-    #         for (txt_name, embed_dir_path), embedding in zip(file_batch, batch_embedding):
-    #                     file_name = txt_name.replace('.txt', '.npy')
-    #                     output_path = os.path.join(embedding_dir, file_name)
-    #                     np.save(output_path, embedding)
-
-    # version 2 = batch of subdirs: txt subdir -> embed subdir.
-    # def convert_subdir_to_embeddings(self, txt_subdir_paths):
-    #     #print("Embedding PDF: " + txt_subdir_path)
-    #     #making the subdir that will hold the embeddings for each PDF 
-    #     embed_name = os.path.basename(txt_subdir_path)
-    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
-        
-    #     # If the subdir already exists, we assume that this step has already been done.
-    #     if os.path.exists(embedding_dir):
-    #         return
-
-    #     self.ensure_dir(embedding_dir)
-
-    #     #all txt files in the txt subdir input 
-    #     txt_files = os.listdir(txt_subdir_path)
-
-    #     # self.create_json(len(txt_files), embedding_dir, os.path.basename(embedding_dir))  # TODO: uncomment for metadata
-
-    #     for txt_file in txt_files:
-    #         txt_path = os.path.join(txt_subdir_path, txt_file)
-
-    #         embedding = self.convert_txt_to_embedding(txt_path)
-
-    #         file_name = os.path.splitext(txt_file)[0] + ".npy"
-    #         output_path = os.path.join(embedding_dir, file_name)
-    #         np.save(output_path, embedding)
-    
-    # txts -> embeds overall dir
-    # 1. OG VERSION 
-    # def convert_txts_to_embeddings(self, pdf_files):
-    #     self.ensure_dir(self.embeddings_path)
-    #     for pdf_file in pdf_files:
-    #         subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
-    #         if os.path.isdir(subdir):
-    #             self.convert_subdir_to_embeddings(subdir)
-
-    # 2. MP VERSION with pdf_files
-    # def convert_txts_to_embeddings(self):
-    #     self.ensure_dir(self.embeddings_path)
-
-    #     txt_subdirs_paths = []
-    #     for txt_subdir in os.scandir(self.txts_path):
-    #         if txt_subdir.is_dir():
-    #             txt_subdirs_paths.append(txt_subdir.path)
-        
-    #     # splitting into groups for each process:   # TODO: verify concept: difference between passing in txt_subdir_batches and txt_subdirs_paths
-    #     # batch_size = math.ceil(len(txt_subdirs_paths) / os.cpu_count())
-    #     batch_size = math.ceil(len(txt_subdirs_paths) / 2)
-    #     txt_subdir_batches = []
-    #     for i in range(0, len(txt_subdirs_paths), batch_size):
-    #         txt_subdir_batches.append(txt_subdirs_paths[i : i + batch_size])
-
-    #     ctx = get_context('spawn')
-    #     # ctx = get_context('fork')
-    #     # with ctx.Pool(processes=os.cpu_count()) as pool:
-    #     with ctx.Pool(processes=2) as pool:
-    #         pool.map(self.convert_subdirs_to_embeddings, txt_subdir_batches) # for batch
-    #         # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
-
 
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
@@ -539,91 +345,20 @@ class PDFsToEmbeddings:
                 for text in re.split(r'(\d+)', s)]
 
     # pdfs -> dir of subdirs of extracted images
-    # version1: entire path 
-    # def convert_pdfs_to_single_jpg(self):
-    #     if not os.path.exists(self.jpgs_path):
-    #         os.makedirs(self.jpgs_path)
-    #
-    #     parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
-    #     parser.convert_directory_to_jpegs()
-    
-    # version2: given a list of files
     def convert_pdfs_to_single_jpg(self, pdf_files):
         parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
         parser.convert_directory_to_jpegs(pdf_files)
     
     # img subdir -> embeds
-    # if using: pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths) in convert_imgs_to_embeddings
-    # def convert_img_subdir_to_embeddings(self, jpg_subdir_path):
-    #     print("Embedding PDF Img: " + jpg_subdir_path)
-    #     #making the subdir that will hold the embeddings for each PDF 
-    #     embed_name = os.path.basename(jpg_subdir_path)
-    #     embedding_dir = os.path.join(self.embeddings_path, embed_name)
-
-    #     if not os.path.exists(embedding_dir):
-    #         os.makedirs(embedding_dir)
-
-    #     # all jpg files in the jpg subdir input 
-    #     jpg_files = os.listdir(jpg_subdir_path)
-
-    #     for jpg_file in jpg_files:
-    #         jpg_path = os.path.join(jpg_subdir_path, jpg_file)
-            
-    #         #check if file is empty; just skip to next if true 
-    #         if os.stat(jpg_path).st_size == 0:
-    #             continue
-    #         try:
-    #             embedding = self.embedding_model.encode_image(jpg_path)
-    #         except: 
-    #             continue
-    #         file_name = os.path.splitext(jpg_file)[0] + "_img.npy"
-    #         output_path = os.path.join(embedding_dir, file_name)
-    #         np.save(output_path, embedding)
-
-
-    # dir of imgs/pg -> dir of embeds
-    # 1. OG VERSION 
-    # def convert_imgs_to_embeddings(self):
-    #     if not os.path.exists(self.embeddings_path):
-    #         os.makedirs(self.embeddings_path)
-
-    #     for jpg_subdir in os.scandir(self.jpgs_path):
-    #         if jpg_subdir.is_dir():
-    #             self.convert_img_subdir_to_embeddings(jpg_subdir.path)
-    # 2. MP VERSION
-    # def convert_imgs_to_embeddings(self):
-    #     if not os.path.exists(self.embeddings_path):
-    #         os.makedirs(self.embeddings_path)
-
-    #     jpg_subdirs_paths = []
-    #     for jpg_subdir in os.scandir(self.jpgs_path):
-    #         if jpg_subdir.is_dir():
-    #             jpg_subdirs_paths.append(jpg_subdir.path)
-        
-    #     batch_size = math.ceil(len(jpg_subdirs_paths) / os.cpu_count())
-    #     jpg_subdir_batches = []
-    #     for i in range(0, len(jpg_subdirs_paths), batch_size):
-    #         jpg_subdir_batches.append(jpg_subdirs_paths[i : i + batch_size])
-
-    #     ctx = get_context('spawn')
-    #     with ctx.Pool(processes=os.cpu_count()) as pool:
-    #         pool.map(self.convert_img_subdir_to_embeddings, jpg_subdirs_paths)
-    #         # pool.map(self.convert_img_subdir_to_embeddings, jpg_subdir_batches) 
-
     def convert_img_subdirs_to_embeddings(self, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
         # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
-            # embedding_dir = os.path.join(self.embeddings_path, embed_name)  #changed
             embedding_dir = os.path.join(self.embeddings_img_path, embed_name)
             self.ensure_dir(embedding_dir)
 
-            #all txt files in the txt subdir 
-            # print("IMG SUBDIR PATH IS ", img_subdir_path)
-            # print(self.embeddings_img_path)
-            # print(img_subdir_path)
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
             for img_file in img_files:
@@ -637,7 +372,6 @@ class PDFsToEmbeddings:
     def convert_img_subdirs_to_embeddings_extracted(self, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
-        # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
             embedding_dir = os.path.join(self.embeddings_img_e_path, embed_name)
@@ -677,7 +411,6 @@ class PDFsToEmbeddings:
                 results = pool.map(self.convert_img_subdirs_to_embeddings_extracted, img_subdir_batches) # for batch
             else: 
                 results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
-            # pool.map(self.convert_subdir_to_embeddings, txt_subdirs_paths) # not in batch i believe
 
             for img_batch, embed_file_path_batch in results:
                 all_imgs.extend(img_batch)
@@ -716,54 +449,7 @@ class PDFsToEmbeddings:
     # dir pdf --> dir img (extracted) -> dir embed (extracted) shared with og embed dir
     # *******************************************************************************************************************
 
-    # single pdf -> extracted img, extracted img embedding (using og embed dir)  #single gpu, no batch, sequential version
-    # def extract_img_embed_pdf(self, pdf_path, output_img_dir_path, out_embed_path, img_model):
-    #     pdf_doc = fitz.open(pdf_path)
-
-    #     title = os.path.splitext(os.path.basename(pdf_path))[0]
-
-    #     for page_num in range(len(pdf_doc)):
-    #         page = pdf_doc[page_num]
-    #         for i, img in enumerate(page.get_images(full=True)):
-    #             xref = img[0]
-    #             image_dict = pdf_doc.extract_image(xref)
-    #             image_bytes = image_dict["image"]
-    #             image = Image.open(io.BytesIO(image_bytes))
-
-    #             image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
-    #             # print("img saved at: ",  image_path)
-    #             if image.mode == "RGBA":
-    #                 image = image.convert("RGB")
-    #             image.save(image_path, "JPEG")
-
-    #             # convert to embedding 
-    #             # embed = self.embedding_model.encode_image(image_path)
-    #             embed = img_model.encode_image(image_path)
-
-    #             output_path = os.path.join(out_embed_path, f"{title}_{page_num}_{i}.npy")
-    #             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    #             np.save(output_path, embed)
-
-    # # pdfs -> extracted imgs, extracted img embeds
-    # def extract_img_pdfs(self, pdf_files, img_model):
-    #     # go through entire set of pdfs 
-    #     # pdfs_dir = Path(pdf_files)
-    #     # pdf_paths = list(pdfs_dir.glob("*.pdf"))
-    #     pdf_paths = pdf_files
-
-    #     # extract_folder = Path(str(self.jpgs_path) + "_extract")
-    #     extract_folder = Path(self.extracted_jpgs_path)
-    #     extract_folder.mkdir(parents=True, exist_ok=True)
-
-    #     # extract images and put it in images under _IMG_count.png
-    #     for pdf_path in pdf_paths:
-    #         # img_path = Path((self.jpgs_path + "_extract")) / Path(pdf_path.stem)
-    #         full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
-    #         img_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
-    #         img_path.mkdir(parents=True, exist_ok=True)
-    #         out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
-    #         self.extract_img_embed_pdf(full_pdf_path, img_path, out_embed_path, img_model)
-    
+    # single pdf -> extracted img, extracted img embedding (using og embed dir)  
     # multi gpu extract images below 
     def extract_img_pdfs(self, pdf_path):
         full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
@@ -821,29 +507,31 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
 
-        print("now converting pdfs to txts")
+        print("Converting pdfs to txts")
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
-        # self.convert_txts_to_embeddings()  # for single gpu, batching/non-batched
-        print("now converting txts to embeddings")
+
+        print("Converting txts to embeddings")
         subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
 
-        # converting imgs
         img_model = CLIPEmbeddingModel()
+        
+        print("Converting pdfs to imgs")
+        # Convert each pdf page to a single jpg
+        self.convert_pdfs_to_single_jpg(pdf_files) 
 
-        print("now converting pdfs to imgs")
-        self.convert_pdfs_to_single_jpg(pdf_files)  # getting entire pdf page as an image.
-        print("now converting imgs to embds")
+        print("Converting imgs to embds")
         img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
-        print("now embeddings this many number of imgs: ", len(img_paths))
+        print("Embedding this many images: ", len(img_paths))
         emb = img_model.encode_images(img_paths)
+        
         print("Embeddings computed. Shape:", emb.shape)
         self.convert_img_embedding_to_files(emb, all_embed_file_paths)
         time5 = time.time()
 
-        print("now converting pdfs to extracted imgs and embds")
+        print("Converting pdfs to extracted imgs and embds")
         self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
         extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
         emb_e = img_model.encode_images(extract_img_paths)

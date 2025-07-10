@@ -154,7 +154,7 @@ class PDFsToEmbeddings:
     # def __init__(self, pdf_directory, txt_directory, embeddings_dir, jpgs_dir, embedding_model):
     def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir):
         # self.pdfs_path = pdf_directory
-        self.pdfs_path = '/home/ec2-user/govscape/downloads'  # TODO: HORRIBLE REMOVE THIS
+        self.pdfs_path = '/tmp'  # TODO: HORRIBLE REMOVE THIS
         self.txts_path = txt_directory
         self.embeddings_path = embeddings_dir
         self.jpgs_path = jpgs_dir
@@ -480,6 +480,8 @@ class PDFsToEmbeddings:
             logging.error(f"can't open PDF {pdf_path}: {e}")
             return
 
+        os.makedirs(out_embed_path, exist_ok=True)
+
         title = os.path.splitext(os.path.basename(pdf_path))[0]
 
         for page_num in range(len(pdf_doc)):
@@ -544,46 +546,41 @@ class PDFsToEmbeddings:
         
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
 
-        # text_embed_model = TextEmbeddingModel()
-        # time1 = time.time()
-        # self.convert_pdfs_to_txt(pdf_files)
-        # time2 = time.time()
-        # with open("seq_times.txt", "a") as f:
-        #     f.write(f"pdf -> txt time: {time2 - time1}\n")
-        # self.convert_txts_to_embeddings(pdf_files, text_embed_model)
-        # time3 = time.time()
-        # with open("seq_times.txt", "a") as f:
-        #     f.write(f"txt -> embed time: {time3 - time2}\n")
-        # self.convert_pdfs_to_single_jpg(pdf_files)
-        # time4 = time.time()
-        # with open("seq_times.txt", "a") as f:
-        #     f.write(f"pdf -> img per page time: {time4 - time3}\n")
+        text_embed_model = TextEmbeddingModel()
+        time1 = time.time()
+        self.convert_pdfs_to_txt(pdf_files)
+        time2 = time.time()
+        with open("seq_times.txt", "a") as f:
+            f.write(f"pdf -> txt time: {time2 - time1}\n")
+        self.convert_txts_to_embeddings(pdf_files, text_embed_model)
+        time3 = time.time()
+        with open("seq_times.txt", "a") as f:
+            f.write(f"txt -> embed time: {time3 - time2}\n")
+        self.convert_pdfs_to_single_jpg(pdf_files)
+        time4 = time.time()
+        with open("seq_times.txt", "a") as f:
+            f.write(f"pdf -> img per page time: {time4 - time3}\n")
         img_embed_model = CLIPEmbeddingModel()
-        # self.convert_imgs_to_embeddings(img_embed_model)
+        self.convert_imgs_to_embeddings(img_embed_model)
         time5 = time.time()
-        # with open("seq_times.txt", "a") as f:
-        #     f.write(f"img per page -> embed time: {time5 - time4}\n")
+        with open("seq_times.txt", "a") as f:
+            f.write(f"img per page -> embed time: {time5 - time4}\n")
         self.extract_img_pdfs(img_embed_model)
         time6 = time.time()
         with open("seq_times.txt", "a") as f:
             f.write(f"extracted img -> embed time: {time6 - time5}\n")
 
-        # first = time2 - time1
-        # sec = time3 - time2
-        # third = time4 - time3
-        # fourth = time5 - time4
-        # fifth = time6 - time5
-        first = 1
-        sec = 2
-        third = 3
-        fourth = 4
-        fifth = 5
-
-        # print("pdf -> txt time: ", time2 - time1)
-        # print("txt -> embed time: ", time3 - time2)
-        # print("pdf -> img per page time: ", time4 - time3)
-        # print("img per page -> embed time: ", time5 - time4)
-        # print("extracted img -> embed time: ", time6 - time5)
+        first = time2 - time1
+        sec = time3 - time2
+        third = time4 - time3
+        fourth = time5 - time4
+        fifth = time6 - time5
+        
+        print("pdf -> txt time: ", time2 - time1)
+        print("txt -> embed time: ", time3 - time2)
+        print("pdf -> img per page time: ", time4 - time3)
+        print("img per page -> embed time: ", time5 - time4)
+        print("extracted img -> embed time: ", time6 - time5)
 
         return first, sec, third, fourth, fifth 
 
