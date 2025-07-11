@@ -9,6 +9,7 @@ import struct
 import json
 from .api import init_api
 from .filter import Filter
+from .indexing import IndexBuilder
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -21,6 +22,7 @@ class Server:
 
         # directories
         self.pdf_directory = config.pdf_directory
+        self.metadata_directory = config.metadata_directory
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
@@ -39,7 +41,7 @@ class Server:
             # create a new index
             self.faiss_index = faiss.IndexFlatL2(self.d)
 
-        # Train model on test vectors
+            # Train model on test vectors
             self.npy_files = []
             for root, _, files in os.walk(self.embedding_directory):
                 for file in files:
