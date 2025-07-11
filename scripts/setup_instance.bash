@@ -5,11 +5,10 @@ set -e
 if ! command -v python3.11 &> /dev/null; then
     echo "Installing Python 3.11..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if grep -q "Amazon Linux" /etc/os-release; then
-                # Amazon Linux
-                sudo yum install -y gcc gcc-c++ make
-                sudo amazon-linux-extras enable python3.11
-                sudo yum install -y python3.11 python3.11-venv python3.11-distutils
+        if command -v yum &> /dev/null; then
+            # CentOS/RockyOS
+            sudo yum install -y gcc gcc-c++ make
+            sudo yum install -y python3.11 python3.11-venv python3.11-distutils
         else
             # Ubuntu/Debian
             sudo apt-get update
