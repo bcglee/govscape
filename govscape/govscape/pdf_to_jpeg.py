@@ -47,7 +47,8 @@ class PdfToJpeg:
             print("CONVERSION ERROR: " + pdf_filename)
             print("ACTUAL EXCEPTION:", repr(e))
             pass
-
+        
+        print("IMAGE DIRECTORY: ", img_directory)
         # fixes the names of files output from convert_from_path
         output_img_files = []
         img_files = os.listdir(img_directory)

@@ -58,7 +58,8 @@ def get_least_used_cuda():
 class TextEmbeddingModel(EmbeddingModel):
     def __init__(self):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
-        self.model = SentenceTransformer('./uae-large-v1').to(self.device)  # for local
+        self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=self.device) 
+        #SentenceTransformer('WhereIsAI/UAE-Large-V1').to(self.device)
         self.d = 1024
 
     def encode_text(self, text):
@@ -188,7 +189,7 @@ class TxtsToEmbeddings:
             os.makedirs(path)
 
 if __name__ == "__main__":
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
     DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # overall data dir is in ec2
     txt_path = os.path.join(DATA_DIR, 'txt')
     embed_path = os.path.join(DATA_DIR, 'embeddings')
@@ -199,7 +200,11 @@ if __name__ == "__main__":
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
 
     text_model = TextEmbeddingModel()
-    pool = text_model.model.start_multi_process_pool(target_devices=["cuda:0", "cuda:1", "cuda:2", "cuda:3"])   # for four gpus, update if different num
+    devices = []
+    for i in range(torch.cuda.device_count()):
+        devices.append("cuda:" + str(i))
+        print(f"CUDA Device {i}: {torch.cuda.get_device_name(i)}")
+    pool = text_model.model.start_multi_process_pool(target_devices=devices)   # for four gpus, update if different num
 
     emb = text_model.model.encode_multi_process(sentences, pool)
     print("Embeddings computed. Shape:", emb.shape)

@@ -101,23 +101,7 @@ class EmbeddingModel(ABC):
         pass
 
 class CLIPEmbeddingModel(EmbeddingModel):
-    def __init__(self, multi_gpu=True):
-        # note mult_gpu case model is intialized in create_model_and_processor
-
-        if not multi_gpu:  #note: haven't verified if single gpu methods are still working 
-            self.device = 'cuda' if torch.cuda.is_available() else "cpu"
-            # self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # online
-            self.model = CLIPModel.from_pretrained("./clip-vit-base-patch32")  # local
-
-            self.model.eval()
-
-            # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
-            # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
-            image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
-            tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
-
-            self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
-
+    def __init__(self):
         self.d = 512
 
     def encode_text(self, text):  #note: not doing encode_texts version of this yet because currently not in use. 
@@ -186,14 +170,13 @@ class CLIPEmbeddingModel(EmbeddingModel):
     def create_model_and_processor(self, gpu_id):
         torch.cuda.set_device(gpu_id)
         device = torch.device(f"cuda:{gpu_id}")
-        # model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # online
-        model = CLIPModel.from_pretrained("./clip-vit-base-patch32").to(device)
+        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)  # online
         model.eval()
 
-        # image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
-        # tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
-        image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
-        tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
+        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
+        #image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
+        #tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
 
         processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
 
@@ -386,14 +369,21 @@ class PDFsToEmbeddings:
         all_imgs = []
         all_embed_file_paths = []
         self.ensure_dir(overall_embed_path) # self.embeddings_img_path
+        self.ensure_dir(overall_img_path) # self.jpgs_path
 
         img_subdirs_paths = []
-        for img_subdir in os.scandir(overall_img_path): # self.jpgs_path
+        for img_subdir in os.scandir(overall_img_path):
             if img_subdir.is_dir():
                 img_subdirs_paths.append(img_subdir.path)
         
+        if len(img_subdirs_paths) == 0:
+            print("No image subdirs found in the specified path.")
+            return all_imgs, all_embed_file_paths
+        
         # splitting into groups for each process:
         batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
+#        print("Batch Size For Img Embedding: ", batch_size)
+#        print("All Img Subdirs: ", img_subdirs_paths)
         img_subdir_batches = []
         for i in range(0, len(img_subdirs_paths), batch_size):
             img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
@@ -502,11 +492,11 @@ class PDFsToEmbeddings:
         time1 = time.time()
 
         print("Converting pdfs to txts")
-        self.convert_pdfs_to_txt(pdf_files)
+#        self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
 
-        print("Converting txts to embeddings")
-        subprocess.run(["python", "/home/ec2-user/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+#        print("Converting txts to embeddings")
+#        subprocess.run(["python", "/home/kylebd99/Research/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
 
         img_model = CLIPEmbeddingModel()

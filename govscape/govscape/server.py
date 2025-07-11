@@ -39,7 +39,7 @@ class Server:
             # create a new index
             self.faiss_index = faiss.IndexFlatL2(self.d)
 
-        # Train model on test vectors
+            # Train model on test vectors
             self.npy_files = []
             for root, _, files in os.walk(self.embedding_directory):
                 for file in files:

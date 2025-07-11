@@ -19,7 +19,7 @@ s3 = boto3.client("s3", config=config)
 
 # FIELDS TO SET **************************************************************************************
 
-BATCH_SIZE = 1000 # number of files we are processing at a time
+BATCH_SIZE = 10 # number of files we are processing at a time
 
 # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
 bucket_name = 'bcgl-public-bucket'
@@ -41,8 +41,6 @@ img_extracted_dir = os.path.join(DATA_DIR, 'img_extracted')
 embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
 img_embeddings_dir = os.path.join(DATA_DIR, 'embeddings_img_pg')
 e_img_embed_dir = os.path.join(DATA_DIR, 'embeddings_img_extracted')
-
-batch_download_dir = '/tmp'  # temporary downloading (not sure if actually temp)
 
 processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
                                 embeddings_directory, img_embeddings_dir, e_img_embed_dir) # removed model
@@ -174,8 +172,6 @@ def batched_file_download(BATCH_SIZE, processor):
 
     local_batch = []
 
-    process_pdfs(local_batch, processor)
-
     for i in range(0, len(pdf_files), BATCH_SIZE):
         print('*****************************************************************************************************')
         print("WE ARE ON BATCH: ", i)
@@ -185,7 +181,7 @@ def batched_file_download(BATCH_SIZE, processor):
 
         for pdf in batch:
             file_name = os.path.basename(pdf)
-            local_path = os.path.join(batch_download_dir, file_name)  # save here?
+            local_path = os.path.join(pdf_directory, file_name)  # save here?
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             s3.download_file(bucket_name, pdf, local_path)
             local_batch.append(file_name)
@@ -193,10 +189,13 @@ def batched_file_download(BATCH_SIZE, processor):
         process_pdfs(local_batch, processor)
 
         # delete the directories 
-#        if os.path.exists(DATA_DIR):
-#            shutil.rmtree(DATA_DIR)
-#        if os.path.exists(pdf_directory):
-#            shutil.rmtree(pdf_directory)
+        if os.path.exists(DATA_DIR):
+            shutil.rmtree(DATA_DIR)
+            os.makedirs(DATA_DIR, exist_ok=True)
+
+        if os.path.exists(pdf_directory):
+            shutil.rmtree(pdf_directory)
+            os.makedirs(pdf_directory, exist_ok=True)
     
     overall_end_time = time.time()
 
