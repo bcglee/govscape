@@ -188,29 +188,15 @@ class TxtsToEmbeddings:
         if not os.path.exists(path):
             os.makedirs(path)
 
-if __name__ == "__main__":
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
-    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # overall data dir is in ec2
-    txt_path = os.path.join(DATA_DIR, 'txt')
-    embed_path = os.path.join(DATA_DIR, 'embeddings')
-
+# text_model should have started the process pool already
+def compute_text_embeddings(text_model, model_pool, txt_path, embed_path):
     processor = TxtsToEmbeddings(txt_path, embed_path)  # note: we are not using the model in here.
 
     # sentences
     sentences, all_embed_file_paths = processor.convert_txts_to_embeddings()  #txts to text
 
-    text_model = TextEmbeddingModel()
-    devices = []
-    for i in range(torch.cuda.device_count()):
-        devices.append("cuda:" + str(i))
-        print(f"CUDA Device {i}: {torch.cuda.get_device_name(i)}")
-    pool = text_model.model.start_multi_process_pool(target_devices=devices)   # for four gpus, update if different num
-
-    emb = text_model.model.encode_multi_process(sentences, pool)
+    emb = text_model.model.encode_multi_process(sentences, model_pool)
     print("Embeddings computed. Shape:", emb.shape)
 
     # put them into embedding files 
     processor.convert_embedding_to_files(emb, all_embed_file_paths)
-
-    text_model.model.stop_multi_process_pool(pool)
-

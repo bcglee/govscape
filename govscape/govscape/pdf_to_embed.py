@@ -13,7 +13,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 import json
 import sys
-from .pdf_to_jpeg import PdfToJpeg
 from multiprocessing import get_context
 import time
 import math
@@ -22,6 +21,8 @@ import logging
 import subprocess
 import shutil
 import multiprocessing as mp
+from .pdf_to_jpeg import PdfToJpeg
+from .pdf_to_embed_multigpu import TextEmbeddingModel, compute_text_embeddings
 
 
 # OVERALL NOTE FOR THIS VERSION: ********************************************************************************************
@@ -168,7 +169,6 @@ class CLIPEmbeddingModel(EmbeddingModel):
     # for multi-gpus: 
 
     def create_model_and_processor(self, gpu_id):
-        torch.cuda.set_device(gpu_id)
         device = torch.device(f"cuda:{gpu_id}")
         model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)  # online
         model.eval()
@@ -231,12 +231,12 @@ class CLIPEmbeddingModel(EmbeddingModel):
         manager = mp.Manager()
         outputs = manager.dict()
         processes = []
-
+        ctx = get_context('spawn')
         for i in range(gpu_count):
-            p = mp.Process(target=self.encode_images_per_gpu, args=(list(jpg_paths_split[i]), i, max_batch_size, outputs))
+            p = ctx.Process(target=self.encode_images_per_gpu, args=(list(jpg_paths_split[i]), i, max_batch_size, outputs))
             p.start()
             processes.append(p)
-
+        
         for p in processes:
             p.join()
         
@@ -253,7 +253,7 @@ def natural_key(s):
 
 class PDFsToEmbeddings:
     # def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
-    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir):
+    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, text_model, model_pool):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.jpgs_path = jpgs_dir
@@ -261,6 +261,8 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
+        self.text_model = text_model  # TextEmbeddingModel
+        self.model_pool = model_pool  # for multi-gpu use, this is the model_pool
 
 
     # *******************************************************************************************************************
@@ -270,16 +272,17 @@ class PDFsToEmbeddings:
     # (1) pdf -> txt 
 
     # converts a single pdf file to a txt files (one txt per page)
-    def convert_pdf_to_txt(self, pdf_file):
+    @staticmethod
+    def convert_pdf_to_txt(txts_path, pdfs_path, pdf_file):
         # print("Paginating & Scraping Text: " + pdf_file)
-        pdf_path = os.path.join(self.pdfs_path, pdf_file)
+        pdf_path = os.path.join(pdfs_path, pdf_file)
         #subdir for each pdf 
-        pdf_subdir = os.path.join(self.txts_path, os.path.splitext(pdf_file)[0])
+        pdf_subdir = os.path.join(txts_path, os.path.splitext(pdf_file)[0])
 
         if os.path.exists(pdf_subdir):
             return
-
-        self.ensure_dir(pdf_subdir)
+        
+        os.makedirs(pdf_subdir, exist_ok=True)
 
         try:
             with pdfplumber.open(pdf_path) as pdf:
@@ -310,8 +313,7 @@ class PDFsToEmbeddings:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self.convert_pdf_to_txt, pdf_files)
-
+            pool.starmap(self.convert_pdf_to_txt, [(self.txts_path, self.pdfs_path, file) for file in pdf_files])
 
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
@@ -327,14 +329,15 @@ class PDFsToEmbeddings:
         parser.convert_directory_to_jpegs(pdf_files)
     
     # img subdir -> embeds
-    def convert_img_subdirs_to_embeddings(self, img_subdir_paths):
+    @staticmethod
+    def convert_img_subdirs_to_embeddings(embeddings_img_path, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
         # print(img_subdir_paths)
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_img_path, embed_name)
-            self.ensure_dir(embedding_dir)
+            embedding_dir = os.path.join(embeddings_img_path, embed_name)
+            os.makedirs(embedding_dir, exist_ok=True)
 
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
@@ -346,13 +349,14 @@ class PDFsToEmbeddings:
         
         return img_paths_batch, file_batch
     
-    def convert_img_subdirs_to_embeddings_extracted(self, img_subdir_paths):
+    @staticmethod
+    def convert_img_subdirs_to_embeddings_extracted(embeddings_img_e_path, img_subdir_paths):
         img_paths_batch = []
         file_batch = []
         for img_subdir_path in img_subdir_paths:
             embed_name = os.path.basename(img_subdir_path)
-            embedding_dir = os.path.join(self.embeddings_img_e_path, embed_name)
-            self.ensure_dir(embedding_dir)
+            embedding_dir = os.path.join(embeddings_img_e_path, embed_name)
+            os.makedirs(embedding_dir, exist_ok=True)
 
             img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
 
@@ -392,9 +396,9 @@ class PDFsToEmbeddings:
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
             if overall_embed_path == self.embeddings_img_e_path:
-                results = pool.map(self.convert_img_subdirs_to_embeddings_extracted, img_subdir_batches) # for batch
+                results = pool.starmap(self.convert_img_subdirs_to_embeddings_extracted, [(self.embeddings_img_e_path, batch) for batch in img_subdir_batches]) # for batch
             else: 
-                results = pool.map(self.convert_img_subdirs_to_embeddings, img_subdir_batches) # for batch
+                results = pool.starmap(self.convert_img_subdirs_to_embeddings, [(self.embeddings_img_path, batch) for batch in img_subdir_batches]) # for batch
 
             for img_batch, embed_file_path_batch in results:
                 all_imgs.extend(img_batch)
@@ -402,7 +406,8 @@ class PDFsToEmbeddings:
         
         return all_imgs, all_embed_file_paths
     
-    def convert_img_embedding_to_files_batch(self, embed_and_paths):
+    @staticmethod
+    def convert_img_embedding_to_files_batch(embed_and_paths):
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
             file_name = output_path.replace('.jpg', '.npy')
@@ -435,11 +440,12 @@ class PDFsToEmbeddings:
 
     # single pdf -> extracted img, extracted img embedding (using og embed dir)  
     # multi gpu extract images below 
-    def extract_img_pdfs(self, pdf_path):
-        full_pdf_path = Path(self.pdfs_path) / Path(pdf_path)
-        output_img_dir_path = Path(self.extracted_jpgs_path) / Path(pdf_path).stem
+    @staticmethod
+    def extract_img_pdfs(pdf_directory, extracted_jpgs_path, embeddings_img_e_path, pdf_path):
+        full_pdf_path = Path(pdf_directory) / Path(pdf_path)
+        output_img_dir_path = Path(extracted_jpgs_path) / Path(pdf_path).stem
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
-        out_embed_path = Path(self.embeddings_img_e_path) / Path(pdf_path).stem
+        out_embed_path = Path(embeddings_img_e_path) / Path(pdf_path).stem
 
         try:
             pdf_doc = fitz.open(full_pdf_path)
@@ -480,7 +486,7 @@ class PDFsToEmbeddings:
     def convert_pdfs_to_extracted_imgs(self, pdf_files):
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.map(self.extract_img_pdfs, pdf_files)
+            pool.starmap(self.extract_img_pdfs, [(self.pdfs_path, self.extracted_jpgs_path, self.embeddings_img_e_path, file) for file  in pdf_files])
 
     # *******************************************************************************************************************
     # overall pipeline
@@ -496,7 +502,7 @@ class PDFsToEmbeddings:
         time2 = time.time()
 
         print("Converting txts to embeddings")
-        subprocess.run(["python", "/home/kylebd99/Research/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+        compute_text_embeddings(self.text_model, self.model_pool, self.txts_path, self.embeddings_path)
         time3 = time.time()
 
         img_model = CLIPEmbeddingModel()
@@ -541,6 +547,7 @@ class PDFsToEmbeddings:
     # *******************************************************************************************************************
 
     # makes sure that the directory specified is created
-    def ensure_dir(self, path):
+    @staticmethod
+    def ensure_dir(path):
         if not os.path.exists(path):
             os.makedirs(path)
