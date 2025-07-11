@@ -2,4 +2,4 @@
 set -e
 
 # Embeddings pipeline
-poetry run python s3_ec2_embedding_pipeline.py
+poetry run python scripts/s3_ec2_embedding_pipeline.py
