@@ -2,7 +2,6 @@ import pdfplumber
 import os
 from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from io import BytesIO
 import fitz
 from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer, AutoModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer, LoggingHandler
@@ -12,13 +11,11 @@ import io
 import numpy as np
 from abc import ABC, abstractmethod
 import json
-import sys
 from multiprocessing import get_context
 import time
 import math
 import re
 import logging
-import subprocess
 import shutil
 import multiprocessing as mp
 from .pdf_to_jpeg import PdfToJpeg
