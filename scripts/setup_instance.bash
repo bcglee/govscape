@@ -38,4 +38,5 @@ fi
 
 # 3. Run poetry install
 echo "Running 'poetry install'..."
+poetry env use 3.11
 poetry install
