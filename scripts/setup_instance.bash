@@ -8,7 +8,7 @@ if ! command -v python3.11 &> /dev/null; then
         if command -v yum &> /dev/null; then
             # CentOS/RockyOS
             sudo yum install -y gcc gcc-c++ make
-            sudo yum install -y python3.11 python3.11-venv python3.11-distutils
+            sudo yum install -y python3.11
         else
             # Ubuntu/Debian
             sudo apt-get update
