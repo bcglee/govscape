@@ -21,6 +21,7 @@ class Server:
 
         # directories
         self.pdf_directory = config.pdf_directory
+        self.metadata_directory = config.metadata_directory
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory

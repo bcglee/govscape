@@ -20,9 +20,9 @@ def main():
     args = parser.parse_args()
     
     pdf_directory = args.pdf_directory
-    txt_directory, embeddings_directory, index_directory, images_directory = [
+    txt_directory, embeddings_directory, index_directory, images_directory, metadata_directory = [
         getattr(args, f"{dir_name}_directory") or f"{args.data_directory}/{dir_name}"
-        for dir_name in ['txt', 'embeddings', 'index', 'images']
+        for dir_name in ['txt', 'embeddings', 'index', 'images', 'metadata']
     ]
     
     if args.model == "CLIP":
@@ -30,7 +30,7 @@ def main():
     elif args.model == "UAE":
         model = gs.TextEmbeddingModel()
 
-    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, images_directory, args.index_type)
+    index_config = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, images_directory, metadata_directory, args.index_type)
     
     if args.index_type == 'Disk':
         i.load_index()
