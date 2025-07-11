@@ -9,6 +9,7 @@ import struct
 import json
 from .api import init_api
 from .filter import Filter
+from .indexing import IndexBuilder
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected

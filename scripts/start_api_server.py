@@ -1,5 +1,6 @@
 import govscape as gs
 import argparse
+import boto3
 
 def main():
     parser = argparse.ArgumentParser(description='Start the GovScape API server')
@@ -16,9 +17,23 @@ def main():
     parser.add_argument('--host', default='0.0.0.0', help='Host to run the server on')
     parser.add_argument('--port', type=int, default=8080, help='Port to run the server on')
     parser.add_argument('--debug', action='store_true', help='Run the server in debug mode')
+    parser.add_argument('--s3-source-bucket', default="bcgl-public-bucket", help='Where to retrieve the data from in S3')
+    parser.add_argument('--s3-source-folder', default="2008_EOT_PDFs/data_test_100k_final/", help='Where to retrieve the data from in S3')
     
     args = parser.parse_args()
     
+    s3 = boto3.resource('s3')
+    source_bucket = args.s3_source_bucket
+    source_prefix = args.s3_source_folder
+    data_directory = args.data_directory
+
+    bucket = s3.Bucket(source_bucket)
+    for obj in bucket.objects.filter(Prefix=source_prefix):
+        src_key = obj.key
+        dest_key = data_directory + '/' + src_key[len(source_prefix):]
+        bucket.download_file(src_key, dest_key)
+        
+
     pdf_directory = args.pdf_directory
     txt_directory, embeddings_directory, index_directory, images_directory, metadata_directory = [
         getattr(args, f"{dir_name}_directory") or f"{args.data_directory}/{dir_name}"
