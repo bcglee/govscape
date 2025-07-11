@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # FIELDS TO SET **************************************************************************************
 
-    BATCH_SIZE = 10 # number of files we are processing at a time
+    BATCH_SIZE = 100 # number of files we are processing at a time
 
     # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
     bucket_name = 'bcgl-public-bucket'
@@ -63,12 +63,13 @@ if __name__ == '__main__':
     def get_n_pdfs(limit=100000):
         pdf_files = []
         continuation_token = None
+        if os.path.exists(progress_path):
+            with open(progress_path, 'r') as f:
+                progress = json.load(f)
+                continuation_token = progress.get('continuation_token', None)
 
         while True:
-            if continuation_token:
-                result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir, ContinuationToken=continuation_token)
-            else:
-                result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
+            result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir, ContinuationToken=continuation_token)
 
             contents = result.get('Contents', [])
             pdf_keys = [obj['Key'] for obj in contents if obj['Key'].endswith('.pdf')]
@@ -171,11 +172,15 @@ if __name__ == '__main__':
         # # get list of pdf file names
         # pdf_files = [obj['Key'] for obj in result.get('Contents', []) if obj['Key'].endswith('.pdf')]  # note this only returns 1000
 
-        pdf_files = get_n_pdfs()
-
-        print("Now starting with total number of PDF files: ", len(pdf_files))
         
         overall_start_time = time.time()
+
+        # get the pdf files from s3
+        time_list = time.time()
+        pdf_files = get_n_pdfs(100)
+        pipeline_times['list'] = time.time() - time_list
+
+        print("Now starting with total number of PDF files: ", len(pdf_files))
 
         local_batch = []
 
@@ -185,14 +190,15 @@ if __name__ == '__main__':
             print('*****************************************************************************************************')
             batch = pdf_files[i:i + BATCH_SIZE] 
             local_batch = []
-
+            time_download = time.time()
             for pdf in batch:
                 file_name = os.path.basename(pdf)
                 local_path = os.path.join(pdf_directory, file_name)  # save here?
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
                 s3.download_file(bucket_name, pdf, local_path)
                 local_batch.append(file_name)
-            
+            pipeline_times['download'] += time.time() - time_download
+
             process_pdfs(local_batch, processor)
 
             # delete the directories 
@@ -207,6 +213,8 @@ if __name__ == '__main__':
         overall_end_time = time.time()
 
         print("TOTAL TIME TO LOAD IS ", (overall_end_time - overall_start_time))
+        print("TOTAL TIME list pdfs:",  pipeline_times['list'])
+        print("TOTAL TIME download pdfs:",  pipeline_times['download'])
         print("TOTAL TIME pdf -> txt time:",  pipeline_times['first'])
         print("TOTAL TIME txt -> embed time:", pipeline_times['second'])
         print("TOTAL TIME pdf -> img per page time:", pipeline_times['third'])
