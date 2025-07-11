@@ -1,6 +1,5 @@
 import govscape as gs
 import argparse
-import boto3
 
 def main():
     parser = argparse.ArgumentParser(description='Start the GovScape API server')

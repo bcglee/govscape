@@ -44,16 +44,3 @@ poetry install
 git clone https://github.com/bcglee/govscape
 
 cd govscape
-
-# 5. Check for arguments and execute corresponding scripts
-if [[ "$1" == "--server" ]]; then
-    echo "Running server setup..."
-    poetry run python download_s3_embeddings.py
-    poetry run python start_api_server.py
-elif [[ "$1" == "--embeddings" ]]; then
-    echo "Running embeddings pipeline..."
-    poetry run python s3_ec2_embedding_pipeline.py
-else
-    echo "Invalid argument. Use '--server' or '--embeddings'."
-    exit 1
-fi
