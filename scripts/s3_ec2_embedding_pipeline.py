@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # FIELDS TO SET **************************************************************************************
 
-    BATCH_SIZE = 100 # number of files we are processing at a time
+    BATCH_SIZE = 1000 # number of files we are processing at a time
 
     # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
     bucket_name = 'bcgl-public-bucket'
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
     DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
-    pdf_directory = os.path.join(DATA_DIR, 'new_PDFs')
+    pdf_directory = os.path.join(DATA_DIR, 'PDFs')
     txt_directory = os.path.join(DATA_DIR, 'txt')
     image_directory = os.path.join(DATA_DIR, 'img')
     img_extracted_dir = os.path.join(DATA_DIR, 'img_extracted')
@@ -57,49 +57,34 @@ if __name__ == '__main__':
     # ****************************************************************************************************
 
     # for analyzing: 
-    pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0, 'sixth': 0}  # to keep track of the time it takes for each step in the pipeline
+    pipeline_times = {'list' : 0, 'download' : 0, 'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0, 'sixth': 0}  # to keep track of the time it takes for each step in the pipeline
 
     # gets pdfs from s3
-    def get_n_pdfs(limit=100000):
+    def get_n_pdfs(num_pages=1):
         pdf_files = []
         continuation_token = None
         if os.path.exists(progress_path):
             with open(progress_path, 'r') as f:
                 progress = json.load(f)
                 continuation_token = progress.get('continuation_token', None)
-
+        pages_retrieved = 0
         while True:
             result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir, ContinuationToken=continuation_token)
 
             contents = result.get('Contents', [])
             pdf_keys = [obj['Key'] for obj in contents if obj['Key'].endswith('.pdf')]
 
-            remaining = limit - len(pdf_files)
-            pdf_files.extend(pdf_keys[:remaining])
-
-            if len(pdf_files) >= limit:
-                if result.get('IsTruncated'):
-                    next_token = result.get('NextContinuationToken')
-                    with open(progress_path, 'w') as f:
-                        json.dump({'continuation_token': next_token}, f)
-                break
-
+            pdf_files.extend(pdf_keys)
+            pages_retrieved += 1
             if result.get('IsTruncated'):
                 continuation_token = result.get('NextContinuationToken')
-            else:
+                with open(progress_path, 'w') as f:
+                    json.dump({'continuation_token': continuation_token}, f)
+            
+            if pages_retrieved >= num_pages or not result.get('IsTruncated'):
                 break
 
         return pdf_files
-
-
-    # sequential version 
-    # def upload_directory_to_s3(ec2_dir, s3_dir):
-    #     for root, dirs, files in os.walk(ec2_dir):
-    #         for file in files:
-    #             local_file_path = os.path.join(root, file)
-    #             s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
-    #             s3.upload_file(local_file_path, bucket_name, s3_key)
-
 
     # uploads single file to s3
     def upload_file(local_file_path, s3_key):
@@ -162,6 +147,7 @@ if __name__ == '__main__':
         with open("seq_times.txt", "a") as f:
             f.write(f"uploading all files to s3: {time2 - time1}\n")
 
+        pipeline_times['sixth'] += time2-time1
         print("finished uploading current batch")
         print("pipeline times: ", pipeline_times)
 
@@ -177,7 +163,7 @@ if __name__ == '__main__':
 
         # get the pdf files from s3
         time_list = time.time()
-        pdf_files = get_n_pdfs(100)
+        pdf_files = get_n_pdfs(1)
         pipeline_times['list'] = time.time() - time_list
 
         print("Now starting with total number of PDF files: ", len(pdf_files))
@@ -220,6 +206,7 @@ if __name__ == '__main__':
         print("TOTAL TIME pdf -> img per page time:", pipeline_times['third'])
         print("TOTAL TIME img per page -> embed time:", pipeline_times['fourth'])
         print("TOTAL TIME img extracted -> embed time :", pipeline_times['fifth'])
+        print("TOTAL TIME uploading data:", pipeline_times['sixth'])
 
     def main():
         batched_file_download(BATCH_SIZE, processor) 
