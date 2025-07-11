@@ -69,8 +69,11 @@ if __name__ == '__main__':
                 continuation_token = progress.get('continuation_token', None)
         pages_retrieved = 0
         while True:
-            result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir, ContinuationToken=continuation_token)
-
+            if continuation_token:
+                result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir, ContinuationToken=continuation_token)
+            else:
+                result = s3.list_objects_v2(Bucket=bucket_name, Prefix=pdfs_dir)
+            
             contents = result.get('Contents', [])
             pdf_keys = [obj['Key'] for obj in contents if obj['Key'].endswith('.pdf')]
 
