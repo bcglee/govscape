@@ -492,11 +492,11 @@ class PDFsToEmbeddings:
         time1 = time.time()
 
         print("Converting pdfs to txts")
-#        self.convert_pdfs_to_txt(pdf_files)
+        self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
 
-#        print("Converting txts to embeddings")
-#        subprocess.run(["python", "/home/kylebd99/Research/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
+        print("Converting txts to embeddings")
+        subprocess.run(["python", "/home/kylebd99/Research/govscape/govscape/govscape/pdf_to_embed_multigpu.py"])
         time3 = time.time()
 
         img_model = CLIPEmbeddingModel()
