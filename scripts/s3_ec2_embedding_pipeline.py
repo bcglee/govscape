@@ -41,6 +41,7 @@ if __name__ == '__main__':
     embeddings_directory = os.path.join(DATA_DIR, 'embeddings')
     img_embeddings_dir = os.path.join(DATA_DIR, 'embeddings_img_pg')
     e_img_embed_dir = os.path.join(DATA_DIR, 'embeddings_img_extracted')
+    metadata_dir = os.path.join(DATA_DIR, 'metadata')
 
     text_model = gs.TextEmbeddingModel()
     devices = []
@@ -49,14 +50,14 @@ if __name__ == '__main__':
         print(f"CUDA Device {i}: {torch.cuda.get_device_name(i)}")
     model_pool = text_model.model.start_multi_process_pool(target_devices=devices)
     processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
-                                    embeddings_directory, img_embeddings_dir, e_img_embed_dir, text_model, model_pool)
+                                    embeddings_directory, img_embeddings_dir, e_img_embed_dir, metadata_dir, text_model, model_pool)
 
     progress_path = 'progress.json'  # when downloading files, keeps track of which page you last downloaded so you can resume later. haven't used this yet
 
     # ****************************************************************************************************
 
     # for analyzing: 
-    pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0}
+    pipeline_times = {'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0, 'sixth': 0}  # to keep track of the time it takes for each step in the pipeline
 
     # gets pdfs from s3
     def get_n_pdfs(limit=100000):
@@ -125,12 +126,13 @@ if __name__ == '__main__':
         start_time = time.time()
 
         # PROCESS PDFS HERE 
-        one, two, three, four, five = processor.pdfs_to_embeddings(pdf_files=pdf_files)
+        one, two, three, four, five, six = processor.pdfs_to_embeddings(pdf_files=pdf_files)
         pipeline_times['first'] += one
         pipeline_times['second'] += two
         pipeline_times['third'] += three 
         pipeline_times['fourth'] += four
         pipeline_times['fifth'] += five
+        pipeline_times['sixth'] += six
 
         end_time = time.time()
         duration = end_time - start_time

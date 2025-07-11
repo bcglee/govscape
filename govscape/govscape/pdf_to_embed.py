@@ -253,7 +253,7 @@ def natural_key(s):
 
 class PDFsToEmbeddings:
     # def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
-    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, text_model, model_pool):
+    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, metadata_dir, text_model, model_pool):
         self.pdfs_path = pdf_directory
         self.txts_path = txt_directory
         self.jpgs_path = jpgs_dir
@@ -261,6 +261,7 @@ class PDFsToEmbeddings:
         self.embeddings_path = embeddings_dir
         self.embeddings_img_path = embeddings_img_dir
         self.embeddings_img_e_path = embeddings_extract_dir
+        self.metadata_dir = metadata_dir
         self.text_model = text_model  # TextEmbeddingModel
         self.model_pool = model_pool  # for multi-gpu use, this is the model_pool
 
@@ -488,6 +489,29 @@ class PDFsToEmbeddings:
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.starmap(self.extract_img_pdfs, [(self.pdfs_path, self.extracted_jpgs_path, self.embeddings_img_e_path, file) for file  in pdf_files])
 
+
+    # *******************************************************************************************************************
+    # pdf --> dir metadata (json) for each pdf
+    # *******************************************************************************************************************
+    def create_metadata_jsons(self, pdf_files):
+        os.makedirs(self.metadata_dir, exist_ok=True)
+        for pdf_file in pdf_files:
+            json_data = dict()
+            pdf_path = os.path.join(self.pdfs_path, pdf_file)
+            with pdfplumber.open(pdf_path) as pdf:
+                num_pages = len(pdf.pages)
+                gov_name = pdf.metadata.get('Title', 'Unknown')
+                timestamp = pdf.metadata.get('CreationDate', 'Unknown')
+                json_data['gov_name'] = gov_name
+                json_data['timestamp'] = timestamp
+                json_data['num_pages'] = num_pages
+            
+            pdf_metadata_dir = os.path.join(self.metadata_dir, pdf_file)
+            os.makedirs(pdf_metadata_dir, exist_ok=True)
+            json_file_path = os.path.join(pdf_metadata_dir, "metadata.json")
+            with open(json_file_path, "w") as json_file:
+                json.dump(json_data, json_file, indent=4)
+
     # *******************************************************************************************************************
     # overall pipeline
     # *******************************************************************************************************************
@@ -528,19 +552,26 @@ class PDFsToEmbeddings:
         self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()
 
+
+        print("Converting pdfs to extracted imgs and embds")
+        self.create_metadata_jsons(pdf_files)  # extract images and save
+        time7 = time.time()
+
         first = time2 - time1
         sec = time3 - time2
         third = time4 - time3
         fourth = time5 - time4
         fifth = time6 - time5
+        sixth = time7 - time6
 
         print("pdf -> txt time: ", first)
         print("txt -> embed time: ", sec)
         print("pdf -> img per page time: ", third)
         print("img per page -> embed time: ", fourth)
         print("extracted img -> embed time: ", fifth)
+        print("pdf -> json time: ", sixth)
 
-        return first, sec, third, fourth, fifth
+        return first, sec, third, fourth, fifth, sixth
 
     # *******************************************************************************************************************
     # helper functions
