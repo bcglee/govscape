@@ -7,6 +7,7 @@ if ! command -v python3.11 &> /dev/null; then
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if command -v yum &> /dev/null; then
             # CentOS/RockyOS
+            sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
             sudo yum install -y gcc gcc-c++ make
             sudo yum install -y epel-release
             sudo yum install -y dnf-utils
