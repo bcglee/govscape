@@ -23,7 +23,6 @@ def suppress_output():
 with suppress_output():
     import faiss
 
-import faiss
 import os
 import struct
 import json
