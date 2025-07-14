@@ -272,32 +272,38 @@ class PDFsToEmbeddings:
 
     # converts a single pdf file to a txt files (one txt per page)
     @staticmethod
-    def convert_pdf_to_txt(txts_path, pdfs_path, pdf_file):
+    def convert_pdf_to_txt_and_img(txts_path, imgs_path, pdfs_path, pdf_file):
         # print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(pdfs_path, pdf_file)
         #subdir for each pdf 
-        pdf_subdir = os.path.join(txts_path, os.path.splitext(pdf_file)[0])
+        pdf_txt_subdir = os.path.join(txts_path, os.path.splitext(pdf_file)[0])
+        pdf_img_subdir = os.path.join(imgs_path, os.path.splitext(pdf_file)[0])
 
-        if os.path.exists(pdf_subdir):
-            return
-        
-        os.makedirs(pdf_subdir, exist_ok=True)
+        os.makedirs(pdf_txt_subdir, exist_ok=True)
+        os.makedirs(pdf_img_subdir, exist_ok=True)
 
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 text = []
                 for page in pdf.pages:
                     text.append(page.extract_text())
+                images = []
+                for page in pdf.pages:
+                    images.append(page.to_image(resolution=72))
         except:
             text = ["",]
             
         for page_num, page_text in enumerate(text):
-            txt_file_path = os.path.join(pdf_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
-            if len(page_text) == 0:
-                continue
-            with open(txt_file_path, 'w', encoding='utf-8') as text_file:
-                text_file.write(page_text)
-    
+            txt_file_path = os.path.join(pdf_txt_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
+            if len(page_text) != 0:
+                with open(txt_file_path, 'w', encoding='utf-8') as text_file:
+                    text_file.write(page_text)
+            
+            img_file_path = os.path.join(pdf_img_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
+            image = images[page_num]
+            with open(img_file_path, 'w', encoding='utf-8') as text_file:
+                image.save(page_text, format="jpeg")
+            
     # converts dir of pdfs -> dir of subdirs of txt files of each page AKA OVERALL PDFS -> TXTS
     # 1. OG VERSION 
     # def convert_pdfs_to_txt(self, pdf_files):
@@ -326,84 +332,6 @@ class PDFsToEmbeddings:
     def convert_pdfs_to_single_jpg(self, pdf_files):
         parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
         parser.convert_directory_to_jpegs(pdf_files)
-    
-    # img subdir -> embeds
-    @staticmethod
-    def convert_img_subdirs_to_embeddings(embeddings_img_path, img_subdir_paths):
-        img_paths_batch = []
-        file_batch = []
-        # print(img_subdir_paths)
-        for img_subdir_path in img_subdir_paths:
-            embed_name = os.path.basename(img_subdir_path)
-            embedding_dir = os.path.join(embeddings_img_path, embed_name)
-            os.makedirs(embedding_dir, exist_ok=True)
-
-            img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
-
-            for img_file in img_files:
-                img_path = os.path.join(img_subdir_path, img_file)
-                output_path = os.path.join(embedding_dir, img_file)
-                img_paths_batch.append(img_path)
-                file_batch.append(output_path)
-        
-        return img_paths_batch, file_batch
-    
-    @staticmethod
-    def convert_img_subdirs_to_embeddings_extracted(embeddings_img_e_path, img_subdir_paths):
-        img_paths_batch = []
-        file_batch = []
-        for img_subdir_path in img_subdir_paths:
-            embed_name = os.path.basename(img_subdir_path)
-            embedding_dir = os.path.join(embeddings_img_e_path, embed_name)
-            os.makedirs(embedding_dir, exist_ok=True)
-
-            img_files = sorted(os.listdir(img_subdir_path), key = natural_key)
-
-            for img_file in img_files:
-                img_path = os.path.join(img_subdir_path, img_file)
-                output_path = os.path.join(embedding_dir, img_file)
-                img_paths_batch.append(img_path)
-                file_batch.append(output_path)
-        
-        return img_paths_batch, file_batch
-    
-    # 3. batching version for multi-gpus
-    def convert_imgs_to_embeddings(self, overall_embed_path, overall_img_path):
-        all_imgs = []
-        all_embed_file_paths = []
-        self.ensure_dir(overall_embed_path) # self.embeddings_img_path
-        self.ensure_dir(overall_img_path) # self.jpgs_path
-
-        img_subdirs_paths = []
-        for img_subdir in os.scandir(overall_img_path):
-            if img_subdir.is_dir():
-                img_subdirs_paths.append(img_subdir.path)
-        
-        if len(img_subdirs_paths) == 0:
-            print("No image subdirs found in the specified path.")
-            return all_imgs, all_embed_file_paths
-        
-        # splitting into groups for each process:
-        batch_size = math.ceil(len(img_subdirs_paths) / os.cpu_count())
-#        print("Batch Size For Img Embedding: ", batch_size)
-#        print("All Img Subdirs: ", img_subdirs_paths)
-        img_subdir_batches = []
-        for i in range(0, len(img_subdirs_paths), batch_size):
-            img_subdir_batches.append(img_subdirs_paths[i : i + batch_size])
-        
-
-        ctx = get_context('spawn')
-        with ctx.Pool(processes=os.cpu_count()) as pool:
-            if overall_embed_path == self.embeddings_img_e_path:
-                results = pool.starmap(self.convert_img_subdirs_to_embeddings_extracted, [(self.embeddings_img_e_path, batch) for batch in img_subdir_batches]) # for batch
-            else: 
-                results = pool.starmap(self.convert_img_subdirs_to_embeddings, [(self.embeddings_img_path, batch) for batch in img_subdir_batches]) # for batch
-
-            for img_batch, embed_file_path_batch in results:
-                all_imgs.extend(img_batch)
-                all_embed_file_paths.extend(embed_file_path_batch)
-        
-        return all_imgs, all_embed_file_paths
     
     @staticmethod
     def convert_img_embedding_to_files_batch(embed_and_paths):
@@ -526,28 +454,30 @@ class PDFsToEmbeddings:
         pdf_files = pdf_files or os.listdir(self.pdfs_path)
         time1 = time.time()
 
-        print("Converting pdfs to txts")
+        print("Converting pdfs to txts and page images")
         self.convert_pdfs_to_txt(pdf_files)
         time2 = time.time()
 
         print("Converting txts to embeddings")
         compute_text_embeddings(self.text_model, self.model_pool, self.txts_path, self.embeddings_path)
         time3 = time.time()
-
-        img_model = CLIPEmbeddingModel()
-        
-        print("Converting pdfs to imgs")
-        # Convert each pdf page to a single jpg
-        self.convert_pdfs_to_single_jpg(pdf_files) 
-
-        print("Converting imgs to embds")
-        img_paths, all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_path, self.jpgs_path)
         time4 = time.time()
+        
+        img_paths = []
+        embedding_paths = []
+        for img_subdir in os.scandir(self.jpgs_path):
+            if img_subdir.is_dir():
+                img_subdir_paths = os.listdir(img_subdir.path)
+                for img_file in img_subdir_paths:
+                    img_paths.append(os.path.join(img_subdir.path, img_file))
+                    embedding_paths.append(os.path.join(self.embeddings_img_path, os.path.splitext(img_file)[0] + '.npy'))
+
         print("Embedding this many images: ", len(img_paths))
+        img_model = CLIPEmbeddingModel()
         emb = img_model.encode_images(img_paths)
 
         print("Embeddings computed. Shape:", emb.shape)
-        self.convert_img_embedding_to_files(emb, all_embed_file_paths)
+        self.convert_img_embedding_to_files(emb, embedding_paths)
         time5 = time.time()
 
         print("Converting pdfs to extracted imgs and embds")

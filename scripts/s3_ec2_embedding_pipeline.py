@@ -10,7 +10,7 @@ from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ****************************************************************************************************
-# to run this file: poetry run python s3_ec2_embedding_pipeline.py
+# to run this file: poetry run python s3_ec2_embedding_pipeline.py 
 # ****************************************************************************************************
 
 if __name__ == '__main__':
