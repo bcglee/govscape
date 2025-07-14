@@ -1,24 +1,11 @@
-import pdfplumber 
 import os
 from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from io import BytesIO
-import fitz
-from transformers import CLIPProcessor, CLIPModel, AutoModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer, LoggingHandler
 import torch
-import torch.nn.functional as F
-from transformers import pipeline
-from pathlib import Path
-import io
 import numpy as np
 from abc import ABC, abstractmethod
-import json
-import sys
-# from .pdf_to_jpeg import PdfToJpeg
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
-import time
 import math
 import re
 import logging
@@ -29,8 +16,8 @@ logging.basicConfig(
 )
 
 # global vars
-GPU_BATCH_SIZE = 2
-BATCH_SIZE = 64
+GPU_BATCH_SIZE = 16
+BATCH_SIZE = 128
 
 class EmbeddingModel(ABC):
     @abstractmethod

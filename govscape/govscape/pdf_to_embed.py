@@ -3,8 +3,8 @@ import os
 from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import fitz
-from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer, AutoModel, AutoTokenizer
-from sentence_transformers import SentenceTransformer, LoggingHandler
+from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer
+from sentence_transformers import LoggingHandler
 import torch
 from pathlib import Path
 import io
@@ -229,11 +229,12 @@ class CLIPEmbeddingModel(EmbeddingModel):
         outputs = manager.dict()
         processes = []
         ctx = get_context('spawn')
+        print("starting processes for each gpu")
         for i in range(gpu_count):
             p = ctx.Process(target=self.encode_images_per_gpu, args=(list(jpg_paths_split[i]), i, max_batch_size, outputs))
             p.start()
             processes.append(p)
-        
+        print("started processes for each gpu")
         for p in processes:
             p.join()
         

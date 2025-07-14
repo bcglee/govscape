@@ -3,6 +3,30 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from .config import ServerConfig
 import numpy as np
+
+# Avoids annoying faiss initialization logs
+def suppress_faiss_logs():
+    import sys
+    import os
+    import contextlib
+
+    @contextlib.contextmanager
+    def suppress_output():
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = devnull
+            sys.stderr = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+    with suppress_output():
+        import faiss
+
+suppress_faiss_logs()
 import faiss
 import os
 import struct
@@ -20,7 +44,7 @@ class Server:
     def __init__(self, config: ServerConfig):
         self.config = config
 
-        # directories
+        # Directories
         self.pdf_directory = config.pdf_directory
         self.metadata_directory = config.metadata_directory
         self.embedding_directory = config.embedding_directory
@@ -28,16 +52,17 @@ class Server:
         self.image_directory = config.image_directory
         self.index_type = config.index_type
 
+        # Model Params
+        self.model = config.model
+        self.k = config.k
+        self.d = config.d
+
         if self.index_type == 'Disk':
             disk_index = IndexBuilder(self.index_config)
             disk_index.load_index()
             self.disk_index = disk_index
-        elif self.index_type == 'Memory':
-            # FAISS model
-            self.model = config.model
-            self.k = self.config.k
-            self.d = self.config.d
 
+        elif self.index_type == 'Memory':
             # create a new index
             self.faiss_index = faiss.IndexFlatL2(self.d)
 

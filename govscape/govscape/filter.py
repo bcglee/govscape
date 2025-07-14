@@ -1,6 +1,5 @@
 from .config import ServerConfig
 import json
-import os
 
 class Filter:
     def __init__(self, config : ServerConfig):

@@ -6,7 +6,6 @@ from pdf2image.exceptions import PDFPopplerTimeoutError, PDFSyntaxError
 import os
 import shutil
 from torch.multiprocessing import Pool, TimeoutError, get_context
-
 import subprocess
 
 # wrapper class
