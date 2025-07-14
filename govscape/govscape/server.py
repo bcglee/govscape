@@ -3,30 +3,26 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from .config import ServerConfig
 import numpy as np
+import sys
+import os
+import contextlib
 
-# Avoids annoying faiss initialization logs
-def suppress_faiss_logs():
-    import sys
-    import os
-    import contextlib
+@contextlib.contextmanager
+def suppress_output():
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
-    @contextlib.contextmanager
-    def suppress_output():
-        with open(os.devnull, 'w') as devnull:
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
-            sys.stdout = devnull
-            sys.stderr = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
+with suppress_output():
+    import faiss
 
-    with suppress_output():
-        import faiss
-
-suppress_faiss_logs()
 import faiss
 import os
 import struct

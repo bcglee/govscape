@@ -224,7 +224,6 @@ class CLIPEmbeddingModel(EmbeddingModel):
         gpu_count = torch.cuda.device_count()
 
         jpg_paths_split = np.array_split(jpg_paths, gpu_count)
-
         manager = mp.Manager()
         outputs = manager.dict()
         processes = []
