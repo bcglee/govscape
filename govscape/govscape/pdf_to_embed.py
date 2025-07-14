@@ -297,10 +297,10 @@ class PDFsToEmbeddings:
                 with open(txt_file_path, 'w', encoding='utf-8') as text_file:
                     text_file.write(page_text)
             
-            img_file_path = os.path.join(pdf_img_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
+            img_file_path = os.path.join(pdf_img_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.jpeg')
             image = images[page_num]
             with open(img_file_path, 'w', encoding='utf-8') as text_file:
-                image.save(page_text, format="jpeg")
+                image.save(img_file_path, format="png")
             
     # converts dir of pdfs -> dir of subdirs of txt files of each page AKA OVERALL PDFS -> TXTS
     # 1. OG VERSION 
