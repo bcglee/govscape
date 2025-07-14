@@ -7,6 +7,7 @@ import sys
 import os
 import contextlib
 
+# Avoid annoying output from faiss during import
 @contextlib.contextmanager
 def suppress_output():
     with open(os.devnull, 'w') as devnull:

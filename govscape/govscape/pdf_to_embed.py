@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 import json
 from multiprocessing import get_context
 import time
-import math
 import re
 import logging
 import shutil
@@ -311,13 +310,13 @@ class PDFsToEmbeddings:
     #         self.convert_pdf_to_txt(pdf_file)
 
     # 2. MP VERSION (from kyle)
-    def convert_pdfs_to_txt(self, pdf_files=None):
+    def convert_pdfs_to_txt_and_img(self, pdf_files=None):
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.starmap(self.convert_pdf_to_txt, [(self.txts_path, self.pdfs_path, file) for file in pdf_files])
+            pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.pdfs_path, file) for file in pdf_files])
 
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
@@ -454,7 +453,7 @@ class PDFsToEmbeddings:
         time1 = time.time()
 
         print("Converting pdfs to txts and page images")
-        self.convert_pdfs_to_txt(pdf_files)
+        self.convert_pdfs_to_txt_and_img(pdf_files)
         time2 = time.time()
 
         print("Converting txts to embeddings")
