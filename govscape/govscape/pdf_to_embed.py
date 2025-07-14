@@ -444,43 +444,43 @@ class PDFsToEmbeddings:
         full_pdf_path = Path(pdf_directory) / Path(pdf_path)
         output_img_dir_path = Path(extracted_jpgs_path) / Path(pdf_path).stem
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
-        out_embed_path = Path(embeddings_img_e_path) / Path(pdf_path).stem
 
         try:
-            pdf_doc = fitz.open(full_pdf_path)
+            with fitz.open(full_pdf_path) as pdf_doc:
+                title = os.path.splitext(os.path.basename(pdf_path))[0]
+
+                empty = True
+                for page_num in range(len(pdf_doc)):
+                    page = pdf_doc[page_num]
+                    for i, img in enumerate(page.get_images(full=True)):
+                        if i == 4:  # four images max per page extracted
+                            break
+                        empty = False
+
+                        xref = img[0]
+                        image_dict = pdf_doc.extract_image(xref)
+                        image_bytes = image_dict["image"]
+
+                        try:
+                            image = Image.open(io.BytesIO(image_bytes))
+                            image.load()
+                        except Exception as e:
+                            continue
+
+                        image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
+                        image = image.convert("RGB")
+
+                        if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
+                            continue
+                        image.save(image_path, "JPEG")
+                
+                if empty:
+                    shutil.rmtree(output_img_dir_path)
+
         except Exception as e:
             logging.error(f"can't open PDF {pdf_path}: {e}")
             return
 
-        title = os.path.splitext(os.path.basename(pdf_path))[0]
-
-        empty = True
-        for page_num in range(len(pdf_doc)):
-            page = pdf_doc[page_num]
-            for i, img in enumerate(page.get_images(full=True)):
-                if i == 4:  # four images max per page extracted
-                    break
-                empty = False
-
-                xref = img[0]
-                image_dict = pdf_doc.extract_image(xref)
-                image_bytes = image_dict["image"]
-
-                try:
-                    image = Image.open(io.BytesIO(image_bytes))
-                    image.load()
-                except Exception as e:
-                    continue
-
-                image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
-                image = image.convert("RGB")
-
-                if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
-                    continue
-                image.save(image_path, "JPEG")
-        
-        if empty:
-            shutil.rmtree(output_img_dir_path)
     
     def convert_pdfs_to_extracted_imgs(self, pdf_files):
         ctx = get_context('spawn')
@@ -551,10 +551,10 @@ class PDFsToEmbeddings:
         time5 = time.time()
 
         print("Converting pdfs to extracted imgs and embds")
-        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
-        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
-        emb_e = img_model.encode_images(extract_img_paths)
-        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
+#        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
+#        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
+#        emb_e = img_model.encode_images(extract_img_paths)
+#        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()
 
 
