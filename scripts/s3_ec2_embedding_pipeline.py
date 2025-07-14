@@ -180,12 +180,21 @@ if __name__ == '__main__':
             batch = pdf_files[i:i + BATCH_SIZE] 
             local_batch = []
             time_download = time.time()
-            for pdf in batch:
+            def download_pdf(pdf):
                 file_name = os.path.basename(pdf)
-                local_path = os.path.join(pdf_directory, file_name)  # save here?
+                local_path = os.path.join(pdf_directory, file_name)
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
                 s3.download_file(bucket_name, pdf, local_path)
-                local_batch.append(file_name)
+                return file_name
+
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = {executor.submit(download_pdf, pdf): pdf for pdf in batch}
+                for future in as_completed(futures):
+                    try:
+                        file_name = future.result()
+                        local_batch.append(file_name)
+                    except Exception as e:
+                        print(f"Error downloading {futures[future]}: {e}")
             pipeline_times['download'] += time.time() - time_download
 
             process_pdfs(local_batch, processor)
