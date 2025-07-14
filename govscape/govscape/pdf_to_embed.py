@@ -190,7 +190,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
 
             for p in batch_paths:
                 try:
-                    img = Image.open(p).convert("RGB")
+                    img = Image.open(p)
                     if img.size[0] < 70 or img.size[1] < 70:
                         continue
                     images.append(img)
@@ -299,17 +299,11 @@ class PDFsToEmbeddings:
             
             img_file_path = os.path.join(pdf_img_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.jpeg')
             image = images[page_num]
-            with open(img_file_path, 'w', encoding='utf-8') as text_file:
-                image.save(img_file_path, format="png")
-            
-    # converts dir of pdfs -> dir of subdirs of txt files of each page AKA OVERALL PDFS -> TXTS
-    # 1. OG VERSION 
-    # def convert_pdfs_to_txt(self, pdf_files):
-    #     self.ensure_dir(self.txts_path)
-    #     for pdf_file in pdf_files:
-    #         self.convert_pdf_to_txt(pdf_file)
+            image.save(img_file_path, format="PNG")
+            Image.open(img_file_path).convert("RGB").save(img_file_path, format="JPEG")
 
-    # 2. MP VERSION (from kyle)
+
+    # converts dir of pdfs -> dir of subdirs of txt files of each page AKA OVERALL PDFS -> TXTS
     def convert_pdfs_to_txt_and_img(self, pdf_files=None):
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
@@ -321,16 +315,6 @@ class PDFsToEmbeddings:
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
     # *******************************************************************************************************************
-
-    def natural_key(s):
-        return [int(text) if text.isdigit() else text.lower()
-                for text in re.split(r'(\d+)', s)]
-
-    # pdfs -> dir of subdirs of extracted images
-    def convert_pdfs_to_single_jpg(self, pdf_files):
-        parser = PdfToJpeg(self.pdfs_path, self.jpgs_path, 100)
-        parser.convert_directory_to_jpegs(pdf_files)
-    
     @staticmethod
     def convert_img_embedding_to_files_batch(embed_and_paths):
         embed, embed_file_paths = embed_and_paths
@@ -463,6 +447,7 @@ class PDFsToEmbeddings:
         
         img_paths = []
         embedding_paths = []
+        os.makedirs(self.embeddings_img_path, exist_ok=True)
         for img_subdir in os.scandir(self.jpgs_path):
             if img_subdir.is_dir():
                 img_subdir_paths = os.listdir(img_subdir.path)
@@ -484,7 +469,6 @@ class PDFsToEmbeddings:
 #        emb_e = img_model.encode_images(extract_img_paths)
 #        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()
-
 
         print("Converting pdfs to extracted imgs and embds")
         self.create_metadata_jsons(pdf_files)  # extract images and save
