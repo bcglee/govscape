@@ -9,6 +9,7 @@ if ! command -v python3.11 &> /dev/null; then
             # CentOS/RockyOS
             sudo yum install -y gcc gcc-c++ make
             sudo yum install -y python3.11
+            sudo yum install -y poppler-utils
         else
             # Ubuntu/Debian
             sudo apt-get update
@@ -16,6 +17,7 @@ if ! command -v python3.11 &> /dev/null; then
             sudo add-apt-repository -y ppa:deadsnakes/ppa
             sudo apt-get update
             sudo apt-get install -y python3.11 python3.11-venv python3.11-distutils
+            sudo apt-get install -y poppler-utils
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install python@3.11
