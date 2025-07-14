@@ -82,6 +82,7 @@ from .pdf_to_embed_multigpu import TextEmbeddingModel, compute_text_embeddings
 # global vars *******************************************************************************************************
 GPU_BATCH_SIZE = 2
 BATCH_SIZE = 64
+MAX_PDF_LENGTH = 50
 # *******************************************************************************************************************
 
 logging.basicConfig(
@@ -283,6 +284,8 @@ class PDFsToEmbeddings:
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 text = []
+                if len(pdf.pages) > MAX_PDF_LENGTH:
+                    return
                 for page in pdf.pages:
                     text.append(page.extract_text())
                 images = []
