@@ -4,11 +4,12 @@ import numpy as np
 import os
 
 class IndexConfig:
-    def __init__(self, pdf_directory, embedding_directory, index_directory, image_directory, index_type):
+    def __init__(self, pdf_directory, embedding_directory, index_directory, image_directory, metadata_directory, index_type):
         self.pdf_directory = pdf_directory
         self.embedding_directory = embedding_directory
         self.index_directory = index_directory
         self.image_directory = image_directory
+        self.metadata_directory = metadata_directory
         if index_type not in ["Memory", "Disk"]:
             raise ValueError("index_type must be either 'Memory' or 'Disk'")
         self.index_type = index_type
@@ -22,6 +23,7 @@ class ServerConfig:
         self.embedding_directory = index_config.embedding_directory
         self.index_directory = index_config.index_directory
         self.image_directory = index_config.image_directory
+        self.metadata_directory = index_config.metadata_directory
         self.model = embedding_model
         self.index_type = index_config.index_type
 
