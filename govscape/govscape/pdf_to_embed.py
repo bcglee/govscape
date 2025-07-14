@@ -14,6 +14,7 @@ import json
 from multiprocessing import get_context
 import time
 import re
+import math
 import logging
 import shutil
 import multiprocessing as mp
@@ -164,75 +165,68 @@ class CLIPEmbeddingModel(EmbeddingModel):
         # return embeddings.cpu().numpy()
     
     # for multi-gpus: 
-
-    def create_model_and_processor(self, gpu_id):
+    def encode_images_per_gpu(self, input_batches, gpu_id, results):
         device = torch.device(f"cuda:{gpu_id}")
         model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)  # online
         model.eval()
-
-        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
-        #image_processor = CLIPImageProcessor.from_pretrained("./clip-vit-base-patch32", use_fast=True)  # local
-        #tokenizer = CLIPTokenizer.from_pretrained("./clip-vit-base-patch32")  # local
-
-        processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
-
-        return model, processor, device
-
-
-    def encode_images_per_gpu(self, jpg_paths, gpu_id, max_batch_size, results):
-        model, processor, device = self.create_model_and_processor(gpu_id)
-
         all_embeddings = []
 
-        for i in range(0, len(jpg_paths), max_batch_size):  # idea: move this into a multiprocessing method and then pass in the images instead of jpg paths into the gpus. 
-            batch_paths = jpg_paths[i:i + max_batch_size]
-            images = []
-
-            for p in batch_paths:
-                try:
-                    img = Image.open(p)
-                    if img.size[0] < 70 or img.size[1] < 70:
-                        continue
-                    images.append(img)
-                except Exception as e:
-                    continue
-
-            if not images:
-                continue
-
+        for batch in input_batches:  # idea: move this into a multiprocessing method and then pass in the images instead of jpg paths into the gpus. 
+            batch = {k : v.to(device) for k, v in batch.items()}  # move to gpu
             try:
-                inputs = processor(images=images, return_tensors="pt", input_data_format="channels_last")
-                inputs = {k: v.to(device) for k, v in inputs.items()}
-
                 with torch.no_grad():
-                    embeddings = model.get_image_features(**inputs)
+                    embeddings = model.get_image_features(**batch)
                     embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
-
                 all_embeddings.append(embeddings.cpu())
 
             except Exception as e:
-                print(f"Error processing batch {i}: {e}")
+                print(f"Error processing batch: {e}")
                 continue
 
-        if all_embeddings:
+        if len(all_embeddings) > 0:
             results[gpu_id] = torch.cat(all_embeddings, dim=0).numpy()
         else:
             results[gpu_id] = np.empty((0, self.d), dtype=np.float32)
-    
+
+    @staticmethod
+    def preprocess_image_batch(jpg_paths, processor):
+        images = []
+        for jpg_path in jpg_paths:
+            try:
+                img = Image.open(jpg_path)
+                if img.size[0] < 70 or img.size[1] < 70:
+                    return None # skip images that are too small
+                images.append(img)
+            except Exception as e:
+                print(e)
+        input_batch = processor(images=images, return_tensors="pt", input_data_format="channels_last")
+        return input_batch
+
     def encode_images(self, jpg_paths, max_batch_size=1024):
         gpu_count = torch.cuda.device_count()
 
-        jpg_paths_split = np.array_split(jpg_paths, gpu_count)
+        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
+        processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
+
+        jpg_paths_batches = np.array_split(jpg_paths, math.ceil(len(jpg_paths) / max_batch_size))
+        inputs = []
+        ctx = get_context('spawn')
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            input_batches = pool.starmap(self.preprocess_image_batch, zip(jpg_paths_batches, [processor] * len(jpg_paths_batches)))
+            inputs.extend(input_batches)
+
         manager = mp.Manager()
         outputs = manager.dict()
         processes = []
         ctx = get_context('spawn')
         print("starting processes for each gpu")
         for i in range(gpu_count):
-            p = ctx.Process(target=self.encode_images_per_gpu, args=(list(jpg_paths_split[i]), i, max_batch_size, outputs))
+            print(inputs[i])
+            p = ctx.Process(target=self.encode_images_per_gpu, args=(inputs[math.ceil(i*len(inputs)/gpu_count):math.ceil((i+1)*len(inputs)/gpu_count)], i, outputs))
             p.start()
             processes.append(p)
+        
         print("started processes for each gpu")
         for p in processes:
             p.join()
@@ -343,7 +337,6 @@ class PDFsToEmbeddings:
 
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-        # with ctx.Pool(processes=2) as pool:
             pool.map(self.convert_img_embedding_to_files_batch, zip(chunks, chunk_embed_file_paths))
     
     # *******************************************************************************************************************
