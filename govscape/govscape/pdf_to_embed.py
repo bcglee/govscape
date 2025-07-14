@@ -495,13 +495,20 @@ class PDFsToEmbeddings:
         for pdf_file in pdf_files:
             json_data = dict()
             pdf_path = os.path.join(self.pdfs_path, pdf_file)
-            with pdfplumber.open(pdf_path) as pdf:
-                num_pages = len(pdf.pages)
-                gov_name = pdf.metadata.get('Title', 'Unknown')
-                timestamp = pdf.metadata.get('CreationDate', 'Unknown')
-                json_data['gov_name'] = gov_name
-                json_data['timestamp'] = timestamp
-                json_data['num_pages'] = num_pages
+            try:
+                with pdfplumber.open(pdf_path) as pdf:
+                    num_pages = len(pdf.pages)
+                    gov_name = pdf.metadata.get('Title', 'Unknown')
+                    timestamp = pdf.metadata.get('CreationDate', 'Unknown')
+                    json_data['gov_name'] = gov_name
+                    json_data['timestamp'] = timestamp
+                    json_data['num_pages'] = num_pages
+            except Exception as e:
+                json_data['gov_name'] = 'Unknown'
+                json_data['timestamp'] = 'Unknown'
+                json_data['num_pages'] = 1
+                print(f"Skipping invalid PDF {pdf_path}: {e}")
+                continue
             
             pdf_metadata_dir = os.path.join(self.metadata_dir, pdf_file)
             os.makedirs(pdf_metadata_dir, exist_ok=True)
