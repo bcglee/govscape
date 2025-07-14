@@ -316,7 +316,7 @@ class PDFsToEmbeddings:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.pdfs_path, file) for file in pdf_files])
+            pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.jpgs_path, self.pdfs_path, file) for file in pdf_files])
 
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
