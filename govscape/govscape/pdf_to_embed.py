@@ -284,15 +284,15 @@ class PDFsToEmbeddings:
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 text = []
+                images = []
                 if len(pdf.pages) > MAX_PDF_LENGTH:
                     return
                 for page in pdf.pages:
                     text.append(page.extract_text())
-                images = []
                 for page in pdf.pages:
                     images.append(page.to_image(resolution=72))
         except:
-            text = ["",]
+            return
             
         for page_num, page_text in enumerate(text):
             txt_file_path = os.path.join(pdf_txt_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
