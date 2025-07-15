@@ -8,7 +8,7 @@ import shutil
 import json
 from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, get_context
 
 # ****************************************************************************************************
 # to run this file: poetry run python s3_ec2_embedding_pipeline.py 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
                 s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
                 upload_args.append((local_file_path, s3_key))
 
-        with Pool(processes=cpu_count()) as pool:
+        with get_context("forkserver").Pool(processes=cpu_count()) as pool:
             pool.map(upload_file_wrapper, upload_args)
 
     # processing the pdfs: running through embedding pipeline and uploading to s3

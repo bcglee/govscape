@@ -1,4 +1,3 @@
-import pdfplumber 
 import os
 from PIL import ImageFile, Image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -18,6 +17,7 @@ import math
 import logging
 import shutil
 import multiprocessing as mp
+import pypdfium2
 from .pdf_to_jpeg import PdfToJpeg
 from .pdf_to_embed_multigpu import TextEmbeddingModel, compute_text_embeddings
 
@@ -171,7 +171,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         model.eval()
         all_embeddings = []
 
-        for batch in input_batches:  # idea: move this into a multiprocessing method and then pass in the images instead of jpg paths into the gpus. 
+        for batch in input_batches:
             batch = {k : v.to(device) for k, v in batch.items()}  # move to gpu
             try:
                 with torch.no_grad():
@@ -215,7 +215,7 @@ class CLIPEmbeddingModel(EmbeddingModel):
         with ctx.Pool(processes=os.cpu_count()) as pool:
             input_batches = pool.starmap(self.preprocess_image_batch, zip(jpg_paths_batches, [processor] * len(jpg_paths_batches)))
             inputs.extend(input_batches)
-
+        
         manager = mp.Manager()
         outputs = manager.dict()
         processes = []
@@ -265,9 +265,7 @@ class PDFsToEmbeddings:
     # converts a single pdf file to a txt files (one txt per page)
     @staticmethod
     def convert_pdf_to_txt_and_img(txts_path, imgs_path, pdfs_path, pdf_file):
-        # print("Paginating & Scraping Text: " + pdf_file)
         pdf_path = os.path.join(pdfs_path, pdf_file)
-        #subdir for each pdf 
         pdf_txt_subdir = os.path.join(txts_path, os.path.splitext(pdf_file)[0])
         pdf_img_subdir = os.path.join(imgs_path, os.path.splitext(pdf_file)[0])
 
@@ -275,28 +273,33 @@ class PDFsToEmbeddings:
         os.makedirs(pdf_img_subdir, exist_ok=True)
 
         try:
-            with pdfplumber.open(pdf_path) as pdf:
-                text = []
-                images = []
-                if len(pdf.pages) > MAX_PDF_LENGTH:
-                    return
-                for page in pdf.pages:
-                    text.append(page.extract_text())
-                for page in pdf.pages:
-                    images.append(page.to_image(resolution=72))
-        except:
+            pdf = pypdfium2.PdfDocument(pdf_path)
+            num_pages = len(pdf)
+            if num_pages > MAX_PDF_LENGTH:
+                return
+            text = []
+            images = []
+            for i in range(num_pages):
+                page = pdf[i]
+                # Extract text
+                page_text = page.get_textpage().get_text_bounded()
+                text.append(page_text)
+                # Render image
+                pil_image = page.render(scale=1.0).to_pil()
+                images.append(pil_image)
+        except Exception as e:
+            print(f"Error processing {pdf_path}: {e}")
             return
-            
+        
         for page_num, page_text in enumerate(text):
             txt_file_path = os.path.join(pdf_txt_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.txt')
-            if len(page_text) != 0:
+            if page_text and len(page_text) != 0:
                 with open(txt_file_path, 'w', encoding='utf-8') as text_file:
                     text_file.write(page_text)
             
             img_file_path = os.path.join(pdf_img_subdir, f'{os.path.splitext(pdf_file)[0]}_{page_num}.jpeg')
             image = images[page_num]
-            image.save(img_file_path, format="PNG")
-            Image.open(img_file_path).convert("RGB").save(img_file_path, format="JPEG")
+            image.save(img_file_path, format="JPEG")
 
 
     # converts dir of pdfs -> dir of subdirs of txt files of each page AKA OVERALL PDFS -> TXTS
@@ -304,7 +307,7 @@ class PDFsToEmbeddings:
         self.ensure_dir(self.txts_path)
         if pdf_files is None:
             pdf_files = os.listdir(self.pdfs_path)
-        ctx = get_context('spawn')
+        ctx = get_context('forkserver')
         with ctx.Pool(processes=os.cpu_count()) as pool:
             pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.jpgs_path, self.pdfs_path, file) for file in pdf_files])
 
@@ -402,13 +405,18 @@ class PDFsToEmbeddings:
             json_data = dict()
             pdf_path = os.path.join(self.pdfs_path, pdf_file)
             try:
-                with pdfplumber.open(pdf_path) as pdf:
-                    num_pages = len(pdf.pages)
-                    gov_name = pdf.metadata.get('Title', 'Unknown')
-                    timestamp = pdf.metadata.get('CreationDate', 'Unknown')
-                    json_data['gov_name'] = gov_name
-                    json_data['timestamp'] = timestamp
-                    json_data['num_pages'] = num_pages
+                pdf = pypdfium2.PdfDocument(pdf_path)
+                num_pages = len(pdf)
+                # pypdfium2 does not provide metadata directly, so set as Unknown or use another lib if needed
+                gov_name = pdf.get_metadata_value("Title")
+                timestamp = pdf.get_metadata_value("CreationDate")
+                if len(gov_name) == 0:
+                    gov_name = 'Unknown'
+                if len(timestamp) == 0:
+                    timestamp = 'Unknown'
+                json_data['gov_name'] = gov_name
+                json_data['timestamp'] = timestamp
+                json_data['num_pages'] = num_pages
             except Exception as e:
                 json_data['gov_name'] = 'Unknown'
                 json_data['timestamp'] = 'Unknown'
