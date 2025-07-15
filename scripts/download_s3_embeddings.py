@@ -18,16 +18,18 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
     
     # Define folders to download
     folders = [
-#        'img',
-#        'txt',
+        'img',
+        'txt',
         'index',
         'img_extracted',
         'embeddings',
-#        'embeddings_img_pg',
-#        'embeddings_img_extracted'
+        'embeddings_img_pg',
+        'embeddings_img_extracted',
+        'metadata',
     ]
     
-    print("Downloading embeddings...")
+    print("Begining Data Download")
+    print(f"Bucket: {bucket_name}, Prefix: {prefix}, Local Directory: {local_dir}, Max Workers: {max_workers}")
     for folder in folders:
         s3_folder_path = f"{prefix}/{folder}/"
         print(f"\nDownloading {folder}...")

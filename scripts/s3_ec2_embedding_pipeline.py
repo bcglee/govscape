@@ -8,6 +8,7 @@ import shutil
 import json
 from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Pool, cpu_count
 
 # ****************************************************************************************************
 # to run this file: poetry run python s3_ec2_embedding_pipeline.py 
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     # for processing pdfs: 
 
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'test_data')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
+    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'prod')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
 
     pdf_directory = os.path.join(DATA_DIR, 'PDFs')
     txt_directory = os.path.join(DATA_DIR, 'txt')
@@ -92,21 +93,24 @@ if __name__ == '__main__':
     def upload_file(local_file_path, s3_key):
         s3.upload_file(local_file_path, bucket_name, s3_key)
 
-    # uploads dir of files to s3
-    def upload_directory_to_s3(ec2_dir, s3_dir, max_workers=48):
-        upload_tasks = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for root, dirs, files in os.walk(ec2_dir):
-                for file in files:
-                    local_file_path = os.path.join(root, file)
-                    s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
-                    upload_tasks.append(executor.submit(upload_file, local_file_path, s3_key))
+    def upload_file_wrapper(args):
+        local_file_path, s3_key = args
+        try:
+            upload_file(local_file_path, s3_key)
+        except Exception as e:
+            print(f"Error uploading {local_file_path}: {e}")
 
-            for future in as_completed(upload_tasks):
-                try:
-                    future.result()
-                except Exception as e:
-                    print(f"Error uploading: {e}")
+    # uploads dir of files to s3
+    def upload_directory_to_s3(ec2_dir, s3_dir):
+        upload_args = []
+        for root, dirs, files in os.walk(ec2_dir):
+            for file in files:
+                local_file_path = os.path.join(root, file)
+                s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
+                upload_args.append((local_file_path, s3_key))
+
+        with Pool(processes=cpu_count()) as pool:
+            pool.map(upload_file_wrapper, upload_args)
 
     # processing the pdfs: running through embedding pipeline and uploading to s3
     def process_pdfs(pdf_files, processor):
@@ -143,6 +147,8 @@ if __name__ == '__main__':
         print("finished uploading embed img pg")
         upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
         print("finished uploading embed img extracted")
+        upload_directory_to_s3(metadata_dir, data_dir_s3 + 'metadata')
+        print("finished uploading metadata")
 
         time2 = time.time()
 

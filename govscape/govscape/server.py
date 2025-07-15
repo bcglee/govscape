@@ -158,25 +158,25 @@ class Server:
         if not pdf_id:
             return {"error": "Missing 'pdf_id' parameter"}, 400
 
-        embedding_dir = os.path.join(self.embedding_directory, pdf_id)
-        metadata_path = os.path.join(embedding_dir, f"{pdf_id}.json")
-
+        metadata_path = os.path.join(self.metadata_directory, pdf_id, "metadata.json")
+        
         if not os.path.exists(metadata_path):
             return {"error": "Metadata not found"}, 404
 
         with open(metadata_path, "r") as f:
             meta = json.load(f)
-        page_nums = meta.get("page_nums")
-        if not page_nums:
+        num_pages = meta.get("num_pages")
+        if not num_pages:
             return {"error": "Page number not found"}, 404
 
         try:
-            page_nums = int(page_nums)
+            num_pages = int(num_pages)
         except Exception:
+            raise Exception(f"Invalid page number in metadata: {metadata_path}")
             return {"error": "Invalid page number in metadata"}, 500
 
         image_dir = os.path.join(self.image_directory, pdf_id)
-        images = [f"{image_dir}/{pdf_id}_{i}.jpg" for i in range(page_nums)]
+        images = [f"{image_dir}/{pdf_id}_{i}.jpeg" for i in range(num_pages)]
         return {"images": images}
 
     def serve(self):

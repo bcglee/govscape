@@ -55,7 +55,7 @@ class PdfToJpeg:
                 page_number = int(str.split(img_basename, "-")[-1]) - 1
             else:
                 page_number = 0
-            output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{page_number}.jpg")
+            output_path = os.path.join(self.save_directory, f"{pdf_basename}/{pdf_basename}_{page_number}.jpeg")
             os.rename(os.path.join(img_directory, img_file), output_path)
             output_img_files.append(output_path)
         

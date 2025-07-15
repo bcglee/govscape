@@ -315,7 +315,7 @@ class PDFsToEmbeddings:
     def convert_img_embedding_to_files_batch(embed_and_paths):
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
-            file_name = output_path.replace('.jpg', '.npy')
+            file_name = output_path.replace('.jpeg', '.npy')
             # print(f"img file_name: {file_name} has been saved.")
             np.save(file_name, embedding)
     
@@ -372,7 +372,7 @@ class PDFsToEmbeddings:
                         except Exception as e:
                             continue
 
-                        image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpg"
+                        image_path = Path(output_img_dir_path) / f"{title}_{page_num}_{i}.jpeg"
                         image = image.convert("RGB")
 
                         if image.size[0] < 80 or image.size[1] < 80 or image.size[0] > 7000 or image.size[1] > 7000:  #image is too small/big to be considered
@@ -416,7 +416,7 @@ class PDFsToEmbeddings:
                 print(f"Skipping invalid PDF {pdf_path}: {e}")
                 continue
             
-            pdf_metadata_dir = os.path.join(self.metadata_dir, pdf_file)
+            pdf_metadata_dir = os.path.join(self.metadata_dir, os.path.splitext(pdf_file)[0])
             os.makedirs(pdf_metadata_dir, exist_ok=True)
             json_file_path = os.path.join(pdf_metadata_dir, "metadata.json")
             with open(json_file_path, "w") as json_file:
@@ -465,7 +465,7 @@ class PDFsToEmbeddings:
 #        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()
 
-        print("Converting pdfs to extracted imgs and embds")
+        print("Creating metadata jsons for each pdf")
         self.create_metadata_jsons(pdf_files)  # extract images and save
         time7 = time.time()
 
