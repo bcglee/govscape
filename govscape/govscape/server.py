@@ -77,48 +77,6 @@ class Server:
 
         self.filt = Filter(config)
 
-        # Accepts a Query -> Returns JSON with closest results
-        # Sample:
-        # {
-        #     "results": [
-        #         {
-        #             "pdf": "test_data/embeddings/gold/gold",
-        #             "page": "0",
-        #             "distance": 59.212852478027344
-        #         },
-        #         {
-        #             "pdf": "test_data/embeddings/government/government",
-        #             "page": "0",
-        #             "distance": 68.0333251953125
-        #         },
-        #         {s
-        #             "pdf": "test_data/embeddings/joebiden/joebiden",
-        #             "page": "0",
-        #             "distance": 68.0333251953125
-        #         }
-        #     ]
-        # }
-        # Accepts a Query -> Returns JSON with closest results
-        # Sample:
-        # {
-        #     "results": [
-        #         {
-        #             "pdf": "test_data/embeddings/gold/gold",
-        #             "page": "0",
-        #             "distance": 59.212852478027344
-        #         },
-        #         {
-        #             "pdf": "test_data/embeddings/government/government",
-        #             "page": "0",
-        #             "distance": 68.0333251953125
-        #         },
-        #         {s
-        #             "pdf": "test_data/embeddings/joebiden/joebiden",
-        #             "page": "0",
-        #             "distance": 68.0333251953125
-        #         }
-        #     ]
-        # }
         # Get the absolute path to the build directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         build_dir = os.path.abspath(
@@ -148,8 +106,8 @@ class Server:
         self.api = init_api(self.app)
 
     def search(self, query, filters=None):
-        # Create random array embedding
-        query_embedding = self.model.text_to_embeddings(query)
+        query_embedding = self.model.encode_text(query)
+        query_embedding = query_embedding[np.newaxis, :]
         search_results = []
         
         if self.index_type == 'Memory':
@@ -162,7 +120,7 @@ class Server:
                     pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
                     page, _, _ = page.rpartition('.')
                     # create jpeg name
-                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
                     
                     # add results to list
                     search_results.append({
@@ -181,7 +139,7 @@ class Server:
                     file.seek(indices[i] * 117, os.SEEK_SET)
                     pdf_name = file.read(113).decode('utf-8').strip()
                     page = str(struct.unpack("i", file.read(4))[0])
-                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpg'
+                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
 
                     search_results.append({
                         "pdf": pdf_name,
