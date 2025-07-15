@@ -6,6 +6,7 @@ import govscape as gs
 import torch
 import shutil
 import json
+import subprocess
 from botocore.config import Config
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Pool, cpu_count, get_context
@@ -89,29 +90,10 @@ if __name__ == '__main__':
 
         return pdf_files
 
-    # uploads single file to s3
-    def upload_file(local_file_path, s3_key):
-        s3.upload_file(local_file_path, bucket_name, s3_key)
-
-    def upload_file_wrapper(args):
-        local_file_path, s3_key = args
-        try:
-            upload_file(local_file_path, s3_key)
-        except Exception as e:
-            print(f"Error uploading {local_file_path}: {e}")
-
     # uploads dir of files to s3
     def upload_directory_to_s3(ec2_dir, s3_dir):
-        upload_args = []
-        for root, dirs, files in os.walk(ec2_dir):
-            for file in files:
-                local_file_path = os.path.join(root, file)
-                s3_key = os.path.join(s3_dir, os.path.relpath(local_file_path, ec2_dir)).replace("\\", "/")
-                upload_args.append((local_file_path, s3_key))
-
-        with get_context("forkserver").Pool(processes=cpu_count()) as pool:
-            pool.map(upload_file_wrapper, upload_args)
-
+        subprocess.run(f"s5cmd cp {ec2_dir} s3://{bucket_name}/{s3_dir}".split())
+        
     # processing the pdfs: running through embedding pipeline and uploading to s3
     def process_pdfs(pdf_files, processor):
         print("IN PROCESS_PDFS: ", pdf_files)
@@ -135,19 +117,19 @@ if __name__ == '__main__':
         
         time1 = time.time()
         # UPLOADING EMBEDDINGS, TXTS, IMAGES TO S3 HERE 
-        upload_directory_to_s3(txt_directory, data_dir_s3 + 'txt')
+        upload_directory_to_s3(txt_directory, data_dir_s3)
         print("finished uploading txt")
-        upload_directory_to_s3(image_directory, data_dir_s3 + 'img')
+        upload_directory_to_s3(image_directory, data_dir_s3)
         print("finished uploading img")
-        upload_directory_to_s3(img_extracted_dir, data_dir_s3 + 'img_extracted')
+        upload_directory_to_s3(img_extracted_dir, data_dir_s3)
         print("finished uploading img extracted")
-        upload_directory_to_s3(embeddings_directory, data_dir_s3 + 'embeddings')
+        upload_directory_to_s3(embeddings_directory, data_dir_s3)
         print("finished uploading embed")
-        upload_directory_to_s3(img_embeddings_dir, data_dir_s3 + 'embeddings_img_pg')
+        upload_directory_to_s3(img_embeddings_dir, data_dir_s3)
         print("finished uploading embed img pg")
-        upload_directory_to_s3(e_img_embed_dir, data_dir_s3 + 'embeddings_img_extracted')
+        upload_directory_to_s3(e_img_embed_dir, data_dir_s3)
         print("finished uploading embed img extracted")
-        upload_directory_to_s3(metadata_dir, data_dir_s3 + 'metadata')
+        upload_directory_to_s3(metadata_dir, data_dir_s3)
         print("finished uploading metadata")
 
         time2 = time.time()

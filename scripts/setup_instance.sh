@@ -18,6 +18,7 @@ if ! command -v python3.11 &> /dev/null; then
             sudo apt-get update
             sudo apt-get install -y python3.11 python3.11-venv python3.11-distutils
             sudo apt-get install -y poppler-utils
+            pip install s5cmd
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install python@3.11

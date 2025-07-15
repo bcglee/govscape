@@ -3,6 +3,7 @@ import os
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
+import subprocess
 
 def download_file(s3_client, bucket_name, s3_path, local_path):
     try:
@@ -31,9 +32,11 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
     print("Begining Data Download")
     print(f"Bucket: {bucket_name}, Prefix: {prefix}, Local Directory: {local_dir}, Max Workers: {max_workers}")
     for folder in folders:
-        s3_folder_path = f"{prefix}/{folder}/"
         print(f"\nDownloading {folder}...")
         
+        s3_folder_path = f"s3://{bucket_name}/{prefix}/{folder}/"
+        subprocess.run(f"s5cmd cp {s3_folder_path} {ec2_dir}".split())
+
         files_to_download = []
         for page in paginator.paginate(Bucket=bucket_name, Prefix=s3_folder_path):
             if 'Contents' not in page:
