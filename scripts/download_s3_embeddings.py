@@ -18,13 +18,13 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
     
     # Define folders to download
     folders = [
-        'img',
-        'txt',
+#        'img',
+#        'txt',
         'index',
         'img_extracted',
         'embeddings',
-        'embeddings_img_pg',
-        'embeddings_img_extracted'
+#        'embeddings_img_pg',
+#        'embeddings_img_extracted'
     ]
     
     print("Downloading embeddings...")
@@ -35,6 +35,7 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
         files_to_download = []
         for page in paginator.paginate(Bucket=bucket_name, Prefix=s3_folder_path):
             if 'Contents' not in page:
+                print(f"No contents found for {s3_folder_path}. Skipping...")
                 continue
             for obj in page['Contents']:
                 s3_path = obj['Key']
@@ -42,7 +43,8 @@ def download_from_s3(bucket_name, prefix, local_dir, max_workers=10):
                 local_path = os.path.join(local_dir, relative_path)
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
                 files_to_download.append((s3_path, local_path))
-        
+
+        print("FILES TO DOWNLOAD: ", files_to_download)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             for s3_path, local_path in files_to_download:

@@ -47,8 +47,8 @@ class TextEmbeddingModel(EmbeddingModel):
         self.device = get_least_used_cuda() if torch.cuda.is_available() else "cpu"
         self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=self.device) 
         #SentenceTransformer('WhereIsAI/UAE-Large-V1').to(self.device)
-        self.d = 1024
-
+        self.d = self.model.get_sentence_embedding_dimension()
+    
     def encode_text(self, text):
         with torch.no_grad():
             embeddings = self.model.encode(text, batch_size=GPU_BATCH_SIZE, device=self.device) # hopefully in batches

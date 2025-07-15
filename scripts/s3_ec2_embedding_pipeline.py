@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
     bucket_name = 'bcgl-public-bucket'
     pdfs_dir = '2008_EOT_PDFs/PDFs/'
-    data_dir_s3 = '2008_EOT_PDFs/data_test_100k_final/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
+    data_dir_s3 = 'prod-serving/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
     # data and data1 were for testing cpu file output
     # data2 is for testing single gpu file output
     # data_test_100k_final is for the final 50k
@@ -49,8 +49,7 @@ if __name__ == '__main__':
         devices.append("cuda:" + str(i))
         print(f"CUDA Device {i}: {torch.cuda.get_device_name(i)}")
     model_pool = text_model.model.start_multi_process_pool(target_devices=devices)
-    processor = gs.PDFsToEmbeddings(pdf_directory, txt_directory, image_directory, img_extracted_dir, 
-                                    embeddings_directory, img_embeddings_dir, e_img_embed_dir, metadata_dir, text_model, model_pool)
+    processor = gs.PDFsToEmbeddings(pdf_directory, DATA_DIR, text_model, model_pool)
 
     progress_path = 'progress.json'  # when downloading files, keeps track of which page you last downloaded so you can resume later. haven't used this yet
 

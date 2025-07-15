@@ -44,6 +44,7 @@ class Server:
         self.pdf_directory = config.pdf_directory
         self.metadata_directory = config.metadata_directory
         self.embedding_directory = config.embedding_directory
+        self.embedding_img_pg_directory = config.embedding_img_pg_directory
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
         self.index_type = config.index_type
@@ -69,10 +70,11 @@ class Server:
                     if file.endswith(".npy"):
                         self.npy_files.append(os.path.join(root, file))
 
-        # Load each .npy file into an array
-        self.arrays = [np.load(file) for file in self.npy_files]
-        stacked_array = np.vstack(self.arrays)
-        self.faiss_index.add(stacked_array)
+            # Load each .npy file into an array
+            self.arrays = [np.load(file) for file in self.npy_files]
+            stacked_array = np.vstack(self.arrays)
+            self.faiss_index.add(stacked_array)
+
         self.filt = Filter(config)
 
         # Accepts a Query -> Returns JSON with closest results

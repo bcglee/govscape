@@ -243,16 +243,15 @@ def natural_key(s):
             for text in re.split(r'(\d+)', s)]
 
 class PDFsToEmbeddings:
-    # def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, embedding_model):
-    def __init__(self, pdf_directory, txt_directory, jpgs_dir, e_jpgs_dir, embeddings_dir, embeddings_img_dir, embeddings_extract_dir, metadata_dir, text_model, model_pool):
+    def __init__(self, pdf_directory, data_dir, text_model, model_pool):
         self.pdfs_path = pdf_directory
-        self.txts_path = txt_directory
-        self.jpgs_path = jpgs_dir
-        self.extracted_jpgs_path = e_jpgs_dir
-        self.embeddings_path = embeddings_dir
-        self.embeddings_img_path = embeddings_img_dir
-        self.embeddings_img_e_path = embeddings_extract_dir
-        self.metadata_dir = metadata_dir
+        self.txts_path = data_dir + "/txt"
+        self.jpgs_path = data_dir + "/img"
+        self.extracted_jpgs_path = data_dir + "/img_extracted"
+        self.embeddings_path = data_dir + "/embeddings"
+        self.embeddings_img_path = data_dir + "/embeddings_img_pg"
+        self.embeddings_img_e_path = data_dir + "/embeddings_img_extracted"
+        self.metadata_dir = data_dir + "/metadata"
         self.text_model = text_model  # TextEmbeddingModel
         self.model_pool = model_pool  # for multi-gpu use, this is the model_pool
 
