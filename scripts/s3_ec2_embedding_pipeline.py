@@ -20,21 +20,22 @@ if __name__ == '__main__':
     s3 = boto3.client("s3", config=config)
 
     # FIELDS TO SET **************************************************************************************
+    parser = argparse.ArgumentParser(description="S3 EC2 Embedding Pipeline")
+    parser.add_argument('--num_pages_to_process', type=int, default=100, help='Number of pages to process from S3')
+    parser.add_argument('--batch_size', type=int, default=1000, help='Number of pdfs to process at a time')
+    args = parser.parse_args()
 
-    BATCH_SIZE = 1000 # number of files we are processing at a time
+    NUM_PAGES_TO_PROCESS = args.num_pages_to_process
+    BATCH_SIZE = args.batch_size
 
     # s3://bcgl-public-bucket/2008_EOT_PDFs/PDFs/
     bucket_name = 'bcgl-public-bucket'
-    pdfs_dir = '2008_EOT_PDFs/PDFs/'
+    pdfs_dir = '2008_EOT_PDFs/PDFs/'# INPUT DATA DIR IN S3 HERE 
     data_dir_s3 = 'prod-serving/' # OUTPUT OVERALL DATA DIR IN S3 HERE 
-    # data and data1 were for testing cpu file output
-    # data2 is for testing single gpu file output
-    # data_test_100k_final is for the final 50k
 
-    # for processing pdfs: 
-
+    # ****************************************************************************************************
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'prod')  # THIS IS WHERE THE OVERALL DATA DIR IS IN EC2
+    DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'prod')
 
     pdf_directory = os.path.join(DATA_DIR, 'PDFs')
     txt_directory = os.path.join(DATA_DIR, 'txt')
@@ -155,7 +156,7 @@ if __name__ == '__main__':
 
         # get the pdf files from s3
         time_list = time.time()
-        pdf_files = get_n_pdfs(100)
+        pdf_files = get_n_pdfs(NUM_PAGES_TO_PROCESS)
         pipeline_times['list'] = time.time() - time_list
 
         print("Now starting with total number of PDF files: ", len(pdf_files))
