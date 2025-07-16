@@ -2,7 +2,7 @@
 
 # Usage: ./clear_s3_prod.sh s3://your-bucket/path/to/directory/
 
-S3_PATH=s3://bcgl-public-bucket/prod-serving/
+S3_PATH=s3://bcgl-public-bucket/prod-serving/*
 
 # Remove all objects under the specified S3 path
-aws s3 rm "$S3_PATH" --recursive
+s5cmd rm "$S3_PATH"

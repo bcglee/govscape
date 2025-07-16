@@ -153,15 +153,11 @@ class Server:
         try:
             while True:
                 query = input("Search: ")
-                # EOF detected
                 if query == "":
                     continue
 
                 result = self.search(query)
-                json_object = json.dumps(result, indent=4)
-
-                # print for testing
-                print(json_object)
+                print(json.dumps(result, indent=4))
 
         except EOFError:
             print("\nThank you for using!")
