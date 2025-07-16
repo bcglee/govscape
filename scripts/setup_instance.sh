@@ -18,7 +18,6 @@ if ! command -v python3.11 &> /dev/null; then
             sudo apt-get update
             sudo apt-get install -y python3.11 python3.11-venv python3.11-distutils
             sudo apt-get install -y poppler-utils
-            pip install s5cmd
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install python@3.11
@@ -44,3 +43,7 @@ fi
 echo "Running 'poetry install'..."
 poetry env use 3.11
 poetry install
+
+# 4. Install s5cmd
+sudo apt install -y pipx
+pipx install s5cmd
