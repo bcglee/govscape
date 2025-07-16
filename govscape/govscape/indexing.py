@@ -5,7 +5,7 @@ import diskannpy as dap
 import numpy as np
 import os
 import pickle as pkl
-from abc import ABC
+from abc import ABC, abstractmethod
 
 class AbstractVectorIndex(ABC):
 

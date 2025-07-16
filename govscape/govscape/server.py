@@ -150,6 +150,7 @@ class Server:
         print("Welcome to End-Of-Term PDF Search Server")
 
         print("Searching against " + str(self.index.total_embeddings()) + " embeddings\n")
+        try:
             while True:
                 query = input("Search: ")
                 # EOF detected
