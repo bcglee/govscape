@@ -26,14 +26,22 @@ class AbstractVectorIndex(ABC):
     def save_index(self):
         pass
     
-    """
-    Search for the k closest PDFs to the query vector.
-    :param query_vector: The vector to search for.
-    :param k: The number of closest arrays to return.
-    :return: A tuple of distances, pdf_names, and pages.
-    """
     @abstractmethod
     def search(self, query_vector, k):
+        """
+        Search for the k closest PDFs to the query vector.
+        :param query_vector: The vector to search for.
+        :param k: The number of closest arrays to return.
+        :return: A tuple of distances, pdf_names, and pages.
+        """
+        pass
+
+    @abstractmethod
+    def total_embeddings(self):
+        """
+        Returns the total number of embeddings in the index.
+        :return: Total number of embeddings.
+        """
         pass
 
 class DiskANNIndex(AbstractVectorIndex):
@@ -85,6 +93,8 @@ class DiskANNIndex(AbstractVectorIndex):
         )
         return distances, internal_indices
 
+    def total_embeddings(self):
+        return 0 # TODO: Implement this method to return the total number of embeddings in the index.
 
 class FAISSIndex(AbstractVectorIndex):
     def __init__(self, config : IndexConfig):
@@ -152,3 +162,5 @@ class FAISSIndex(AbstractVectorIndex):
             page_results.append(pdf_page)
         return D, name_results, page_results
 
+    def total_embeddings(self):
+        return self.faiss_index.ntotal

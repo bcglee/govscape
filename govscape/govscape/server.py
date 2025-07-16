@@ -24,7 +24,6 @@ def suppress_output():
 with suppress_output():
     import faiss
 
-import os
 import struct
 import json
 from .api import init_api
@@ -49,6 +48,10 @@ class Server:
         self.image_directory = config.image_directory
         self.index_type = config.index_type
         self.k = config.k
+        self.k = config.k
+
+        # Index configuration
+        self.index_config = config.index_config
 
         # Model Params
         self.text_model = config.text_model
@@ -60,7 +63,6 @@ class Server:
         if self.index_type == 'Disk':
             self.index = DiskANNIndex(self.index_config)
             self.index.load_index()
-            self.index = disk_index
         elif self.index_type == 'Memory':
             self.index = FAISSIndex(self.index_config)
             self.index.build_index()
@@ -99,23 +101,19 @@ class Server:
 
     def search(self, query, filters=None):
         query_embedding = self.text_model.encode_text(query)
-        search_results = []
     
         # Search for the k closest arrays
-        D, pdf_names, pdf_pages = self.index.search(query_embedding, self.text_k)
+        D, pdf_names, pdf_pages = self.index.search(query_embedding, self.k)
 
-        for distance, name, page in zip(distance, pdf_names, pdf_pages):
-            # create jpeg name
-            jpeg = self.image_directory + "/" + pdf_name + "/" + pdf_name + "_" + page + '.jpeg'
-            
-            # add results to list
+        search_results = []
+        for distance, name, page in zip(D, pdf_names, pdf_pages):
+            jpeg_file = self.image_directory + "/" + name + "/" + name + "_" + page + '.jpeg'
             search_results.append({
                 "pdf": pdf_name, 
                 "page": page, 
-                "distance": float(D[i][j]), 
-                "jpeg": jpeg
+                "distance": float(distance), 
+                "jpeg": jpeg_file
             })
-
         
         if filters and search_results:
             search_results = self.filt.filter_results(search_results, filters)
@@ -142,7 +140,6 @@ class Server:
             num_pages = int(num_pages)
         except Exception:
             raise Exception(f"Invalid page number in metadata: {metadata_path}")
-            return {"error": "Invalid page number in metadata"}, 500
 
         image_dir = os.path.join(self.image_directory, pdf_id)
         images = [f"{image_dir}/{pdf_id}_{i}.jpeg" for i in range(num_pages)]
@@ -152,8 +149,7 @@ class Server:
         # keep this function to maintain compatibility with scripts/start_server.py
         print("Welcome to End-Of-Term PDF Search Server")
 
-        print("Searching against " + str(self.faiss_index.ntotal) + " embeddings\n")
-        try:
+        print("Searching against " + str(self.index.total_embeddings()) + " embeddings\n")
             while True:
                 query = input("Search: ")
                 # EOF detected
