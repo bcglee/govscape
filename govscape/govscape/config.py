@@ -17,7 +17,7 @@ class IndexConfig:
 
         
 class ServerConfig:
-    def __init__(self, index_config : IndexConfig, embedding_model, k=3):
+    def __init__(self, index_config : IndexConfig, text_model, visual_model, k=3):
         self.index_config= index_config
         self.pdf_directory = index_config.pdf_directory
         self.embedding_directory = index_config.embedding_directory
@@ -25,7 +25,8 @@ class ServerConfig:
         self.index_directory = index_config.index_directory
         self.image_directory = index_config.image_directory
         self.metadata_directory = index_config.metadata_directory
-        self.model = embedding_model
+        self.text_model = text_model
+        self.visual_model = visual_model
         self.index_type = index_config.index_type
 
         # define k for top-k

@@ -29,7 +29,7 @@ import struct
 import json
 from .api import init_api
 from .filter import Filter
-from .indexing import IndexBuilder
+from .indexing import DiskANNIndex, FAISSIndex
 
 # basic pipeline developed:
 # 1. accept a query until EOF detected
@@ -50,30 +50,23 @@ class Server:
         self.index_type = config.index_type
 
         # Model Params
-        self.model = config.model
-        self.k = config.k
-        self.d = config.d
+        self.text_model = config.text_model
+        self.text_k = config.text_k
+        self.text_d = config.text_d
+
+        self.visual_model = config.visual_model
+        self.visual_k = config.visual_k
+        self.visual_d = config.visual_d
 
         if self.index_type == 'Disk':
-            disk_index = IndexBuilder(self.index_config)
-            disk_index.load_index()
-            self.disk_index = disk_index
-
+            self.index = DiskANNIndex(self.index_config)
+            self.index.load_index()
+            self.index = disk_index
         elif self.index_type == 'Memory':
-            # create a new index
-            self.faiss_index = faiss.IndexFlatL2(self.d)
-
-            # Train model on test vectors
-            self.npy_files = []
-            for root, _, files in os.walk(self.embedding_directory):
-                for file in files:
-                    if file.endswith(".npy"):
-                        self.npy_files.append(os.path.join(root, file))
-
-            # Load each .npy file into an array
-            self.arrays = [np.load(file) for file in self.npy_files]
-            stacked_array = np.vstack(self.arrays)
-            self.faiss_index.add(stacked_array)
+            self.index = FAISSIndex(self.index_config)
+            self.index.build_index()
+        else:
+            raise ValueError(f"Unsupported index type: {self.index_type}")
 
         self.filt = Filter(config)
 
@@ -106,47 +99,29 @@ class Server:
         self.api = init_api(self.app)
 
     def search(self, query, filters=None):
-        query_embedding = self.model.encode_text(query)
+        query_embedding = self.text_model.encode_text(query)
         query_embedding = query_embedding[np.newaxis, :]
         search_results = []
-        
-        if self.index_type == 'Memory':
-            # Search for the k closest arrays
-            D, I = self.faiss_index.search(query_embedding, self.k)
+    
+        # Search for the k closest arrays
+        D, I = self.index.search(query_embedding, self.text_k)
 
-            for i in range(I.shape[0]):
-                for j in range(I.shape[1]):
-                    # parse file information for page
-                    pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                    page, _, _ = page.rpartition('.')
-                    # create jpeg name
-                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
-                    
-                    # add results to list
-                    search_results.append({
-                        "pdf": pdf_name, 
-                        "page": page, 
-                        "distance": float(D[i][j]), 
-                        "jpeg": jpeg
-                    })
+        for i in range(I.shape[0]):
+            for j in range(I.shape[1]):
+                # parse file information for page
+                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
+                page, _, _ = page.rpartition('.')
+                # create jpeg name
+                jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
+                
+                # add results to list
+                search_results.append({
+                    "pdf": pdf_name, 
+                    "page": page, 
+                    "distance": float(D[i][j]), 
+                    "jpeg": jpeg
+                })
 
-        elif self.index_type == 'Disk':
-            normalized = query_embedding / np.linalg.norm(query_embedding)
-            indices, distances = self.disk_index.search(normalized.flatten(), self.k, self.k * 2)
-            page_indices = os.path.join(self.embedding_directory, "page_indices.bin")
-            with open(page_indices, "rb") as file:
-                for i in range(len(indices)):
-                    file.seek(indices[i] * 117, os.SEEK_SET)
-                    pdf_name = file.read(113).decode('utf-8').strip()
-                    page = str(struct.unpack("i", file.read(4))[0])
-                    jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
-
-                    search_results.append({
-                        "pdf": pdf_name,
-                        "page": page,
-                        "distance": float(distances[i]),
-                        "jpeg": jpeg
-                    })
         
         if filters and search_results:
             search_results = self.filt.filter_results(search_results, filters)

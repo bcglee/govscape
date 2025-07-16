@@ -35,7 +35,7 @@ def main():
             npytobin.convert_pdfdir_to_bin(subdir_path)
     
     indexConfig = gs.IndexConfig(pdf_directory, embeddings_directory, index_directory, image_directory, "Disk")
-    indexBuilder = gs.IndexBuilder(indexConfig)
+    indexBuilder = gs.DiskANNIndex(indexConfig)
     indexBuilder.build_index()
 
     pdftojpeg = gs.PdfToJpeg(pdf_directory, image_directory, 100)

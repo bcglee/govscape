@@ -4,9 +4,22 @@ from .config import IndexConfig
 import diskannpy as dap
 import numpy as np
 import os
+from abc import ABC
 
+class AbstractVectorIndex(ABC):
+    def __init__(self, config : IndexConfig):
+        pass
+    
+    def build_index(self):
+        pass
 
-class IndexBuilder:
+    def load_index(self):
+        pass    
+
+    def search(self, query_vector, k):
+        pass
+
+class DiskANNIndex(AbstractVectorIndex):
     def __init__(self, config : IndexConfig):
         self.pdf_directory = config.pdf_directory
         self.embedding_directory = config.embedding_directory
@@ -16,7 +29,6 @@ class IndexBuilder:
         self.page_indices = None
         pass
 
-    # build index
     def build_index(self):
         if not os.path.exists(self.index_directory):
             os.makedirs(self.index_directory)
@@ -35,7 +47,9 @@ class IndexBuilder:
             pq_disk_bytes=0  # using product quantization of your vectors can still achieve excellent recall characteristics at a fraction of the latency, but we'll do it without PQ for now
         )        
 
-    # load index
+    def save_index(self, filepath):
+        return
+
     def load_index(self):
         self.index = dap.StaticDiskIndex(
             index_directory=self.index_directory,
@@ -44,13 +58,54 @@ class IndexBuilder:
             index_prefix="ann"  
         )
 
-    # return answers for query
     def search(self, query_vector, k, complexity):
+        query_vector = query_vector / np.linalg.norm(query_vector)
         # query vectior should be 2D
         internal_indices, distances = self.index.search(
             query=query_vector,
             k_neighbors=k,
             complexity=complexity,  # must be as big or bigger than `k_neighbors`
         )
-        return internal_indices, distances
+        return distances, internal_indices
+
+
+class FAISSIndex(AbstractVectorIndex):
+    def __init__(self, config : IndexConfig):
+        self.pdf_directory = config.pdf_directory
+        self.embedding_directory = config.embedding_directory
+        self.index_directory = config.index_directory
+        self.dtype = config.dtype
+        self.index = None
+        self.page_indices = None
+        pass
+
+    def build_index(self):
+        # create a new index
+        self.faiss_index = faiss.IndexFlatL2(self.d)
+
+        # Train model on test vectors
+        self.npy_files = []
+        for root, _, files in os.walk(self.embedding_directory):
+            for file in files:
+                if file.endswith(".npy"):
+                    self.npy_files.append(os.path.join(root, file))
+
+        # Load each .npy file into an array
+        self.arrays = [np.load(file) for file in self.npy_files]
+        stacked_array = np.vstack(self.arrays)
+        self.faiss_index.add(stacked_array)
+        if not os.path.exists(self.index_directory):
+            os.makedirs(self.index_directory)
+        
+
+    def save_index(self, filepath):
+        return
+
+    def load_index(self):
+        return
+
+    def search(self, query_vector, k, complexity):
+        # query vectior should be 2D
+        D, I = self.faiss_index.search(query_embedding, self.text_k)
+        return D, I
 
