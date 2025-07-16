@@ -1,0 +1,52 @@
+server {
+	server_name govscape.net www.govscape.net;
+
+	root /var/www/govscape;
+	index index.html;
+
+# Serve static frontend files
+	location / {
+		proxy_pass http://localhost:8080/;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+	}
+
+# Proxy to UAE backend service
+	location /uae/ {
+		proxy_pass http://localhost:8080/;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+	}
+
+# Proxy to CLIP backend service
+	location /clip/ {
+		proxy_pass http://localhost:8080/;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+	}
+
+	listen 443 ssl; # HTTPS port
+
+	# SSL configuration (managed by Certbot)
+	ssl_certificate /etc/letsencrypt/live/govscape.net/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/govscape.net/privkey.pem;
+	include /etc/letsencrypt/options-ssl-nginx.conf;
+	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+# HTTP server block: redirect to HTTPS
+server {
+	listen 80;
+	server_name govscape.net www.govscape.net;
+
+	# Redirect all HTTP requests to HTTPS
+	if ($host = www.govscape.net) {
+		return 301 https://$host$request_uri;
+	}
+
+	if ($host = govscape.net) {
+		return 301 https://$host$request_uri;
+	}
+
+	return 404; # fallback
+}
