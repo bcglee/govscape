@@ -456,7 +456,7 @@ class PDFsToEmbeddings:
                 img_subdir_paths = os.listdir(img_subdir.path)
                 for img_file in img_subdir_paths:
                     img_paths.append(os.path.join(img_subdir.path, img_file))
-                    embedding_paths.append(os.path.join(self.embeddings_img_path, os.path.splitext(img_file)[0] + '.npy'))
+                    embedding_paths.append(os.path.join(self.embeddings_img_path, img_subdir, os.path.splitext(img_file)[0] + '.npy'))
 
         print("Embedding this many images: ", len(img_paths))
         img_model = CLIPEmbeddingModel()
