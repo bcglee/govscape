@@ -7,16 +7,21 @@ import os
 from abc import ABC
 
 class AbstractVectorIndex(ABC):
+
+    @abstractmethod
     def __init__(self, config : IndexConfig):
         pass
-    
+
+    @abstractmethod
     def build_index(self):
         pass
 
+    @abstractmethod
     def load_index(self):
-        pass    
-    
-    def save_index(self, filepath):
+        pass
+
+    @abstractmethod
+    def save_index(self):
         pass
     
     """
@@ -25,6 +30,7 @@ class AbstractVectorIndex(ABC):
     :param k: The number of closest arrays to return.
     :return: A tuple of distances, pdf_names, and pages, sorted in ascending order by distance.
     """
+    @abstractmethod
     def search(self, query_vector, k):
         pass
 
@@ -84,8 +90,9 @@ class FAISSIndex(AbstractVectorIndex):
         self.embedding_directory = config.embedding_directory
         self.index_directory = config.index_directory
         self.dtype = config.dtype
-        self.index = None
-        self.page_indices = None
+        self.faiss_index = None
+        self.pdf_names = []
+        self.pdf_pages = []
         pass
 
     def build_index(self):
@@ -114,10 +121,18 @@ class FAISSIndex(AbstractVectorIndex):
             os.makedirs(self.index_directory)
         
 
-    def save_index(self, filepath):
+    def save_index(self):
+        pkl.dump(self, open(self.index_directory + '/faiss_index.pkl', 'wb'))
+        print(f"Index saved to {self.index_directory}/faiss_index.pkl")
         return
 
     def load_index(self):
+        index = pkl.load(open(self.index_directory + '/faiss_index.pkl', 'rb'))
+        self.faiss_index = index.faiss_index
+        self.pdf_names = index.pdf_names
+        self.pdf_pages = index.pdf_pages
+        self.d = index.faiss_index.d
+        print(f"Index loaded from {self.index_directory}/faiss_index.pkl")
         return
 
     def search(self, query_vector, k, complexity):
@@ -128,10 +143,10 @@ class FAISSIndex(AbstractVectorIndex):
         name_results = []
         page_results = []
         for i in range(I.shape[0]):
-                # parse file information for page
-                pdf_name = self.pdf_names[I[i]]
-                pdf_page = self.pdf_pages[I[i]]
-                name_results.append(pdf_name)
-                page_results.append(pdf_page)
+            # parse file information for page
+            pdf_name = self.pdf_names[I[i]]
+            pdf_page = self.pdf_pages[I[i]]
+            name_results.append(pdf_name)
+            page_results.append(pdf_page)
         return D, name_results, page_results
 
