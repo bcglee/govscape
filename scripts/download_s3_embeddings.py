@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import subprocess
 
+########### CURRENTLY NOT USED (INSTEAD USING s5cmd) ###########
+
 def download_file(s3_client, bucket_name, s3_path, local_path):
     try:
         s3_client.download_file(bucket_name, s3_path, local_path)
