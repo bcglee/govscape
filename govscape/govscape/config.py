@@ -33,5 +33,6 @@ class ServerConfig:
         self.k = k
 
         # define embedding size
-        self.d = self.model.d
+        self.text_d = self.text_model.d
+        self.visual_d = self.visual_model.d
 

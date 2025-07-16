@@ -48,14 +48,13 @@ class Server:
         self.index_directory = config.index_directory
         self.image_directory = config.image_directory
         self.index_type = config.index_type
+        self.k = config.k
 
         # Model Params
         self.text_model = config.text_model
-        self.text_k = config.text_k
         self.text_d = config.text_d
 
         self.visual_model = config.visual_model
-        self.visual_k = config.visual_k
         self.visual_d = config.visual_d
 
         if self.index_type == 'Disk':
@@ -171,8 +170,6 @@ class Server:
 
                 # print for testing
                 print(json_object)
-
-
 
         except EOFError:
             print("\nThank you for using!")

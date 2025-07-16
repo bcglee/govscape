@@ -18,7 +18,6 @@ import logging
 import shutil
 import multiprocessing as mp
 import pypdfium2
-from .pdf_to_jpeg import PdfToJpeg
 from .pdf_to_embed_multigpu import TextEmbeddingModel, compute_text_embeddings
 
 
