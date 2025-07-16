@@ -137,9 +137,6 @@ if __name__ == '__main__':
 
         time2 = time.time()
 
-        with open("seq_times.txt", "a") as f:
-            f.write(f"uploading all files to s3: {time2 - time1}\n")
-
         pipeline_times['sixth'] += time2-time1
         print("finished uploading current batch")
         print("pipeline times: ", pipeline_times)
@@ -160,8 +157,6 @@ if __name__ == '__main__':
         pipeline_times['list'] = time.time() - time_list
 
         print("Now starting with total number of PDF files: ", len(pdf_files))
-
-        local_batch = []
 
         for i in range(0, len(pdf_files), BATCH_SIZE):
             print('*****************************************************************************************************')
