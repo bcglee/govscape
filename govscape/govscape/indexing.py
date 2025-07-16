@@ -4,12 +4,14 @@ from .config import IndexConfig
 import diskannpy as dap
 import numpy as np
 import os
+import pickle as pkl
 from abc import ABC
 
 class AbstractVectorIndex(ABC):
 
     @abstractmethod
     def __init__(self, config : IndexConfig):
+        self.d = config.embedding_dim  # Assuming the embedding dimension is provided in the config
         pass
 
     @abstractmethod
@@ -28,7 +30,7 @@ class AbstractVectorIndex(ABC):
     Search for the k closest PDFs to the query vector.
     :param query_vector: The vector to search for.
     :param k: The number of closest arrays to return.
-    :return: A tuple of distances, pdf_names, and pages, sorted in ascending order by distance.
+    :return: A tuple of distances, pdf_names, and pages.
     """
     @abstractmethod
     def search(self, query_vector, k):
@@ -74,8 +76,8 @@ class DiskANNIndex(AbstractVectorIndex):
         )
 
     def search(self, query_vector, k, complexity):
-        query_vector = query_vector / np.linalg.norm(query_vector)
-        # query vectior should be 2D
+        query_vector = query_vector.copy() / np.linalg.norm(query_vector)
+        # query vector should be 2D
         internal_indices, distances = self.index.search(
             query=query_vector,
             k_neighbors=k,
@@ -135,9 +137,9 @@ class FAISSIndex(AbstractVectorIndex):
         print(f"Index loaded from {self.index_directory}/faiss_index.pkl")
         return
 
-    def search(self, query_vector, k, complexity):
+    def search(self, query_embedding, k, complexity):
         query_embedding = query_embedding[np.newaxis, :]  # ensure query vector is 2D
-        D, I = self.faiss_index.search(query_embedding, self.text_k)
+        D, I = self.faiss_index.search(query_embedding, k)
         D = D[0]
         I = I[0]
         name_results = []
