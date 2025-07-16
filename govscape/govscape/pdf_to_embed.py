@@ -172,8 +172,8 @@ class CLIPEmbeddingModel(EmbeddingModel):
         all_embeddings = []
 
         for batch in input_batches:
-            batch = {k : v.to(device) for k, v in batch.items()}  # move to gpu
             try:
+                batch = {k : v.to(device) for k, v in batch.items()}  # move to gpu
                 with torch.no_grad():
                     embeddings = model.get_image_features(**batch)
                     embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
@@ -194,8 +194,6 @@ class CLIPEmbeddingModel(EmbeddingModel):
         for jpg_path in jpg_paths:
             try:
                 img = Image.open(jpg_path)
-                if img.size[0] < 70 or img.size[1] < 70:
-                    return None # skip images that are too small
                 images.append(img)
             except Exception as e:
                 print(e)
