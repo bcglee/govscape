@@ -99,27 +99,22 @@ class Server:
 
     def search(self, query, filters=None):
         query_embedding = self.text_model.encode_text(query)
-        query_embedding = query_embedding[np.newaxis, :]
         search_results = []
     
         # Search for the k closest arrays
-        D, I = self.index.search(query_embedding, self.text_k)
+        D, pdf_names, pdf_pages = self.index.search(query_embedding, self.text_k)
 
-        for i in range(I.shape[0]):
-            for j in range(I.shape[1]):
-                # parse file information for page
-                pdf_name, _, page = self.npy_files[I[i][j]].rpartition('_')
-                page, _, _ = page.rpartition('.')
-                # create jpeg name
-                jpeg = self.image_directory + "/" + "/".join(pdf_name.rsplit("/", 2)[-2:]) + "_" + page + '.jpeg'
-                
-                # add results to list
-                search_results.append({
-                    "pdf": pdf_name, 
-                    "page": page, 
-                    "distance": float(D[i][j]), 
-                    "jpeg": jpeg
-                })
+        for distance, name, page in zip(distance, pdf_names, pdf_pages):
+            # create jpeg name
+            jpeg = self.image_directory + "/" + pdf_name + "/" + pdf_name + "_" + page + '.jpeg'
+            
+            # add results to list
+            search_results.append({
+                "pdf": pdf_name, 
+                "page": page, 
+                "distance": float(D[i][j]), 
+                "jpeg": jpeg
+            })
 
         
         if filters and search_results:

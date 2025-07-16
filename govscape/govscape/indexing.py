@@ -15,7 +15,16 @@ class AbstractVectorIndex(ABC):
 
     def load_index(self):
         pass    
-
+    
+    def save_index(self, filepath):
+        pass
+    
+    """
+    Search for the k closest PDFs to the query vector.
+    :param query_vector: The vector to search for.
+    :param k: The number of closest arrays to return.
+    :return: A tuple of distances, pdf_names, and pages, sorted in ascending order by distance.
+    """
     def search(self, query_vector, k):
         pass
 
@@ -45,7 +54,7 @@ class DiskANNIndex(AbstractVectorIndex):
             vector_dtype=np.float32, 
             index_prefix="ann",  # ann is the default anyway. all files generated will have the prefix `ann_`, in the form of `f"{index_prefix}_"`
             pq_disk_bytes=0  # using product quantization of your vectors can still achieve excellent recall characteristics at a fraction of the latency, but we'll do it without PQ for now
-        )        
+        )
 
     def save_index(self, filepath):
         return
@@ -84,15 +93,22 @@ class FAISSIndex(AbstractVectorIndex):
         self.faiss_index = faiss.IndexFlatL2(self.d)
 
         # Train model on test vectors
-        self.npy_files = []
+        self.pdf_names = []
+        self.pdf_pages = []
+        npy_files = []
         for root, _, files in os.walk(self.embedding_directory):
             for file in files:
                 if file.endswith(".npy"):
-                    self.npy_files.append(os.path.join(root, file))
+                    npy_files.append(os.path.join(root, file))
+                    if "img" in self.embedding_directory:
+                        self.pdf_names.append(file.rpartition('_')[0])
+                        self.pdf_pages.append(file.rpartition('_')[1])
+                    else:
+                        self.pdf_names.append(file.rpartition('_')[0])
+                        self.pdf_pages.append(file.rpartition('_')[1])
 
         # Load each .npy file into an array
-        self.arrays = [np.load(file) for file in self.npy_files]
-        stacked_array = np.vstack(self.arrays)
+        stacked_array = np.vstack([np.load(file) for file in npy_files])
         self.faiss_index.add(stacked_array)
         if not os.path.exists(self.index_directory):
             os.makedirs(self.index_directory)
@@ -105,7 +121,17 @@ class FAISSIndex(AbstractVectorIndex):
         return
 
     def search(self, query_vector, k, complexity):
-        # query vectior should be 2D
+        query_embedding = query_embedding[np.newaxis, :]  # ensure query vector is 2D
         D, I = self.faiss_index.search(query_embedding, self.text_k)
-        return D, I
+        D = D[0]
+        I = I[0]
+        name_results = []
+        page_results = []
+        for i in range(I.shape[0]):
+                # parse file information for page
+                pdf_name = self.pdf_names[I[i]]
+                pdf_page = self.pdf_pages[I[i]]
+                name_results.append(pdf_name)
+                page_results.append(pdf_page)
+        return D, name_results, page_results
 
