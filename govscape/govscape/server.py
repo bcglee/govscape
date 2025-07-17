@@ -3,27 +3,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from .config import ServerConfig
 import numpy as np
-import sys
 import os
-import contextlib
-
-# Avoid annoying output from faiss during import
-@contextlib.contextmanager
-def suppress_output():
-    with open(os.devnull, 'w') as devnull:
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = devnull
-        sys.stderr = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
-with suppress_output():
-    import faiss
-
 import struct
 import json
 from .api import init_api
@@ -109,7 +89,7 @@ class Server:
         for distance, name, page in zip(D, pdf_names, pdf_pages):
             jpeg_file = self.image_directory + "/" + name + "/" + name + "_" + page + '.jpeg'
             search_results.append({
-                "pdf": pdf_name, 
+                "pdf": name, 
                 "page": page, 
                 "distance": float(distance), 
                 "jpeg": jpeg_file

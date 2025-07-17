@@ -243,8 +243,8 @@ class PDFsToEmbeddings:
     def __init__(self, pdf_directory, data_dir, text_model, model_pool):
         self.pdfs_path = pdf_directory
         self.txts_path = data_dir + "/txt"
-        self.jpgs_path = data_dir + "/img"
-        self.extracted_jpgs_path = data_dir + "/img_extracted"
+        self.img_path = data_dir + "/img"
+        self.extracted_img_path = data_dir + "/img_extracted"
         self.embeddings_path = data_dir + "/embeddings"
         self.embeddings_img_path = data_dir + "/embeddings_img_pg"
         self.embeddings_img_e_path = data_dir + "/embeddings_img_extracted"
@@ -306,7 +306,7 @@ class PDFsToEmbeddings:
             pdf_files = os.listdir(self.pdfs_path)
         ctx = get_context('forkserver')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.jpgs_path, self.pdfs_path, file) for file in pdf_files])
+            pool.starmap(self.convert_pdf_to_txt_and_img, [(self.txts_path, self.img_path, self.pdfs_path, file) for file in pdf_files])
 
     # *******************************************************************************************************************
     # 1. this is the dir pdf -> dir img (of entire page) -> dir embed (of entire page) shared with og embed dir
@@ -315,16 +315,13 @@ class PDFsToEmbeddings:
     def convert_img_embedding_to_files_batch(embed_and_paths):
         embed, embed_file_paths = embed_and_paths
         for output_path, embedding in zip(embed_file_paths, embed):
-            file_name = output_path.replace('.jpeg', '.npy')
-            # print(f"img file_name: {file_name} has been saved.")
-            np.save(file_name, embedding)
+            np.save(output_path, embedding)
     
     def convert_img_embedding_to_files(self, embed, embed_file_paths):
         # split the embedding up into chunks
         chunks = np.array_split(embed, os.cpu_count())
         # chunks = np.array_split(embed, 2)
         chunk_embed_file_paths = []
-
         start = 0
         for i in range(len(chunks)):
             end = chunks[i].shape[0]
@@ -345,9 +342,9 @@ class PDFsToEmbeddings:
     # single pdf -> extracted img, extracted img embedding (using og embed dir)  
     # multi gpu extract images below 
     @staticmethod
-    def extract_img_pdfs(pdf_directory, extracted_jpgs_path, embeddings_img_e_path, pdf_path):
+    def extract_img_pdfs(pdf_directory, extracted_img_path, embeddings_img_e_path, pdf_path):
         full_pdf_path = Path(pdf_directory) / Path(pdf_path)
-        output_img_dir_path = Path(extracted_jpgs_path) / Path(pdf_path).stem
+        output_img_dir_path = Path(extracted_img_path) / Path(pdf_path).stem
         output_img_dir_path.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -390,7 +387,7 @@ class PDFsToEmbeddings:
     def convert_pdfs_to_extracted_imgs(self, pdf_files):
         ctx = get_context('spawn')
         with ctx.Pool(processes=os.cpu_count()) as pool:
-            pool.starmap(self.extract_img_pdfs, [(self.pdfs_path, self.extracted_jpgs_path, self.embeddings_img_e_path, file) for file  in pdf_files])
+            pool.starmap(self.extract_img_pdfs, [(self.pdfs_path, self.extracted_img_path, self.embeddings_img_e_path, file) for file  in pdf_files])
 
 
     # *******************************************************************************************************************
@@ -448,12 +445,13 @@ class PDFsToEmbeddings:
         img_paths = []
         embedding_paths = []
         os.makedirs(self.embeddings_img_path, exist_ok=True)
-        for img_subdir in os.scandir(self.jpgs_path):
+        for img_subdir in os.scandir(self.img_path):
             if img_subdir.is_dir():
+                os.makedirs(os.path.join(self.embeddings_img_path, img_subdir.name), exist_ok=True)
                 img_subdir_paths = os.listdir(img_subdir.path)
                 for img_file in img_subdir_paths:
                     img_paths.append(os.path.join(img_subdir.path, img_file))
-                    embedding_paths.append(os.path.join(self.embeddings_img_path, img_subdir, os.path.splitext(img_file)[0] + '.npy'))
+                    embedding_paths.append(os.path.join(self.embeddings_img_path,  img_subdir.name, os.path.splitext(img_file)[0] + '.npy'))
 
         print("Embedding this many images: ", len(img_paths))
         img_model = CLIPEmbeddingModel()
@@ -465,7 +463,7 @@ class PDFsToEmbeddings:
 
         print("Converting pdfs to extracted imgs and embds")
 #        self.convert_pdfs_to_extracted_imgs(pdf_files)  # extract images and save
-#        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_jpgs_path)
+#        extract_img_paths, extract_all_embed_file_paths = self.convert_imgs_to_embeddings(self.embeddings_img_e_path, self.extracted_img_path)
 #        emb_e = img_model.encode_images(extract_img_paths)
 #        self.convert_img_embedding_to_files(emb_e, extract_all_embed_file_paths)
         time6 = time.time()

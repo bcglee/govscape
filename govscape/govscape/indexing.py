@@ -6,6 +6,24 @@ import numpy as np
 import os
 import pickle as pkl
 from abc import ABC, abstractmethod
+import contextlib
+import sys
+# Avoid annoying output from faiss during import
+@contextlib.contextmanager
+def suppress_output():
+    with open(os.devnull, 'w') as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = devnull
+        sys.stderr = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+
+with suppress_output():
+    import faiss
 
 class AbstractVectorIndex(ABC):
 
@@ -83,13 +101,13 @@ class DiskANNIndex(AbstractVectorIndex):
             index_prefix="ann"  
         )
 
-    def search(self, query_vector, k, complexity):
+    def search(self, query_vector, k):
         query_vector = query_vector.copy() / np.linalg.norm(query_vector)
         # query vector should be 2D
         internal_indices, distances = self.index.search(
             query=query_vector,
             k_neighbors=k,
-            complexity=complexity,  # must be as big or bigger than `k_neighbors`
+            complexity=k*10,  # must be as big or bigger than `k_neighbors`
         )
         return distances, internal_indices
 
@@ -108,9 +126,6 @@ class FAISSIndex(AbstractVectorIndex):
         pass
 
     def build_index(self):
-        # create a new index
-        self.faiss_index = faiss.IndexFlatL2(self.d)
-
         # Train model on test vectors
         self.pdf_names = []
         self.pdf_pages = []
@@ -119,15 +134,20 @@ class FAISSIndex(AbstractVectorIndex):
             for file in files:
                 if file.endswith(".npy"):
                     npy_files.append(os.path.join(root, file))
+                    file = os.path.splitext(file)[0]  # remove .npy extension
                     if "img" in self.embedding_directory:
                         self.pdf_names.append(file.rpartition('_')[0])
-                        self.pdf_pages.append(file.rpartition('_')[1])
+                        self.pdf_pages.append(file.rpartition('_')[2])
                     else:
                         self.pdf_names.append(file.rpartition('_')[0])
-                        self.pdf_pages.append(file.rpartition('_')[1])
+                        self.pdf_pages.append(file.rpartition('_')[2])
 
         # Load each .npy file into an array
         stacked_array = np.vstack([np.load(file) for file in npy_files])
+        self.d = stacked_array.shape[1]
+
+        # construct faiss index index
+        self.faiss_index = faiss.IndexFlatL2(self.d)
         self.faiss_index.add(stacked_array)
         if not os.path.exists(self.index_directory):
             os.makedirs(self.index_directory)
@@ -147,7 +167,7 @@ class FAISSIndex(AbstractVectorIndex):
         print(f"Index loaded from {self.index_directory}/faiss_index.pkl")
         return
 
-    def search(self, query_embedding, k, complexity):
+    def search(self, query_embedding, k):
         query_embedding = query_embedding[np.newaxis, :]  # ensure query vector is 2D
         D, I = self.faiss_index.search(query_embedding, k)
         D = D[0]
