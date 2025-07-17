@@ -63,11 +63,9 @@ class AbstractVectorIndex(ABC):
         pass
 
 class DiskANNIndex(AbstractVectorIndex):
-    def __init__(self, config : IndexConfig):
-        self.pdf_directory = config.pdf_directory
-        self.embedding_directory = config.embedding_directory
-        self.index_directory = config.index_directory
-        self.dtype = config.dtype
+    def __init__(self, embedding_directory, index_directory):
+        self.embedding_directory = embedding_directory
+        self.index_directory = index_directory
         self.index = None
         self.page_indices = None
         pass
@@ -115,11 +113,9 @@ class DiskANNIndex(AbstractVectorIndex):
         return 0 # TODO: Implement this method to return the total number of embeddings in the index.
 
 class FAISSIndex(AbstractVectorIndex):
-    def __init__(self, config : IndexConfig):
-        self.pdf_directory = config.pdf_directory
-        self.embedding_directory = config.embedding_directory
-        self.index_directory = config.index_directory
-        self.dtype = config.dtype
+    def __init__(self, embedding_directory, index_directory):
+        self.embedding_directory = embedding_directory
+        self.index_directory = index_directory
         self.faiss_index = None
         self.pdf_names = []
         self.pdf_pages = []
@@ -135,12 +131,8 @@ class FAISSIndex(AbstractVectorIndex):
                 if file.endswith(".npy"):
                     npy_files.append(os.path.join(root, file))
                     file = os.path.splitext(file)[0]  # remove .npy extension
-                    if "img" in self.embedding_directory:
-                        self.pdf_names.append(file.rpartition('_')[0])
-                        self.pdf_pages.append(file.rpartition('_')[2])
-                    else:
-                        self.pdf_names.append(file.rpartition('_')[0])
-                        self.pdf_pages.append(file.rpartition('_')[2])
+                    self.pdf_names.append(file.rpartition('_')[0])
+                    self.pdf_pages.append(file.rpartition('_')[2])
 
         # Load each .npy file into an array
         stacked_array = np.vstack([np.load(file) for file in npy_files])
@@ -168,7 +160,10 @@ class FAISSIndex(AbstractVectorIndex):
         return
 
     def search(self, query_embedding, k):
-        query_embedding = query_embedding[np.newaxis, :]  # ensure query vector is 2D
+        if query_embedding.ndim == 1:
+            query_embedding = query_embedding[np.newaxis, :]
+        if query_embedding.ndim != 2:
+            raise ValueError("Query embedding must be a 2D array.")
         D, I = self.faiss_index.search(query_embedding, k)
         D = D[0]
         I = I[0]

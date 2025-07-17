@@ -25,6 +25,7 @@ class Server:
         self.embedding_directory = config.embedding_directory
         self.embedding_img_pg_directory = config.embedding_img_pg_directory
         self.index_directory = config.index_directory
+        self.index_img_pg_directory = config.index_img_pg_directory
         self.image_directory = config.image_directory
         self.index_type = config.index_type
         self.k = config.k
@@ -41,11 +42,15 @@ class Server:
         self.visual_d = config.visual_d
 
         if self.index_type == 'Disk':
-            self.index = DiskANNIndex(self.index_config)
-            self.index.load_index()
+            self.text_index = DiskANNIndex(self.embedding_directory, self.index_directory)
+            self.text_index.load_index()
+            self.visual_index = DiskANNIndex(self.embedding_directory, self.index_img_pg_directory)
+            self.visual_index.load_index()
         elif self.index_type == 'Memory':
-            self.index = FAISSIndex(self.index_config)
-            self.index.build_index()
+            self.text_index = FAISSIndex(self.embedding_directory, self.index_directory)
+            self.text_index.build_index()
+            self.visual_index = FAISSIndex(self.embedding_img_pg_directory, self.index_img_pg_directory)
+            self.visual_index.build_index()
         else:
             raise ValueError(f"Unsupported index type: {self.index_type}")
 
@@ -79,11 +84,19 @@ class Server:
         self.app.server = self
         self.api = init_api(self.app)
 
-    def search(self, query, filters=None):
-        query_embedding = self.text_model.encode_text(query)
-    
+    def search(self, query, search_type='textual', filters=None):
+
+        if search_type == 'textual':
+            query_embedding = self.text_model.encode_text(query)
+            index = self.text_index
+        elif search_type == 'visual':
+            query_embedding = self.visual_model.encode_text(query)
+            index = self.visual_index
+        else:
+            raise ValueError(f"Unsupported search type: {search_type}")
+
         # Search for the k closest arrays
-        D, pdf_names, pdf_pages = self.index.search(query_embedding, self.k)
+        D, pdf_names, pdf_pages = index.search(query_embedding, self.k)
 
         search_results = []
         for distance, name, page in zip(D, pdf_names, pdf_pages):

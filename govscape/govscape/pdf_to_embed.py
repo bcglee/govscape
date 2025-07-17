@@ -100,10 +100,16 @@ class EmbeddingModel(ABC):
 
 class CLIPEmbeddingModel(EmbeddingModel):
     def __init__(self):
+        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
+        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")  # online
+        self.processor = CLIPProcessor(image_processor=image_processor, tokenizer=tokenizer)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)  # online
+        self.model.eval()
         self.d = 512
 
     def encode_text(self, text):  #note: not doing encode_texts version of this yet because currently not in use. 
-        #tokenize text
+        #tokenize text        image_processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=True)  # online
         inputs = self.processor(text=text, return_tensors="pt").to(self.device)
         tokenized_text = inputs['input_ids'][0]
 

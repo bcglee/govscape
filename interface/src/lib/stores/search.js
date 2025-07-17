@@ -67,7 +67,7 @@ export const searchActions = {
   
   performSearch: async (searchMode) => {
     const currentStore = get(searchStore);
-    const mode = searchMode || currentStore.currentSearchMode;
+    const search_type = currentStore.currentSearchMode;
 
     const { query, filters } = currentStore;
 
@@ -83,10 +83,10 @@ export const searchActions = {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ query, filters }) 
-      }, mode); 
+        body: JSON.stringify({ query, filters, search_type }) 
+      }, search_type); 
       
-      const imageBase = getImageBaseUrl(mode);
+      const imageBase = getImageBaseUrl(search_type);
       const results = (responseData.results || []).map(result => ({
         ...result,
         jpeg: result.jpeg && typeof result.jpeg === 'string' 

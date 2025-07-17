@@ -7,6 +7,7 @@ ns = Namespace('search', description='Search operations')
 # Define models
 search_input = ns.model('SearchInput', {
     'query': fields.String(required=True, description='Search query text'),
+    'search_type': fields.String(required=True, description='Search query text'),
     'filters': fields.Raw(description='Filters to apply to the search')
 })
 
@@ -32,13 +33,20 @@ class Search(Resource):
         data = request.get_json()
         if not data or 'query' not in data:
             return {"status": "error", "message": "Missing 'query' parameter"}, 400
+
+        if 'search_type' not in data:
+            return {"status": "error", "message": "Missing 'search_type' parameter"}, 400
         
         query = data.get('query')
         if not query.strip():
             return {"status": "error", "message": "Query cannot be empty"}, 400
         
+        search_type = data.get('search_type')
+        if not query.strip():
+            return {"status": "error", "message": "search_type cannot be empty"}, 400
+        
         filters = data.get('filters')
         
         server = current_app.server
         
-        return server.search(query, filters=filters)
+        return server.search(query, search_type, filters=filters)

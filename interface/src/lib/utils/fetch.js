@@ -8,7 +8,7 @@ const ENDPOINTS = {
     },
     PROD: {
         textual: 'https://govscape.net/uae',
-        visual: 'https://govscape.net/clip',
+        visual: 'https://govscape.net/uae',
         keyword: 'https://govscape.net/uae', // TODO: update to api endpoint
     }
 };
