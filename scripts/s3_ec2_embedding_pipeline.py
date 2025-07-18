@@ -62,7 +62,7 @@ if __name__ == '__main__':
     pipeline_times = {'list' : 0, 'download' : 0, 'first': 0, 'second': 0, 'third': 0, 'fourth': 0, 'fifth' : 0, 'sixth': 0}  # to keep track of the time it takes for each step in the pipeline
 
     # gets pdfs from s3
-    def get_n_pdfs(num_pages=1):
+    def list_pdfs(num_pages=1):
         pdf_files = []
         continuation_token = None
         if os.path.exists(progress_path):
@@ -93,11 +93,10 @@ if __name__ == '__main__':
 
     # uploads dir of files to s3
     def upload_directory_to_s3(ec2_dir, s3_dir):
-        subprocess.run(f"s5cmd cp {ec2_dir} s3://{bucket_name}/{s3_dir}".split())
+        subprocess.run(f"s5cmd cp {ec2_dir} s3://{bucket_name}/{s3_dir} -q".split())
         
     # processing the pdfs: running through embedding pipeline and uploading to s3
     def process_pdfs(pdf_files, processor):
-        print("IN PROCESS_PDFS: ", pdf_files)
         start_time = time.time()
 
         # PROCESS PDFS HERE 
@@ -153,7 +152,7 @@ if __name__ == '__main__':
 
         # get the pdf files from s3
         time_list = time.time()
-        pdf_files = get_n_pdfs(NUM_PAGES_TO_PROCESS)
+        pdf_files = list_pdfs(NUM_PAGES_TO_PROCESS)
         pipeline_times['list'] = time.time() - time_list
 
         print("Now starting with total number of PDF files: ", len(pdf_files))

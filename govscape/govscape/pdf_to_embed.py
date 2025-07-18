@@ -225,7 +225,6 @@ class CLIPEmbeddingModel(EmbeddingModel):
         ctx = get_context('spawn')
         print("starting processes for each gpu")
         for i in range(gpu_count):
-            print(inputs[i])
             p = ctx.Process(target=self.encode_images_per_gpu, args=(inputs[math.ceil(i*len(inputs)/gpu_count):math.ceil((i+1)*len(inputs)/gpu_count)], i, outputs))
             p.start()
             processes.append(p)
