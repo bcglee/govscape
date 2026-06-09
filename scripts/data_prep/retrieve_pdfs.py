@@ -4,7 +4,8 @@ import os
 import tempfile
 from collections import defaultdict
 
-import pandas as pd
+import duckdb
+import pyarrow.parquet as pq
 import pypdfium2
 import requests
 from govscape.data_loader import DataLoader, build_data_loader
@@ -29,10 +30,27 @@ def _init_worker(backend: str, bucket_name: str, local_base_dir: str) -> None:
 
 def _is_parseable_pdf(data: bytes) -> bool:
     try:
-        pypdfium2.PdfDocument(data)
+        doc = pypdfium2.PdfDocument(data)
+        doc.close()
         return True
     except Exception:
         return False
+
+
+def _iter_worker_args(parquet_path: str, output_dir: str, max_pdfs: int | None):
+    pf = pq.ParquetFile(parquet_path)
+    count = 0
+    for batch in pf.iter_batches(columns=["digest", "filename", "offset", "length"]):
+        for digest, filename, offset, length in zip(
+            batch.column("digest").to_pylist(),
+            batch.column("filename").to_pylist(),
+            batch.column("offset").to_pylist(),
+            batch.column("length").to_pylist(),
+        ):
+            if max_pdfs is not None and count >= max_pdfs:
+                return
+            yield (digest, filename, int(offset), int(length), output_dir)
+            count += 1
 
 
 def _process_one_pdf(args: tuple) -> str:
@@ -104,31 +122,41 @@ def main() -> None:
         local_parquet = os.path.join(tmp_dir, "cdx.parquet")
         logging.info("Downloading %s", args.cdx_parquet)
         data_loader.download_file(args.cdx_parquet, local_parquet)
-        df = pd.read_parquet(local_parquet)
-    logging.info("Loaded %d CDX entries from %s", len(df), args.cdx_parquet)
 
-    worker_args = [
-        (row.digest, row.filename, int(row.offset), int(row.length), args.output_dir)
-        for row in df.itertuples(index=False)
-    ]
-    if args.max_pdfs is not None:
-        worker_args = worker_args[: args.max_pdfs]
+        deduped_parquet = os.path.join(tmp_dir, "cdx_deduped.parquet")
+        logging.info("Deduplicating by digest")
+        duckdb.execute(
+            "COPY ("
+            "  SELECT digest,"
+            '    ANY_VALUE(filename) AS filename,'
+            '    ANY_VALUE("offset") AS "offset",'
+            '    ANY_VALUE("length") AS "length"'
+            f"  FROM read_parquet('{local_parquet}')"
+            "  GROUP BY digest"
+            f") TO '{deduped_parquet}' (FORMAT PARQUET)"
+        )
 
-    num_workers = min(args.num_workers, len(worker_args))
-    logging.info("Processing %d PDFs across %d workers", len(worker_args), num_workers)
+        total_rows = pq.read_metadata(deduped_parquet).num_rows
+        num_total = min(total_rows, args.max_pdfs) if args.max_pdfs is not None else total_rows
+        logging.info("CDX parquet has %d entries; processing %d", total_rows, num_total)
 
-    counts: dict[str, int] = defaultdict(int)
-    ctx = multiprocessing.get_context("spawn")
-    with ctx.Pool(
-        processes=num_workers,
-        initializer=_init_worker,
-        initargs=(args.backend, args.bucket, args.local_base_dir),
-    ) as pool:
-        for status in pool.imap_unordered(_process_one_pdf, worker_args):
-            counts[status] += 1
-            total = sum(counts.values())
-            if total % 100 == 0:
-                logging.info("Progress: %d processed — %s", total, dict(counts))
+        num_workers = min(args.num_workers, num_total)
+        logging.info("Processing %d PDFs across %d workers", num_total, num_workers)
+
+        counts: dict[str, int] = defaultdict(int)
+        ctx = multiprocessing.get_context("spawn")
+        with ctx.Pool(
+            processes=num_workers,
+            initializer=_init_worker,
+            initargs=(args.backend, args.bucket, args.local_base_dir),
+        ) as pool:
+            for status in pool.imap_unordered(
+                _process_one_pdf, _iter_worker_args(deduped_parquet, args.output_dir, args.max_pdfs)
+            ):
+                counts[status] += 1
+                total = sum(counts.values())
+                if total % 100 == 0:
+                    logging.info("Progress: %d processed — %s", total, dict(counts))
 
     logging.info("Done. Final counts: %s", dict(counts))
 
