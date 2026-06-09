@@ -12,17 +12,17 @@ Example:
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import os
 import random
 import shutil
-import sys
 import time
-import types
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
+
+from govscape.config import DataModel
+from govscape.processing.ocr_processing_stage import OCRProcessingStage
 
 if TYPE_CHECKING:
     import numpy as np
@@ -47,48 +47,6 @@ except ImportError:  # pragma: no cover
     ImageDraw = None  # type: ignore[assignment]
     ImageFont = None  # type: ignore[assignment]
 
-
-def _load_local_govscape_modules() -> tuple[type[Any], type[Any]]:
-    repo_root = Path(__file__).resolve().parents[1]
-    govscape_root = repo_root / "govscape"
-
-    if "govscape" not in sys.modules:
-        govscape_pkg = types.ModuleType("govscape")
-        govscape_pkg.__path__ = [str(govscape_root)]
-        sys.modules["govscape"] = govscape_pkg
-
-    if "govscape.processing" not in sys.modules:
-        processing_pkg = types.ModuleType("govscape.processing")
-        processing_pkg.__path__ = [str(govscape_root / "processing")]
-        sys.modules["govscape.processing"] = processing_pkg
-
-    if "govscape.processing.ocr" not in sys.modules:
-        ocr_pkg = types.ModuleType("govscape.processing.ocr")
-        ocr_pkg.__path__ = [str(govscape_root / "processing" / "ocr")]
-        sys.modules["govscape.processing.ocr"] = ocr_pkg
-
-    def _load_module(module_name: str, module_path: Path):
-        if module_name in sys.modules:
-            return sys.modules[module_name]
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load module {module_name} from {module_path}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        return module
-
-    config_module = _load_module("govscape.config", govscape_root / "config.py")
-    ocr_module = _load_module(
-        "govscape.processing.ocr_processing_stage",
-        govscape_root / "processing" / "ocr_processing_stage.py",
-    )
-    return cast(type[Any], config_module.DataModel), cast(
-        type[Any], ocr_module.OCRProcessingStage
-    )
-
-
-DataModel, OCRProcessingStage = _load_local_govscape_modules()
 
 DEFAULT_IMAGE_WIDTH = 768
 DEFAULT_IMAGE_HEIGHT = 1024
@@ -192,7 +150,7 @@ def _make_page_text(digest: str, page_no: int, seed: int) -> str:
 
 
 def generate_image_dataset(
-    data_model: Any,
+    data_model: DataModel,
     documents: int,
     pages_per_document: int,
     width: int,
@@ -245,7 +203,7 @@ def select_engines(requested: Sequence[str]) -> list[str]:
 
 def benchmark_engine(
     engine: str,
-    data_model: Any,
+    data_model: DataModel,
     documents: int,
     pages_per_document: int,
     width: int,
