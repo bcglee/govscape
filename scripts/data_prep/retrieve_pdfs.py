@@ -46,6 +46,7 @@ def _iter_worker_args(parquet_path: str, output_dir: str, max_pdfs: int | None):
             batch.column("filename").to_pylist(),
             batch.column("offset").to_pylist(),
             batch.column("length").to_pylist(),
+            strict=True,
         ):
             if max_pdfs is not None and count >= max_pdfs:
                 return
@@ -77,9 +78,9 @@ def _process_one_pdf(args: tuple) -> str:
         for record in ArchiveIterator(response.raw):
             if record.rec_type != "response":
                 continue
-            is_pdf = (
-                record.rec_headers.get("Content-Type") == "application/pdf"
-            ) or (".pdf" in record.rec_headers.get("WARC-Target-URI", ""))
+            is_pdf = (record.rec_headers.get("Content-Type") == "application/pdf") or (
+                ".pdf" in record.rec_headers.get("WARC-Target-URI", "")
+            )
             if not is_pdf:
                 return "invalid_content"
             data = record.content_stream().read()
@@ -96,9 +97,11 @@ def _process_one_pdf(args: tuple) -> str:
 
 def main() -> None:
     parser = base_argument_parser(description="Retrieve PDFs from S3 & store them.")
-    parser.add_argument("--bucket", required=True, help="Output S3 bucket name")
+    parser.add_argument("--bucket_name", required=True, help="Output S3 bucket name")
     parser.add_argument(
-        "--cdx_parquet", required=True, help="Remote key of CDX parquet file in the output bucket"
+        "--cdx_parquet",
+        required=True,
+        help="Remote key of CDX parquet file in the output bucket",
     )
     parser.add_argument(
         "--output_dir", required=True, help="Remote key prefix for output PDFs"
@@ -117,7 +120,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    data_loader = build_data_loader(args.backend, args.bucket, args.local_base_dir)
+    data_loader = build_data_loader(args.backend, args.bucket_name, args.local_base_dir)
     with tempfile.TemporaryDirectory(prefix="retrieve_pdfs_") as tmp_dir:
         local_parquet = os.path.join(tmp_dir, "cdx.parquet")
         logging.info("Downloading %s", args.cdx_parquet)
@@ -128,7 +131,7 @@ def main() -> None:
         duckdb.execute(
             "COPY ("
             "  SELECT digest,"
-            '    ANY_VALUE(filename) AS filename,'
+            "    ANY_VALUE(filename) AS filename,"
             '    ANY_VALUE("offset") AS "offset",'
             '    ANY_VALUE("length") AS "length"'
             f"  FROM read_parquet('{local_parquet}')"
@@ -137,7 +140,9 @@ def main() -> None:
         )
 
         total_rows = pq.read_metadata(deduped_parquet).num_rows
-        num_total = min(total_rows, args.max_pdfs) if args.max_pdfs is not None else total_rows
+        num_total = (
+            min(total_rows, args.max_pdfs) if args.max_pdfs is not None else total_rows
+        )
         logging.info("CDX parquet has %d entries; processing %d", total_rows, num_total)
 
         num_workers = min(args.num_workers, num_total)
@@ -148,10 +153,11 @@ def main() -> None:
         with ctx.Pool(
             processes=num_workers,
             initializer=_init_worker,
-            initargs=(args.backend, args.bucket, args.local_base_dir),
+            initargs=(args.backend, args.bucket_name, args.local_base_dir),
         ) as pool:
             for status in pool.imap_unordered(
-                _process_one_pdf, _iter_worker_args(deduped_parquet, args.output_dir, args.max_pdfs)
+                _process_one_pdf,
+                _iter_worker_args(deduped_parquet, args.output_dir, args.max_pdfs),
             ):
                 counts[status] += 1
                 total = sum(counts.values())

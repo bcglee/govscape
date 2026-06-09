@@ -17,10 +17,15 @@ _HOSTNAME_EXPR = "regexp_extract(url, '^https?://([^/?#]+)', 1)"
 
 def _run_stats(parquet_path: str) -> str:
     con = duckdb.connect()
-    con.execute(f"CREATE VIEW cdx AS SELECT *, {_HOSTNAME_EXPR} AS hostname FROM '{parquet_path}'")
+    con.execute(
+        f"CREATE VIEW cdx AS SELECT *, {_HOSTNAME_EXPR} AS hostname \
+            FROM '{parquet_path}'"
+    )
 
     total_entries = con.execute("SELECT count(*) FROM cdx").fetchone()[0]
-    distinct_digests = con.execute("SELECT count(DISTINCT digest) FROM cdx").fetchone()[0]
+    distinct_digests = con.execute("SELECT count(DISTINCT digest) FROM cdx").fetchone()[
+        0
+    ]
     distinct_urls = con.execute("SELECT count(DISTINCT url) FROM cdx").fetchone()[0]
     pdf_url_entries = con.execute(
         "SELECT count(*) FROM cdx WHERE lower(url) LIKE '%.pdf'"
@@ -63,7 +68,9 @@ def _run_stats(parquet_path: str) -> str:
     lines.append("")
 
     lines.append("--- Per Year ---")
-    lines.append(f"{'Year':<6}  {'Entries':>12}  {'Distinct Digests':>16}  {'Distinct URLs':>13}")
+    lines.append(
+        f"{'Year':<6}  {'Entries':>12}  {'Distinct Digests':>16}  {'Distinct URLs':>13}"
+    )
     lines.append("-" * 54)
     for year, entries, digests, urls in per_year:
         lines.append(f"{year:<6}  {entries:>12,}  {digests:>16,}  {urls:>13,}")
@@ -81,9 +88,19 @@ def _run_stats(parquet_path: str) -> str:
 
 
 def main() -> None:
-    parser = base_argument_parser(description="Compute descriptive statistics for complete_cdx.parquet.")
-    parser.add_argument("--input_prefix", required=True, help="Remote key prefix where complete_cdx.parquet lives")
-    parser.add_argument("--output_prefix", required=True, help="Remote key prefix for the output stats txt file")
+    parser = base_argument_parser(
+        description="Compute descriptive statistics for complete_cdx.parquet."
+    )
+    parser.add_argument(
+        "--input_prefix",
+        required=True,
+        help="Remote key prefix where complete_cdx.parquet lives",
+    )
+    parser.add_argument(
+        "--output_prefix",
+        required=True,
+        help="Remote key prefix for the output stats txt file",
+    )
     args = parser.parse_args()
 
     data_loader = build_data_loader(args.backend, args.bucket_name, args.local_base_dir)
@@ -108,4 +125,5 @@ def main() -> None:
     print(report)
 
 
-main()
+if __name__ == "__main__":
+    main()

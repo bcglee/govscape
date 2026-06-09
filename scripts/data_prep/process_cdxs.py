@@ -14,9 +14,7 @@ logging.basicConfig(
 )
 
 YEARS = [2008, 2012, 2016, 2020, 2024]
-CDX_GLOB_TEMPLATE = (
-    "s3://eotarchive/eot-index/collections/EOT-{year}/indexes/*.gz"
-)
+CDX_GLOB_TEMPLATE = "s3://eotarchive/eot-index/collections/EOT-{year}/indexes/*.gz"
 
 # Regular string (not f-string) so that { } characters in the SQL are literal.
 # chr(123) == '{'.  sep=chr(1) == SOH, guaranteed absent from CDX data, so
@@ -40,7 +38,8 @@ _SELECT_SQL = (
     "    TRY_CAST(json_extract_string(jstr, '$.length') AS BIGINT) AS length\n"
     "  FROM (\n"
     "    SELECT substring(column0, strpos(column0, chr(123))) AS jstr\n"
-    "    FROM read_csv(?, header=false, sep=chr(1), compression='gzip', max_line_size=10000000)\n"
+    "    FROM read_csv(?, header=false, sep=chr(1), compression='gzip',\
+                                 max_line_size=10000000)\n"
     "    WHERE strpos(column0, chr(123)) > 0\n"
     "  ) lines\n"
     "  WHERE json_valid(jstr)\n"
@@ -59,19 +58,28 @@ def _setup_s3(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def _process_one_file(args: tuple[str, str]) -> tuple[str, int]:
-    """Worker: process a single CDX file and write its PDF entries to a partial parquet."""
+    """Worker: process a single CDX file and write its PDF
+    entries to a partial parquet."""
     cdx_path, output_parquet = args
-    con = duckdb.connect()
-    _setup_s3(con)
-    con.execute(f"COPY ({_SELECT_SQL}) TO '{output_parquet}' (FORMAT PARQUET)", [cdx_path])
-    count = con.execute(f"SELECT count(*) FROM '{output_parquet}'").fetchone()[0]
-    con.close()
-    return cdx_path, count
+    try:
+        con = duckdb.connect()
+        _setup_s3(con)
+        con.execute(
+            f"COPY ({_SELECT_SQL}) TO '{output_parquet}' (FORMAT PARQUET)", [cdx_path]
+        )
+        count = con.execute(f"SELECT count(*) FROM '{output_parquet}'").fetchone()[0]
+        con.close()
+        return cdx_path, count
+    except Exception as e:
+        logging.warning("Failed to process %s: %s", cdx_path, e)
+        return cdx_path, 0
 
 
 def main() -> None:
     parser = base_argument_parser(description="Process CDX files from S3 via DuckDB.")
-    parser.add_argument("--output_prefix", required=True, help="S3 key prefix for upload")
+    parser.add_argument(
+        "--output_prefix", required=True, help="S3 key prefix for upload"
+    )
     parser.add_argument(
         "--years",
         nargs="+",
@@ -149,10 +157,13 @@ def main() -> None:
         merge_con.close()
         logging.info("Merged %d rows into %s", merge_count, parquet_path)
 
-        data_loader = build_data_loader(args.backend, args.bucket_name, args.local_base_dir)
+        data_loader = build_data_loader(
+            args.backend, args.bucket_name, args.local_base_dir
+        )
         remote_key = os.path.join(args.output_prefix, "complete_cdx.parquet")
         data_loader.upload_file(parquet_path, remote_key)
         logging.info("Uploaded to s3://%s/%s", args.bucket_name, remote_key)
 
 
-main()
+if __name__ == "__main__":
+    main()
