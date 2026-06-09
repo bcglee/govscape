@@ -149,16 +149,20 @@ class OCRProcessingStage(ProcessingStage):
             )
             return
 
-        # Single batched OCR call across all PDFs.
-        try:
-            all_texts = self.ocr_engine.extract_text(all_images)
-        except Exception as e:
-            self.logger.error(f"OCR failed: {e}")
-            self.logger.info(
-                "OCR processing complete. Processed: 0, Errors: %d",
-                error_count + len(all_metadata),
-            )
-            return
+        # Batch OCR calls in chunks of 1000 to avoid overflowing GPU memory.
+        _BATCH_SIZE = 1000
+        all_texts: list[str] = []
+        for batch_start in range(0, len(all_images), _BATCH_SIZE):
+            batch = all_images[batch_start : batch_start + _BATCH_SIZE]
+            try:
+                all_texts.extend(self.ocr_engine.extract_text(batch))
+            except Exception as e:
+                self.logger.error(
+                    f"OCR failed for batch starting at index {batch_start}: {e}"
+                )
+                # Fill with empty strings so all_texts stays aligned with all_metadata.
+                all_texts.extend("" for _ in batch)
+                error_count += len(batch)
 
         # Second pass: write text files.
         processed_count = 0
