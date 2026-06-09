@@ -1,5 +1,6 @@
 """OCR Processing Stage - Extracts text from PDF pages using OCR engines."""
 
+import contextlib
 import logging
 import os
 
@@ -99,30 +100,29 @@ class OCRProcessingStage(ProcessingStage):
     def run(self):
         """Run OCR on all PDF page images and save extracted text.
 
-        Processes each PDF's pages and saves text in the format:
-        {txt_directory}/{digest}/{digest}_{pg_no}.txt
+        Collects every page image across all PDFs, issues a single batched
+        extract_text call, then writes one .txt file per page.
         """
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
-        processed_count = 0
         error_count = 0
 
-        # Iterate through digest directories in the image directory
+        # First pass: collect all images and their metadata across every PDF.
+        all_images: list = []
+        all_metadata: list[tuple[str, int]] = []  # (digest, page_num)
+
+        engine_name = self.ocr_engine.__class__.__name__.lower()
+
         for digest_dir in os.scandir(self.data_model.image_directory):
             if not digest_dir.is_dir():
                 continue
 
             digest = digest_dir.name
-            txt_output_dir = self.data_model.txt_pdf_directory(digest)
-            os.makedirs(txt_output_dir, exist_ok=True)
+            os.makedirs(self.data_model.txt_pdf_directory(digest), exist_ok=True)
 
-            # Process each page image
             page_files = sorted(
                 [f for f in os.listdir(digest_dir.path) if f.endswith(".jpeg")],
             )
-
-            page_images: list = []
-            page_nums: list = []
 
             for page_file in page_files:
                 image_path = os.path.join(digest_dir.path, page_file)
@@ -132,41 +132,41 @@ class OCRProcessingStage(ProcessingStage):
                         self.logger.warning(f"Failed to read image: {image_path}")
                         error_count += 1
                         continue
-                    page_images.append(image)
-                    page_nums.append(int(page_file.split("_")[-1].replace(".jpeg", "")))
+                    # Convert BGR→RGB for non-PaddleOCR engines (PaddleOCR expects BGR)
+                    if "paddle" not in engine_name:
+                        with contextlib.suppress(Exception):
+                            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    page_num = int(page_file.split("_")[-1].replace(".jpeg", ""))
+                    all_images.append(image)
+                    all_metadata.append((digest, page_num))
                 except Exception as e:
-                    self.logger.error(f"Error processing {image_path}: {e}")
+                    self.logger.error(f"Error loading {image_path}: {e}")
                     error_count += 1
 
-            if not page_images:
-                continue
+        if not all_images:
+            self.logger.info(
+                "OCR processing complete. Processed: 0, Errors: %d", error_count
+            )
+            return
 
-            # Convert BGR→RGB for non-PaddleOCR engines (PaddleOCR expects BGR)
-            engine_name = self.ocr_engine.__class__.__name__.lower()
-            images_for_ocr = []
-            for img in page_images:
-                if "paddle" in engine_name:
-                    images_for_ocr.append(img)
-                else:
-                    try:
-                        images_for_ocr.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                    except Exception:
-                        images_for_ocr.append(img)
+        # Single batched OCR call across all PDFs.
+        try:
+            all_texts = self.ocr_engine.extract_text(all_images)
+        except Exception as e:
+            self.logger.error(f"OCR failed: {e}")
+            self.logger.info(
+                "OCR processing complete. Processed: 0, Errors: %d",
+                error_count + len(all_metadata),
+            )
+            return
 
-            # OCR the whole PDF's pages in a single batched call.
-            try:
-                page_texts = self.ocr_engine.extract_text(images_for_ocr)
-            except Exception as e:
-                self.logger.error(f"OCR failed for {digest}: {e}")
-                error_count += len(page_nums)
-                continue
-
-            for idx, page_num in enumerate(page_nums):
-                text = page_texts[idx] if idx < len(page_texts) else ""
-                if self._write_page_text(digest, page_num, text):
-                    processed_count += 1
-                else:
-                    error_count += 1
+        # Second pass: write text files.
+        processed_count = 0
+        for (digest, page_num), text in zip(all_metadata, all_texts, strict=True):
+            if self._write_page_text(digest, page_num, text):
+                processed_count += 1
+            else:
+                error_count += 1
 
         self.logger.info(
             f"OCR processing complete. Processed: {processed_count}, "
