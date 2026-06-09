@@ -22,7 +22,8 @@ processing/
 
 #### BaseOCR (Abstract Class)
 All OCR implementations inherit from `BaseOCR` and must implement:
-- `extract_text(image: np.ndarray) -> str`: Extract text from a page image
+- `extract_text(images: list[np.ndarray]) -> list[str]`: Extract text from a
+  batch of page images, returning one string per image in order
 - `validate() -> None`: Validate installation and initialize the engine
 
 #### OCR Implementations
@@ -90,41 +91,34 @@ import cv2
 ocr = EasyOCRImpl(languages=["en"], gpu=False)
 ocr.validate()
 
-# Load and process an image
+# Load and process a batch of images
 image = cv2.imread("page.jpeg")
 image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-# Extract text
-text = ocr.extract_text(image_rgb)
-print(text)
+# extract_text takes a batch and returns one string per image
+texts = ocr.extract_text([image_rgb])
+print(texts[0])
 ```
 
-## Installation
+## Dependencies
 
-Install the required dependencies for your chosen OCR engine:
+OCR engine backends are declared as optional extras in `pyproject.toml`, so you
+only install what you use. Each implementation guards its import and raises a
+clear error if its backend is missing.
 
-### EasyOCR
 ```bash
-pip install easyocr
+poetry install --extras ocr        # all engines
+poetry install --extras easyocr    # a single engine
 ```
 
-### PaddleOCR
-```bash
-pip install paddleocr paddlepaddle
-```
+Available extras: `easyocr`, `paddleocr`, `olmocr`, `ocrmypdf`, and `ocr` (all).
 
-### OLMOcr
-```bash
-pip install olmocr
-```
+The `ocrmypdf` backend additionally requires the Tesseract system binary, which
+is not a Python package:
 
-### OcrMyPDF (with Tesseract)
 ```bash
-pip install ocrmypdf pytesseract
-# Also install Tesseract binary:
 # Ubuntu/Debian: sudo apt-get install tesseract-ocr
-# macOS: brew install tesseract
-# Windows: Download from https://github.com/UB-Mannheim/tesseract/wiki
+# macOS:         brew install tesseract
 ```
 
 ## Configuration
@@ -252,8 +246,8 @@ class TesseractImpl(BaseOCR):
         # Initialize Tesseract
         pass
 
-    def extract_text(self, image: np.ndarray) -> str:
-        # Extract text using Tesseract
+    def extract_text(self, images: list[np.ndarray]) -> list[str]:
+        # Extract text from each image, returning one string per image
         pass
 ```
 
@@ -271,7 +265,7 @@ poetry run pytest tests/test_ocr.py::test_easyocr -v
 ## Troubleshooting
 
 ### ImportError: ocr library not found
-Make sure to install the library for your chosen OCR engine (see Installation section).
+Install the extra for your chosen OCR engine (see the Dependencies section).
 
 ### CUDA/GPU not available
 If GPU support fails, set `gpu=False` or `use_gpu=False` to use CPU-only mode.

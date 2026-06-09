@@ -83,11 +83,14 @@ def test_ocr_implementations_on_sample_images(impl_class, init_args, skip_pkg):
     except ImportError:
         pytest.skip("Required OCR dependency is not available")
 
-    # For each sample image, assert extracted text contains the expected substring
-    for expected, img in expected_pairs:
-        extracted = ocr.extract_text(img)
-        assert isinstance(extracted, str)
-        assert expected.lower().split()[0] in extracted.lower()
+    # Extract the whole batch at once and assert each result contains its substring
+    images = [img for _expected, img in expected_pairs]
+    extracted = ocr.extract_text(images)
+    assert isinstance(extracted, list)
+    assert len(extracted) == len(expected_pairs)
+    for (expected, _img), text in zip(expected_pairs, extracted, strict=True):
+        assert isinstance(text, str)
+        assert expected.lower().split()[0] in text.lower()
 
 
 @pytest.mark.parametrize("impl_class,init_args,skip_pkg", OCR_IMPLS)
@@ -128,10 +131,11 @@ def test_ocr_processing_stage_writes_txt(
 
     mocked_text = "pipeline extracted text"
 
-    # Patch engine methods to avoid external OCR dependencies during pipeline test
+    # Patch engine methods to avoid external OCR dependencies during pipeline test.
+    # extract_text is batched, so it returns a list with one entry per image.
     with (
         patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(stage.ocr_engine, "extract_text", return_value=mocked_text),
+        patch.object(stage.ocr_engine, "extract_text", return_value=[mocked_text]),
     ):
         # Validate and run stage
         stage.validate()

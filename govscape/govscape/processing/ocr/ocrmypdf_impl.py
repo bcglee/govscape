@@ -52,27 +52,30 @@ class OcrMyPDFImpl(BaseOCR):
             f"output: {self.output_type}"
         )
 
-    def extract_text(self, image: np.ndarray) -> str:
-        """Extract text from an image using OcrMyPDF/Tesseract.
+    def extract_text(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of images using OcrMyPDF/Tesseract.
 
         Args:
-            image: A numpy array representing the page image.
+            images: A list of numpy arrays, each a page image.
 
         Returns:
-            Extracted text as a string.
+            A list of extracted text strings, one per input image.
         """
         if pytesseract is None:
             self.validate()
 
+        return [self._extract_single(image) for image in images]
+
+    def _extract_single(self, image: np.ndarray) -> str:
         try:
-            import pytesseract
-
             # Convert numpy array to PIL Image if needed
-            if isinstance(image, np.ndarray):
-                image = Image.fromarray(image.astype("uint8"))
-
+            pil_image = (
+                Image.fromarray(image.astype("uint8"))
+                if isinstance(image, np.ndarray)
+                else image
+            )
             # Extract text using pytesseract (which uses Tesseract OCR)
-            return pytesseract.image_to_string(image, lang=self.language)
+            return pytesseract.image_to_string(pil_image, lang=self.language)
         except Exception as e:
             self.logger.error(f"Error during OcrMyPDF text extraction: {e}")
             return ""

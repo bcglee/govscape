@@ -8,7 +8,7 @@ try:
 
     CV2_AVAILABLE = True
 except ImportError:
-    cv2 = None
+    cv2 = None  # type: ignore[assignment]
     CV2_AVAILABLE = False
 
 from ..config import DataModel
@@ -133,9 +133,7 @@ class OCRProcessingStage(ProcessingStage):
                         error_count += 1
                         continue
                     page_images.append(image)
-                    page_nums.append(
-                        int(page_file.split("_")[-1].replace(".jpeg", ""))
-                    )
+                    page_nums.append(int(page_file.split("_")[-1].replace(".jpeg", "")))
                 except Exception as e:
                     self.logger.error(f"Error processing {image_path}: {e}")
                     error_count += 1
@@ -155,22 +153,37 @@ class OCRProcessingStage(ProcessingStage):
                     except Exception:
                         images_for_ocr.append(img)
 
+            # OCR the whole PDF's pages in a single batched call.
+            try:
+                page_texts = self.ocr_engine.extract_text(images_for_ocr)
+            except Exception as e:
+                self.logger.error(f"OCR failed for {digest}: {e}")
+                error_count += len(page_nums)
+                continue
+
             for idx, page_num in enumerate(page_nums):
-                try:
-                    text = self.ocr_engine.extract_text(images_for_ocr[idx])
-                    txt_output_path = self.data_model.txt_page_path(digest, page_num)
-                    os.makedirs(os.path.dirname(txt_output_path), exist_ok=True)
-                    with open(txt_output_path, "w", encoding="utf-8") as f:
-                        f.write(text)
+                text = page_texts[idx] if idx < len(page_texts) else ""
+                if self._write_page_text(digest, page_num, text):
                     processed_count += 1
-                    self.logger.debug(f"Processed: {txt_output_path}")
-                except Exception as e:
-                    self.logger.error(
-                        f"OCR failed for {digest} page {page_num}: {e}"
-                    )
+                else:
                     error_count += 1
 
         self.logger.info(
             f"OCR processing complete. Processed: {processed_count}, "
             f"Errors: {error_count}",
         )
+
+    def _write_page_text(self, digest: str, page_num: int, text: str) -> bool:
+        """Write a single page's extracted text, returning True on success."""
+        try:
+            txt_output_path = self.data_model.txt_page_path(digest, page_num)
+            os.makedirs(os.path.dirname(txt_output_path), exist_ok=True)
+            with open(txt_output_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            self.logger.debug(f"Processed: {txt_output_path}")
+            return True
+        except Exception as e:
+            self.logger.error(
+                f"Error writing OCR text for {digest} page {page_num}: {e}"
+            )
+            return False

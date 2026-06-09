@@ -12,14 +12,15 @@ class BaseOCR(ABC):
     """
 
     @abstractmethod
-    def extract_text(self, image: np.ndarray) -> str:
-        """Extract text from a page image.
+    def extract_text(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of page images.
 
         Args:
-            image: A numpy array representing a page image (from PIL or cv2).
+            images: A list of numpy arrays, each a page image (from PIL or cv2).
 
         Returns:
-            Extracted text as a string.
+            A list of extracted text strings, one per input image and in the
+            same order.
         """
 
     @abstractmethod
