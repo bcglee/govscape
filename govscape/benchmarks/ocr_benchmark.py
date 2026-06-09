@@ -37,6 +37,13 @@ ENGINE_DEFAULT_KWARGS: dict[str, dict] = {
 }
 
 
+def _apply_gpu(kwargs: dict[str, dict], gpu: bool) -> dict[str, dict]:
+    updated = {k: dict(v) for k, v in kwargs.items()}
+    updated["easyocr"]["gpu"] = gpu
+    updated["paddleocr"]["use_gpu"] = gpu
+    return updated
+
+
 @dataclass
 class BenchmarkResult:
     engine: str
@@ -110,9 +117,12 @@ def select_engines(requested: Sequence[str]) -> list[str]:
 
 
 def benchmark_engine(
-    engine: str, data_model: DataModel, total_pages: int
+    engine: str,
+    data_model: DataModel,
+    total_pages: int,
+    engine_kwargs: dict[str, dict] | None = None,
 ) -> BenchmarkResult:
-    engine_kwargs = ENGINE_DEFAULT_KWARGS.get(engine, {})
+    engine_kwargs = (engine_kwargs or ENGINE_DEFAULT_KWARGS).get(engine, {})
     try:
         stage = OCRProcessingStage(
             data_model=data_model, ocr_type=engine, **engine_kwargs
@@ -195,6 +205,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Keep benchmark data after the run.",
     )
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Enable GPU acceleration for EasyOCR and PaddleOCR.",
+    )
     return parser.parse_args(argv)
 
 
@@ -216,11 +231,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Extracted {total_pages} page images.")
 
     engines = select_engines(args.engines or [])
+    engine_kwargs = _apply_gpu(ENGINE_DEFAULT_KWARGS, args.gpu)
     results: list[BenchmarkResult] = []
 
     for engine in engines:
         print(f"Running OCR benchmark for engine: {engine}")
-        results.append(benchmark_engine(engine, data_model, total_pages))
+        results.append(benchmark_engine(engine, data_model, total_pages, engine_kwargs))
 
     print(format_results(results))
 
