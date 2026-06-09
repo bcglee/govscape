@@ -18,19 +18,6 @@ from .processing_stage import ProcessingStage
 
 
 def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
-    """Factory function to build OCR engines.
-
-    Args:
-        ocr_type: Type of OCR engine ('easyocr', 'paddleocr', 'olmocr', 'ocrmypdf').
-        **kwargs: Additional arguments to pass to the OCR engine constructor.
-
-    Returns:
-        An initialized OCR engine.
-
-    Raises:
-        ValueError: If ocr_type is not supported.
-
-    """
     from .ocr import EasyOCRImpl, OcrMyPDFImpl, OLMOcrImpl, PaddleOCRImpl
 
     ocr_engines = {
@@ -46,40 +33,22 @@ def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
             f"Must be one of: {list(ocr_engines.keys())}",
         )
 
-    engine_class = ocr_engines[ocr_type]
-    return engine_class(**kwargs)
+    return ocr_engines[ocr_type](**kwargs)
 
 
 class OCRProcessingStage(ProcessingStage):
     """Processing stage that performs OCR on PDF page images.
 
-    This stage:
-    1. Reads page images from {image_directory}/{digest}/{digest}_{pg_no}.jpeg
-    2. Applies OCR using the specified engine
-    3. Saves extracted text to {txt_directory}/{digest}/{digest}_{pg_no}.txt
-
-    Following the DATA_MODEL.md protocol for text file organization.
+    Reads images from {image_directory}/{digest}/{digest}_{pg_no}.jpeg and
+    writes extracted text to {txt_directory}/{digest}/{digest}_{pg_no}.txt.
     """
 
     def __init__(self, data_model: DataModel, ocr_type: str = "easyocr", **ocr_kwargs):
-        """Initialize the OCR Processing Stage.
-
-        Args:
-            data_model: DataModel instance defining directory structure.
-            ocr_type: Type of OCR engine to use (default: 'easyocr').
-            **ocr_kwargs: Additional arguments to pass to the OCR engine.
-                For EasyOCR: languages=['en', ...], gpu=False
-                For PaddleOCR: language='en', use_gpu=False
-                For OLMOcr: model_name='default'
-                For OcrMyPDF: language='eng', output_type='txt'
-
-        """
         self.data_model = data_model
         self.ocr_engine = _build_ocr_engine(ocr_type, **ocr_kwargs)
         self.logger = logging.getLogger(__name__)
 
     def validate(self) -> None:
-        """Validate that the image directory exists and OCR engine is initialized."""
         if not CV2_AVAILABLE:
             raise ImportError(
                 "cv2 (OpenCV) is required for OCR processing. "
@@ -98,19 +67,11 @@ class OCRProcessingStage(ProcessingStage):
             raise ValueError(f"OCR engine validation failed: {e}") from e
 
     def run(self):
-        """Run OCR on all PDF page images and save extracted text.
-
-        Collects every page image across all PDFs, issues a single batched
-        extract_text call, then writes one .txt file per page.
-        """
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
         error_count = 0
-
-        # First pass: collect all images and their metadata across every PDF.
         all_images: list = []
-        all_metadata: list[tuple[str, int]] = []  # (digest, page_num)
-
+        all_metadata: list[tuple[str, int]] = []
         engine_name = self.ocr_engine.__class__.__name__.lower()
 
         for digest_dir in os.scandir(self.data_model.image_directory):
@@ -132,7 +93,6 @@ class OCRProcessingStage(ProcessingStage):
                         self.logger.warning(f"Failed to read image: {image_path}")
                         error_count += 1
                         continue
-                    # Convert BGR→RGB for non-PaddleOCR engines (PaddleOCR expects BGR)
                     if "paddle" not in engine_name:
                         with contextlib.suppress(Exception):
                             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -149,7 +109,6 @@ class OCRProcessingStage(ProcessingStage):
             )
             return
 
-        # Batch OCR calls in chunks of 1000 to avoid overflowing GPU memory.
         _BATCH_SIZE = 1000
         all_texts: list[str] = []
         for batch_start in range(0, len(all_images), _BATCH_SIZE):
@@ -160,11 +119,9 @@ class OCRProcessingStage(ProcessingStage):
                 self.logger.error(
                     f"OCR failed for batch starting at index {batch_start}: {e}"
                 )
-                # Fill with empty strings so all_texts stays aligned with all_metadata.
                 all_texts.extend("" for _ in batch)
                 error_count += len(batch)
 
-        # Second pass: write text files.
         processed_count = 0
         for (digest, page_num), text in zip(all_metadata, all_texts, strict=True):
             if self._write_page_text(digest, page_num, text):
@@ -178,7 +135,6 @@ class OCRProcessingStage(ProcessingStage):
         )
 
     def _write_page_text(self, digest: str, page_num: int, text: str) -> bool:
-        """Write a single page's extracted text, returning True on success."""
         try:
             txt_output_path = self.data_model.txt_page_path(digest, page_num)
             os.makedirs(os.path.dirname(txt_output_path), exist_ok=True)
