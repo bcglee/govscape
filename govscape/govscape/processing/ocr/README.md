@@ -4,19 +4,6 @@ This module provides OCR (Optical Character Recognition) functionality to extrac
 
 ## Architecture
 
-### Structure
-```
-processing/
-├── ocr/
-│   ├── __init__.py              # Package exports
-│   ├── base_ocr.py              # Abstract base class for OCR engines
-│   ├── easyocr_impl.py          # EasyOCR implementation
-│   ├── paddleocr_impl.py        # PaddleOCR implementation
-│   ├── olmocr_impl.py           # OLMOcr implementation
-│   └── ocrmypdf_impl.py         # OcrMyPDF/Tesseract implementation
-├── ocr_processing_stage.py      # Pipeline integration stage
-└── README.md                    # This file
-```
 
 ### Core Components
 
@@ -56,49 +43,6 @@ Integrates OCR into the processing pipeline:
 - Applies OCR extraction
 - Saves text to `{txt_directory}/{digest}/{digest}_{pg_no}.txt`
 - Follows the protocol defined in `DATA_MODEL.md`
-
-## Usage
-
-### Basic Usage with Processing Pipeline
-
-```python
-from govscape.config import DataModel
-from govscape.processing import OCRProcessingStage
-
-# Initialize data model
-data_model = DataModel("/path/to/data")
-
-# Create OCR processing stage with EasyOCR
-ocr_stage = OCRProcessingStage(
-    data_model=data_model,
-    ocr_type="easyocr",
-    languages=["en"],
-    gpu=False
-)
-
-# Validate and run
-ocr_stage.validate()
-ocr_stage.run()
-```
-
-### Direct OCR Engine Usage
-
-```python
-from govscape.processing.ocr import EasyOCRImpl
-import cv2
-
-# Create OCR engine
-ocr = EasyOCRImpl(languages=["en"], gpu=False)
-ocr.validate()
-
-# Load and process a batch of images
-image = cv2.imread("page.jpeg")
-image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-# extract_text takes a batch and returns one string per image
-texts = ocr.extract_text([image_rgb])
-print(texts[0])
-```
 
 ## Dependencies
 
@@ -187,42 +131,6 @@ txt/
     └── xyz789abc123xyz789abc123xyz789abc123_1.txt
 ```
 
-## Error Handling
-
-The module includes comprehensive error handling:
-- **Validation Errors**: Raised if OCR engine dependencies are missing
-- **Processing Errors**: Logged and skipped per image (doesn't stop the pipeline)
-- **Image Read Errors**: Logged and counted separately
-
-Check logs for details on failed extractions:
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-## Performance Considerations
-
-### Speed Comparison
-- **EasyOCR**: Moderate speed, good accuracy (GPU recommended for batch processing)
-- **PaddleOCR**: Fastest, good accuracy, efficient memory usage
-- **OLMOcr**: Varies by model, good for specialized content
-- **OcrMyPDF**: Moderate speed, widely supported
-
-### GPU Acceleration
-For faster processing with large document volumes:
-```python
-# EasyOCR with GPU
-OCRProcessingStage(data_model, ocr_type="easyocr", gpu=True)
-
-# PaddleOCR with GPU
-OCRProcessingStage(data_model, ocr_type="paddleocr", use_gpu=True)
-```
-
-### Memory Usage
-- EasyOCR: ~2-4GB per GPU instance
-- PaddleOCR: ~1-2GB per GPU instance
-- OcrMyPDF: ~500MB (CPU only)
-
 ## Extending the Module
 
 To add a new OCR engine:
@@ -261,25 +169,6 @@ poetry run pytest tests/test_ocr.py -v
 # Run specific OCR implementation test
 poetry run pytest tests/test_ocr.py::test_easyocr -v
 ```
-
-## Troubleshooting
-
-### ImportError: ocr library not found
-Install the extra for your chosen OCR engine (see the Dependencies section).
-
-### CUDA/GPU not available
-If GPU support fails, set `gpu=False` or `use_gpu=False` to use CPU-only mode.
-
-### Poor OCR accuracy
-- Try a different OCR engine
-- Preprocess images (resize, denoise) before extraction
-- Adjust language settings to match document content
-- Use PaddleOCR or EasyOCR for better accuracy on complex layouts
-
-### Out of memory errors
-- Reduce batch size
-- Use CPU-only mode
-- Process fewer pages at a time
 
 ## References
 
