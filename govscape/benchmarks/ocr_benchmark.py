@@ -1,60 +1,35 @@
-"""Benchmark OCR processing performance for synthetic PDF page images.
+"""Benchmark OCR processing performance using real PDFs from S3.
 
-This benchmark generates a temporary image dataset using the repository's
-DataModel layout, then runs the OCR processing stage for each selected OCR
-backend.
+Downloads PDFs from eot-pdf-archive/pdfs, extracts page images via
+PDFExtractionStage, then times each OCR engine.
 
 Example:
     poetry run python -m govscape.benchmarks.ocr_benchmark \
-        --documents 5 --pages-per-document 3 --engines easyocr paddleocr
+        --num-pdfs 10 --engines easyocr paddleocr
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-import random
 import shutil
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
+from botocore.config import Config
 from govscape.config import DataModel
+from govscape.data_loader import S3DataLoader
 from govscape.processing.ocr_processing_stage import OCRProcessingStage
+from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 
-if TYPE_CHECKING:
-    import numpy as np
-
-    import cv2
-    from PIL import Image, ImageDraw, ImageFont
-
-try:
-    import numpy as np
-except ImportError:  # pragma: no cover
-    np = None  # type: ignore[assignment]
-
-try:
-    import cv2
-except ImportError:  # pragma: no cover
-    cv2 = None  # type: ignore[assignment]
-
-try:
-    from PIL import Image, ImageDraw, ImageFont
-except ImportError:  # pragma: no cover
-    Image = None  # type: ignore[assignment]
-    ImageDraw = None  # type: ignore[assignment]
-    ImageFont = None  # type: ignore[assignment]
-
-
-DEFAULT_IMAGE_WIDTH = 768
-DEFAULT_IMAGE_HEIGHT = 1024
-DEFAULT_DOCUMENTS = 5
-DEFAULT_PAGES_PER_DOCUMENT = 2
+DEFAULT_BUCKET = "eot-pdf-archive"
+DEFAULT_PREFIX = "pdfs/"
+DEFAULT_NUM_PDFS = 10
 DEFAULT_ENGINES = ["easyocr", "paddleocr", "olmocr", "ocrmypdf"]
 
-ENGINE_DEFAULT_KWARGS: dict[str, dict[str, Any]] = {
+ENGINE_DEFAULT_KWARGS: dict[str, dict] = {
     "easyocr": {"languages": ["en"], "gpu": False},
     "paddleocr": {"language": "en", "use_gpu": False},
     "olmocr": {"model_name": "default"},
@@ -65,153 +40,79 @@ ENGINE_DEFAULT_KWARGS: dict[str, dict[str, Any]] = {
 @dataclass
 class BenchmarkResult:
     engine: str
-    documents: int
-    pages_per_document: int
     total_pages: int
-    width: int
-    height: int
     seconds: float
     pages_per_sec: float
     error: str | None = None
 
 
-def _build_text_image(text: str, width: int, height: int) -> Any:
-    if Image is not None and ImageDraw is not None and ImageFont is not None:
-        image = Image.new("RGB", (width, height), color=(255, 255, 255))
-        draw = ImageDraw.Draw(image)
-        try:
-            font = ImageFont.load_default()
-        except OSError:
-            font = None
+def download_pdfs(data_root: str, bucket: str, prefix: str, num_pdfs: int) -> list[str]:
+    """Download up to num_pdfs PDFs from S3 and return their local paths."""
+    loader = S3DataLoader(bucket_name=bucket, config=Config(max_pool_connections=60))
+    pdf_dir = os.path.join(data_root, "pdf")
+    os.makedirs(pdf_dir, exist_ok=True)
 
-        margin = 20
-        line_spacing = 8
-        y: int = margin
+    local_paths: list[str] = []
+    continuation_token = None
+    while len(local_paths) < num_pdfs:
+        result = loader.list_objects(
+            prefix=prefix,
+            max_keys=num_pdfs - len(local_paths),
+            continuation_token=continuation_token,
+        )
+        for key in result.keys:
+            if key.endswith(".pdf"):
+                local_path = os.path.join(pdf_dir, os.path.basename(key))
+                loader.download_file(key, local_path)
+                local_paths.append(local_path)
+                if len(local_paths) >= num_pdfs:
+                    break
+        if not result.is_truncated:
+            break
+        continuation_token = result.continuation_token
 
-        for line in text.splitlines():
-            if font is not None:
-                draw.text((margin, y), line, fill=(0, 0, 0), font=font)
-                bbox = draw.textbbox((margin, y), line, font=font)
-                line_height = int(bbox[3] - bbox[1])
-            else:
-                draw.text((margin, y), line, fill=(0, 0, 0))
-                line_height = 12
-            y += line_height + line_spacing
-            if y > height - margin:
-                break
+    return local_paths
 
-        return image
 
-    if cv2 is not None:
-        if np is None:
-            raise ImportError(
-                "NumPy is required to generate images with OpenCV. "
-                "Install it with: pip install numpy"
-            )
-
-        image = np.full((height, width, 3), 255, dtype=np.uint8)
-        margin = 20
-        line_spacing = 24
-        y = margin
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 0.5
-        thickness = 1
-
-        for line in text.splitlines():
-            cv2.putText(
-                image,
-                line,
-                (margin, y),
-                font,
-                scale,
-                (0, 0, 0),
-                thickness,
-                lineType=cv2.LINE_AA,
-            )
-            y += int(18 * scale) + line_spacing
-            if y > height - margin:
-                break
-
-        return image
-
-    raise ImportError(
-        "Pillow or OpenCV is required to generate synthetic OCR images. "
-        "Install pillow with `pip install pillow` or "
-        "opencv-python with `pip install opencv-python`."
+def extract_images(data_model: DataModel, pdf_files: list[str]) -> int:
+    """Extract page images from PDFs and return total image count."""
+    stage = PDFExtractionStage(
+        data_model=data_model,
+        pdf_files=pdf_files,
+        cpu_count=os.cpu_count() or 1,
     )
+    stage.validate()
+    stage.run()
 
-
-def _make_page_text(digest: str, page_no: int, seed: int) -> str:
-    rng = random.Random(seed + page_no)
-    words = [f"word{rng.randint(10, 999)}" for _ in range(10)]
-    lines = [f"Document: {digest}", f"Page: {page_no + 1}", ""]
-    lines.extend(" ".join(words[i : i + 5]) for i in range(0, len(words), 5))
-    return "\n".join(lines)
-
-
-def generate_image_dataset(
-    data_model: DataModel,
-    documents: int,
-    pages_per_document: int,
-    width: int,
-    height: int,
-    seed: int,
-) -> int:
-    if documents <= 0 or pages_per_document <= 0:
-        raise ValueError("documents and pages_per_document must both be positive")
-
+    total = 0
     if os.path.isdir(data_model.image_directory):
-        shutil.rmtree(data_model.image_directory)
-    os.makedirs(data_model.image_directory, exist_ok=True)
-
-    total_pages = 0
-    rng = random.Random(seed)
-
-    for doc_index in range(documents):
-        digest = f"doc_{doc_index:06d}"
-        digest_dir = data_model.img_pdf_directory(digest)
-        os.makedirs(digest_dir, exist_ok=True)
-
-        for page_no in range(pages_per_document):
-            page_text = _make_page_text(digest, page_no, seed + rng.randint(0, 9999))
-            image = _build_text_image(page_text, width, height)
-            image_path = data_model.img_page_path(digest, page_no)
-            if cv2 is not None and isinstance(image, np.ndarray):
-                cv2.imwrite(image_path, image)
-            else:
-                image.save(image_path, format="JPEG", quality=90)
-            total_pages += 1
-
-    return total_pages
+        for digest_dir in os.scandir(data_model.image_directory):
+            if digest_dir.is_dir():
+                total += sum(
+                    1 for f in os.listdir(digest_dir.path) if f.endswith(".jpeg")
+                )
+    return total
 
 
 def select_engines(requested: Sequence[str]) -> list[str]:
     if not requested:
         return DEFAULT_ENGINES
-
     selected = []
     for engine in requested:
         normalized = engine.lower()
         if normalized not in DEFAULT_ENGINES:
-            supported = ", ".join(DEFAULT_ENGINES)
             raise ValueError(
-                f"Unknown engine '{engine}'. Supported engines: {supported}"
+                f"Unknown engine '{engine}'. "
+                f"Supported engines: {', '.join(DEFAULT_ENGINES)}"
             )
         selected.append(normalized)
     return selected
 
 
 def benchmark_engine(
-    engine: str,
-    data_model: DataModel,
-    documents: int,
-    pages_per_document: int,
-    width: int,
-    height: int,
+    engine: str, data_model: DataModel, total_pages: int
 ) -> BenchmarkResult:
-    total_pages = documents * pages_per_document
     engine_kwargs = ENGINE_DEFAULT_KWARGS.get(engine, {})
-
     try:
         stage = OCRProcessingStage(
             data_model=data_model, ocr_type=engine, **engine_kwargs
@@ -227,43 +128,33 @@ def benchmark_engine(
         pages_per_sec = total_pages / runtime if runtime > 0 else float("inf")
         return BenchmarkResult(
             engine=engine,
-            documents=documents,
-            pages_per_document=pages_per_document,
             total_pages=total_pages,
-            width=width,
-            height=height,
             seconds=runtime,
             pages_per_sec=pages_per_sec,
         )
-    except Exception as error:  # pylint: disable=broad-except
+    except Exception as error:
         return BenchmarkResult(
             engine=engine,
-            documents=documents,
-            pages_per_document=pages_per_document,
             total_pages=total_pages,
-            width=0,
-            height=0,
             seconds=0.0,
             pages_per_sec=0.0,
             error=str(error),
         )
 
 
-def format_results(results: list[BenchmarkResult], width: int, height: int) -> str:
+def format_results(results: list[BenchmarkResult]) -> str:
     header = (
-        f"{'Engine':<12} {'Docs':>5} {'Pages':>5} {'Width':>6} {'Height':>6} "
-        f"{'Seconds':>10} {'Pages/s':>10} {'Status':>12}"
+        f"{'Engine':<12} {'Pages':>6} {'Seconds':>10} {'Pages/s':>10} {'Status':>8}"
     )
     lines = [header, "-" * len(header)]
     for result in results:
         status = "OK" if result.error is None else "FAILED"
         lines.append(
-            f"{result.engine:<12} {result.documents:>5} {result.total_pages:>5} "
-            f"{width:>6} {height:>6} {result.seconds:>10.4f} "
-            f"{result.pages_per_sec:>10.2f} {status:>12}"
+            f"{result.engine:<12} {result.total_pages:>6} {result.seconds:>10.4f} "
+            f"{result.pages_per_sec:>10.2f} {status:>8}"
         )
         if result.error is not None:
-            lines.append(f"Error: {result.error}")
+            lines.append(f"  Error: {result.error}")
     return "\n".join(lines)
 
 
@@ -272,28 +163,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         description="Benchmark OCR processing performance."
     )
     parser.add_argument(
-        "--documents",
+        "--num-pdfs",
         type=int,
-        default=DEFAULT_DOCUMENTS,
-        help="Number of synthetic documents to generate.",
+        default=DEFAULT_NUM_PDFS,
+        help="Number of PDFs to download from S3.",
     )
     parser.add_argument(
-        "--pages-per-document",
-        type=int,
-        default=DEFAULT_PAGES_PER_DOCUMENT,
-        help="Number of pages to generate per document.",
+        "--bucket",
+        default=DEFAULT_BUCKET,
+        help="S3 bucket name.",
     )
     parser.add_argument(
-        "--width",
-        type=int,
-        default=DEFAULT_IMAGE_WIDTH,
-        help="Synthetic page image width in pixels.",
-    )
-    parser.add_argument(
-        "--height",
-        type=int,
-        default=DEFAULT_IMAGE_HEIGHT,
-        help="Synthetic page image height in pixels.",
+        "--prefix",
+        default=DEFAULT_PREFIX,
+        help="S3 key prefix for PDFs.",
     )
     parser.add_argument(
         "--engines",
@@ -305,18 +188,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--data-root",
         type=Path,
         default=Path("./.ocr_benchmark_data"),
-        help="Temporary data root for synthetic OCR dataset.",
+        help="Local directory for downloaded PDFs and extracted images.",
     )
     parser.add_argument(
         "--keep-data",
         action="store_true",
-        help="Keep generated benchmark data after the run.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for dataset generation.",
+        help="Keep benchmark data after the run.",
     )
     return parser.parse_args(argv)
 
@@ -329,32 +206,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     os.makedirs(args.data_root, exist_ok=True)
 
     data_model = DataModel(str(args.data_root))
-    generate_image_dataset(
-        data_model=data_model,
-        documents=args.documents,
-        pages_per_document=args.pages_per_document,
-        width=args.width,
-        height=args.height,
-        seed=args.seed,
+
+    print(f"Downloading {args.num_pdfs} PDFs from s3://{args.bucket}/{args.prefix} ...")
+    pdf_files = download_pdfs(
+        str(args.data_root), args.bucket, args.prefix, args.num_pdfs
     )
+    print(f"Downloaded {len(pdf_files)} PDFs. Extracting page images ...")
+    total_pages = extract_images(data_model, pdf_files)
+    print(f"Extracted {total_pages} page images.")
 
     engines = select_engines(args.engines or [])
     results: list[BenchmarkResult] = []
 
     for engine in engines:
         print(f"Running OCR benchmark for engine: {engine}")
-        results.append(
-            benchmark_engine(
-                engine,
-                data_model,
-                args.documents,
-                args.pages_per_document,
-                args.width,
-                args.height,
-            )
-        )
+        results.append(benchmark_engine(engine, data_model, total_pages))
 
-    print(format_results(results, args.width, args.height))
+    print(format_results(results))
 
     if not args.keep_data:
         shutil.rmtree(args.data_root, ignore_errors=True)
