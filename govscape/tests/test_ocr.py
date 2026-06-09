@@ -1,7 +1,4 @@
-"""Tests for OCR implementations and OCRProcessingStage.
-
-AI modified: 2026-05-15 unknown
-"""
+"""Tests for OCR implementations and OCRProcessingStage."""
 
 import os
 import tempfile

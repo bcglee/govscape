@@ -1,4 +1,3 @@
-# AI modified: 2026-05-10 c0b26991
 """Benchmark OCR processing performance for synthetic PDF page images.
 
 This benchmark generates a temporary image dataset using the repository's

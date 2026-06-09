@@ -61,7 +61,7 @@ class OcrMyPDFImpl(BaseOCR):
         Returns:
             Extracted text as a string.
         """
-        if self.validate is None:
+        if pytesseract is None:
             self.validate()
 
         try:

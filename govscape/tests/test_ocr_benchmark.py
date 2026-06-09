@@ -1,4 +1,3 @@
-# AI modified: 2026-05-10 c0b26991
 """Smoke tests for the OCR benchmark script."""
 
 import importlib.util

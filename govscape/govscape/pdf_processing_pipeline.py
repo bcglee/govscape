@@ -17,7 +17,7 @@ class PDFProcessingPipeline:
         data_dir: str,
         text_model_type: str,
         visual_model_type: str,
-        ocr_type: str = None,
+        ocr_type: str | None = None,
         **ocr_kwargs,
     ):
         self.data_model = DataModel(data_dir)
@@ -56,6 +56,8 @@ class PDFProcessingPipeline:
         logging.info(parsed_summary)
 
         time2 = time.time()
+        if do_ocr and not self.ocr_type:
+            logging.warning("do_ocr=True but no ocr_type set; skipping OCR stage")
         if do_ocr and self.ocr_type:
             logging.info(f"Running OCR extraction using {self.ocr_type}")
             ocr_stage = OCRProcessingStage(
