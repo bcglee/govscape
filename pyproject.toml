@@ -6,7 +6,6 @@ description = ""
 authors = ["kylebd99 <kdeeds@bu.edu>"]
 readme = "README.md"
 
-
 [tool.poetry.dependencies]
 python = ">=3.11, <=3.14"
 argparse = "^1.4.0"
