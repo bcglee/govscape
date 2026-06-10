@@ -8,12 +8,11 @@ import time
 
 import numpy as np
 
+import govscape as gs
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.indexing import DuckDBMetadataIndex, SQLiteMetadataIndex
 from govscape.utils import base_argument_parser
-
-import govscape as gs
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

@@ -8,9 +8,10 @@ import duckdb
 import pyarrow.parquet as pq
 import pypdfium2
 import requests
+from warcio.archiveiterator import ArchiveIterator
+
 from govscape.data_loader import DataLoader, build_data_loader
 from govscape.utils import base_argument_parser
-from warcio.archiveiterator import ArchiveIterator
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

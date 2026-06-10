@@ -1,7 +1,7 @@
 dist
-govscape/govscape/**/__pycache__
-govscape/tests/**/__pycache__
-govscape/data/*
+govscape/**/__pycache__
+tests/**/__pycache__
+data/*
 .venv
 .containervenv
 data
@@ -22,4 +22,5 @@ scripts/__pycache__/*
 .keyword_index_gov_benchmark/*
 .metadata_index_benchmark/*
 .vector_index_benchmark/*
+.ocr_benchmark_data/*
 **/__pycache__/*

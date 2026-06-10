@@ -1,30 +1,75 @@
 # src/pyproject.toml
 [tool.poetry]
-name = "scripts"
+name = "govscape"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <your@name.com>"]
-package-mode = false
+authors = ["kylebd99 <kdeeds@bu.edu>"]
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.11, <=3.14"
-govscape = { path = "govscape", develop = true }
+argparse = "^1.4.0"
+awscli = "^1.42.66"
 boto3 = "^1.39.4"
-warcio = "^1.7.5"
-pandas = "^2.3.1"
-pyarrow = "^21.0.0"
+botocore = {extras = ["crt"], version = "^1.42.39"}
+duckdb = "^1.4.4"
+faiss-cpu = "1.11.0"
+flask = "3.1.0"
+flask-cors = "5.0.1"
+flask-restx = "1.3.0"
 gunicorn = "^23.0.0"
+lancedb = "^0.25.2"
+mypy = "^1.19.1"
+npm = "^0.1.1"
+numpy = "^1.25.0"
+pandas = "^2.3.1"
+pdf2image = "^1.17.0"
+pdfplumber = "^0.11.5"
+pre-commit = "^4.5.1"
+pyarrow = "^21.0.0"
+pymupdf = "^1.25.5"
+pynvml = "^12.0.0"
+pypdfium2 = "^4.30"
+pytest = "^8.4.0"
+pytest-mypy = "^1.0.1"
+reportlab = "^4.4.1"
 s5cmd = "^0.3.3"
 scipy = "^1.13"
-npm = "^0.1.1"
-awscli = "^1.42.66"
-botocore = {extras = ["crt"], version = "^1.42.39"}
-mypy = "^1.19.1"
-pre-commit = "^4.5.1"
-pytest-mypy = "^1.0.1"
+sentence-transformers = "^4.0.1"
+torch = "^2.6.0"
 torchvision = "^0.25.0"
-duckdb = "^1.4.4"
+transformers = "4.50.3"
+warcio = "^1.7.5"
+whoosh = "^2.7.4"
 
+# Optional OCR engine backends. Each implementation guards its import, so these
+# are only required when the corresponding `ocr_type` is used. Install a backend
+# with e.g. `poetry install --extras ocr` (all engines) or `--extras easyocr`.
+# Note: the `ocrmypdf` backend also needs the Tesseract system binary, which is
+# not a Python package (see the module README).
+easyocr = { version = "^1.7.0", optional = true }
+ocrmypdf = { version = "^16.0.0", optional = true }
+olmocr = { version = "^0.1.0", optional = true }
+opencv-python = { version = "^4.9.0", optional = true }
+paddleocr = { version = "^2.7.0", optional = true }
+paddlepaddle = { version = "^2.6.0", optional = true }
+pytesseract = { version = "^0.3.10", optional = true }
+setuptools = "^82.0.1"
+
+[tool.poetry.extras]
+easyocr = ["opencv-python", "easyocr"]
+paddleocr = ["opencv-python", "paddleocr", "paddlepaddle"]
+olmocr = ["opencv-python", "olmocr"]
+ocrmypdf = ["opencv-python", "ocrmypdf", "pytesseract"]
+ocr = [
+    "opencv-python",
+    "easyocr",
+    "paddleocr",
+    "paddlepaddle",
+    "olmocr",
+    "ocrmypdf",
+    "pytesseract",
+]
 
 [build-system]
 requires = ["poetry-core"]

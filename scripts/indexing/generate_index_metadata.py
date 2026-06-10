@@ -5,6 +5,7 @@ import shutil
 import time
 
 import duckdb
+
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.indexing import DuckDBMetadataIndex, SQLiteMetadataIndex

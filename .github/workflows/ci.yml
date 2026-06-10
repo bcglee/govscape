@@ -21,7 +21,7 @@ jobs:
           /opt/poetry/bin/poetry install
       - name: Run tests
         run: |
-          /opt/poetry/bin/poetry run pytest govscape/tests
+          /opt/poetry/bin/poetry run pytest tests
       - uses: codecov/codecov-action@v5
 
 on:
