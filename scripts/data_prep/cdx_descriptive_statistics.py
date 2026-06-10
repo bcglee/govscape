@@ -3,6 +3,7 @@ import os
 import tempfile
 
 import duckdb
+
 from govscape.data_loader import build_data_loader
 from govscape.utils import base_argument_parser
 
