@@ -97,7 +97,6 @@ def _process_one_pdf(args: tuple) -> str:
 
 def main() -> None:
     parser = base_argument_parser(description="Retrieve PDFs from S3 & store them.")
-    parser.add_argument("--bucket_name", required=True, help="Output S3 bucket name")
     parser.add_argument(
         "--cdx_parquet",
         required=True,
