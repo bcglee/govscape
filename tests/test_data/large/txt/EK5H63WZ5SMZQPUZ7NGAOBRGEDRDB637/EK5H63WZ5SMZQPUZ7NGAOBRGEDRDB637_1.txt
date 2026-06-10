@@ -1,0 +1,8 @@
+IPM:
+Phenological
+Regulatory
+Physical
+Mechanical
+Biological
+Chemical
+Cultural

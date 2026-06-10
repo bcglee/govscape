@@ -1,0 +1,343 @@
+# AI modified: 2026-03-08 f62d40b8
+# AI modified: 2026-03-14 4a6b1b72
+# AI modified: 2026-04-26 00:00:00 341724af
+# This file defines the logic for serving requests to the user.
+import math
+import os
+import time
+
+import boto3
+from flask import Flask
+from flask_cors import CORS
+
+from govscape.indexing.keyword import AbstractKeywordIndex
+
+from .api import init_api
+from .config import ServerConfig
+from .indexing import (
+    FAISSIndex,
+    HybridKeywordMetadataIndex,
+    HybridVectorMetadataIndex,
+    LanceDBKeywordIndex,
+    LuceneKeywordIndex,
+    SQLiteKeywordIndex,
+    SQLiteMetadataIndex,
+    WhooshKeywordIndex,
+)
+from .query import Query, Response
+
+
+# basic pipeline developed:
+# 1. accept a query until EOF detected
+# 2. run an embedding model on the query
+# 3. return a list of files that are most similar to the query - utilize
+#    FAISS to do this
+class Server:
+    # obtain all the setup information from configuration
+    def __init__(self, config: ServerConfig):
+        self.config = config
+
+        # Data model — single source of truth for all directory paths
+        self.data_model = config.data_model
+        self.vector_index_type = config.vector_index_type
+        self.keyword_index_type = config.keyword_index_type
+        self.k = config.k
+        self.max_crawl_instances = config.max_crawl_instances
+
+        # Model Params
+        self.text_model = config.text_model
+        self.text_d = config.text_d
+
+        self.visual_model = config.visual_model
+        self.visual_d = config.visual_d
+
+        if self.vector_index_type == "Memory":
+            self.text_index = FAISSIndex(self.data_model.index_directory)
+            self.visual_index = FAISSIndex(self.data_model.index_img_pg_directory)
+        else:
+            raise ValueError(f"Unsupported vector index type: {self.vector_index_type}")
+        self.text_index.load_index()
+        self.visual_index.load_index()
+
+        if self.keyword_index_type == "LanceDB":
+            self.keyword_index: AbstractKeywordIndex = LanceDBKeywordIndex(
+                self.data_model.index_keyword_directory
+            )
+        elif self.keyword_index_type == "SQLite":
+            self.keyword_index = SQLiteKeywordIndex(
+                self.data_model.index_keyword_directory
+            )
+        elif self.keyword_index_type == "Whoosh":
+            self.keyword_index = WhooshKeywordIndex(
+                self.data_model.index_keyword_directory
+            )
+        elif self.keyword_index_type == "Lucene":
+            self.keyword_index = LuceneKeywordIndex(
+                self.data_model.index_keyword_directory
+            )
+        else:
+            raise ValueError(
+                f"Unsupported keyword index type: {self.keyword_index_type}"
+            )
+        self.keyword_index.load_index()
+
+        self.metadata_index = SQLiteMetadataIndex(
+            self.data_model.index_metadata_directory
+        )
+        self.metadata_index.load_index()
+
+        self.text_hybrid_index = HybridVectorMetadataIndex(
+            self.text_index,
+            self.metadata_index,
+            vector_store_key="text",
+        )
+        self.visual_hybrid_index = HybridVectorMetadataIndex(
+            self.visual_index,
+            self.metadata_index,
+            vector_store_key="visual",
+        )
+        self.keyword_hybrid_index = HybridKeywordMetadataIndex(
+            self.keyword_index,
+            self.metadata_index,
+        )
+
+        self.blacklist: set[str] = self._load_blacklist()
+
+        self.s3 = boto3.client("s3")
+
+        # Get the absolute path to the build directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        build_dir = os.path.abspath(
+            os.path.join(current_dir, "..", "..", "interface", "build")
+        )
+
+        print(f"Static files directory: {build_dir}")
+        if not os.path.exists(build_dir):
+            print(f"Warning: Build directory does not exist: {build_dir}")
+            print("Please run 'npm run build' in the interface directory first")
+
+        # Initialize Flask app and API
+        self.app = Flask(__name__, static_folder=build_dir, static_url_path="")
+        # TODO: Remove localhost:5173 soon for security concerns
+        CORS(
+            self.app,
+            origins=["https://govscape.net", "http://localhost:5173"],
+            supports_credentials=True,
+        )
+
+        @self.app.route("/")
+        def serve_index():
+            print("Serving index.html")
+            return self.app.send_static_file("index.html")
+
+        self.app.server = self  # type: ignore[attr-defined]
+        self.api = init_api(self.app)
+
+    def _load_blacklist(self) -> set[str]:
+        path = self.data_model.blacklist_file
+        if not os.path.exists(path):
+            print(f"No blacklist file at {path}; starting with empty blacklist")
+            return set()
+        try:
+            with open(path, encoding="utf-8") as f:
+                entries = {
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.strip().startswith("#")
+                }
+            print(f"Loaded {len(entries)} blacklist entries")
+            return entries
+        except OSError as e:
+            print(f"Warning: failed to read blacklist at {path}: {e}")
+            return set()
+
+    def search(self, query: Query) -> Response:
+        search_type = query.search_type
+        predicates = query.predicates
+        page = query.page
+
+        results_needed_for_page = (
+            page * self.k + 1
+        )  # we need one extra result to check if there is a next page
+
+        if search_type == "textual":
+            query_embedding = self.text_model.encode_text(query.q_text, is_query=True)
+            start = time.time()
+            rows, pdf_metadata, state = self.text_hybrid_index.search(
+                query_embedding,
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            print(
+                "Search type: "
+                f"{search_type}, strategy: {state.strategy}, "
+                f"results found after filtering: {len(rows)}"
+            )
+            search_results = self._build_search_results(rows, pdf_metadata)
+
+        elif search_type == "visual":
+            query_embedding = self.visual_model.encode_text(query.q_text)
+            start = time.time()
+            rows, pdf_metadata, state = self.visual_hybrid_index.search(
+                query_embedding,
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            print(
+                "Search type: "
+                f"{search_type}, strategy: {state.strategy}, "
+                f"results found after filtering: {len(rows)}"
+            )
+            search_results = self._build_search_results(rows, pdf_metadata)
+
+        elif search_type == "keyword":
+            query_text = query.q_text
+            start = time.time()
+            rows, pdf_metadata, state = self.keyword_hybrid_index.search(
+                query_text,
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            print(
+                "Search type: "
+                f"{search_type}, strategy: {state.strategy}, "
+                f"results found after filtering: {len(rows)}"
+            )
+            search_results = self._build_search_results(rows, pdf_metadata)
+        else:
+            raise ValueError(f"Unsupported search type: {search_type}")
+
+        start_index = (page - 1) * self.k
+        end_index = start_index + self.k
+
+        total_count = self._get_total_pdfs_count() or 0
+        total_pages = math.ceil(total_count / self.k) if total_count else 0
+
+        return Response(
+            results=search_results[start_index:end_index],
+            pagination={
+                "page": page,
+                "page_size": self.k,
+                "has_next_page": len(search_results) > end_index,
+                "total_count": total_count,
+                "total_pages": total_pages,
+            },
+        )
+
+    def _build_search_results(self, rows, pdf_metadata):
+        search_results: list[dict] = []
+        for distance, name, page_num in rows:
+            metadata = pdf_metadata.get(name, None)
+            if metadata:
+                all_records = sorted(
+                    metadata, key=lambda r: r.get("crawl_date", ""), reverse=True
+                )
+                has_more_crawls = len(all_records) > self.max_crawl_instances
+                limited_records = all_records[: self.max_crawl_instances]
+                newest = all_records[0]
+                jpeg_file = self.data_model.img_page_path(name, int(page_num))
+                search_results.append(
+                    {
+                        "pdf": name,
+                        "page": page_num,
+                        "distance": float(distance),
+                        "jpeg": jpeg_file,
+                        "crawl_url": newest.get("crawl_url", ""),
+                        "crawl_date": newest.get("crawl_date", ""),
+                        "sub_domain": newest.get("sub_domain", ""),
+                        "has_more_crawls": has_more_crawls,
+                        "crawl_instances": [
+                            {
+                                "crawl_url": r.get("crawl_url", ""),
+                                "crawl_date": r.get("crawl_date", ""),
+                                "sub_domain": r.get("sub_domain", ""),
+                            }
+                            for r in limited_records
+                        ],
+                    }
+                )
+        return search_results
+
+    def pdf_pages(self, pdf_id):
+        """
+        Get all page images and metadata for a PDF by pdf_id.
+        Returns dict with 'images', 'crawl_url', 'crawl_date', 'sub_domain'
+        (newest crawl), and 'crawl_instances' (all crawls, newest first).
+        """
+        if not pdf_id:
+            return {"error": "Missing 'pdf_id' parameter"}, 400
+
+        if pdf_id in self.blacklist:
+            return {
+                "images": [],
+                "crawl_url": "",
+                "crawl_date": "",
+                "sub_domain": "",
+                "has_more_crawls": False,
+                "crawl_instances": [],
+            }
+
+        md = self.metadata_index.search([pdf_id]) or {}
+        records = md.get(pdf_id) or [{}]
+
+        # Sort all crawl records newest-first; crawl_date is YYYY-MM-DD so
+        # lexicographic descending sort is correct.
+        records = sorted(records, key=lambda r: r.get("crawl_date", ""), reverse=True)
+        has_more_crawls = len(records) > self.max_crawl_instances
+        limited_records = records[: self.max_crawl_instances]
+        newest = records[0]
+
+        crawl_url = newest.get("crawl_url", "")
+        crawl_date = newest.get("crawl_date", "")
+        sub_domain = newest.get("sub_domain", "")
+        page_count = int(newest.get("page_count", 0))
+
+        images = [self.data_model.img_page_path(pdf_id, i) for i in range(page_count)]
+
+        crawl_instances = [
+            {
+                "crawl_url": r.get("crawl_url", ""),
+                "crawl_date": r.get("crawl_date", ""),
+                "sub_domain": r.get("sub_domain", ""),
+            }
+            for r in limited_records
+        ]
+
+        return {
+            "images": images,
+            "crawl_url": crawl_url,
+            "crawl_date": crawl_date,
+            "sub_domain": sub_domain,
+            "has_more_crawls": has_more_crawls,
+            "crawl_instances": crawl_instances,
+        }
+
+    def _get_total_pdfs_count(self):
+        if hasattr(self, "_total_pdfs_cache"):
+            return self._total_pdfs_cache
+
+        total_pdfs_path = self.data_model.stats_file
+
+        if not total_pdfs_path or not os.path.exists(total_pdfs_path):
+            return 0
+
+        try:
+            with open(total_pdfs_path, encoding="utf-8") as f:
+                content = f.read().strip()
+                self._total_pdfs_cache = int(content)
+                return self._total_pdfs_cache
+
+        except Exception as e:
+            print(f"Error reading total_pdfs.txt: {str(e)}")
+            self._total_pdfs_cache = 0
+            return 0
+
+    def run(self, host="localhost", port=8080, debug=False):
+        """Run the Flask server."""
+        self.app.run(host=host, port=port, debug=debug, threaded=True)
