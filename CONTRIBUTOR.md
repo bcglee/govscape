@@ -140,7 +140,7 @@ You can pull this data from the S3 bucket by using:
 
 ```
 poetry run python scripts/data_prep/download_sample_pdfs.py \
-    --bucket_name bcgl-public-bucket \
+    --bucket_name eot-pdf-archive \
     --local_base_dir data/s3_mock \
     --num_pdfs 500
 ```
