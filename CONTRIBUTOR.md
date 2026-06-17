@@ -139,11 +139,25 @@ To do this, you need to start by creating a directory within govscape/data that 
 You can pull this data from the S3 bucket by using:
 
 ```
-poetry run python scripts/data_prep/download_test_data.py \
+poetry run python scripts/data_prep/download_sample_pdfs.py \
     --bucket_name bcgl-public-bucket \
     --local_base_dir data/s3_mock \
     --num_pdfs 500
 ```
+
+To work with a focused subset of the data, you can restrict the download to PDFs
+whose original source URL contains a given substring using the optional
+`--url_filter` argument (case-insensitive). For example, to pull only PDFs served
+from EPA domains:
+
+```
+poetry run python scripts/data_prep/download_sample_pdfs.py \
+    --bucket_name eot-pdf-archive \
+    --local_base_dir data/s3_mock \
+    --num_pdfs 500 \
+    --url_filter epa.gov
+```
+Omit `--url_filter` to download an unfiltered sample.
 
 
 ### Creating the embeddings
