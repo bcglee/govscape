@@ -58,11 +58,14 @@ def main():
         logging.info("CDX download complete")
 
     # Determine which PDFs to download by querying the CDX for matching digests.
+    # Order randomly so we download a random sample rather than the first
+    # num_pdfs digests in CDX order.
     query = "SELECT DISTINCT digest FROM read_parquet(?)"
     params = [local_cdx_path]
     if args.url_filter:
         query += " WHERE lower(url) LIKE ?"
         params.append(f"%{args.url_filter.lower()}%")
+    query += " ORDER BY random()"
     digests = [row[0] for row in duckdb.connect().execute(query, params).fetchall()]
     logging.info("CDX query matched %d candidate digests", len(digests))
 
