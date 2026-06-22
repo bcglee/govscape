@@ -16,12 +16,15 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+      - name: Add poetry to path
+        run: |
+          export PATH=$PATH:/opt/poetry/bin
       - name: Install packages
         run: |
-          /opt/poetry/bin/poetry install
+          poetry install
       - name: Run tests
         run: |
-          /opt/poetry/bin/poetry run pytest tests
+          poetry run pytest tests
       - uses: codecov/codecov-action@v5
 
 on:
