@@ -80,6 +80,9 @@ def main():
             break
         remote_key = f"{REMOTE_PDF_DIR}{digest}.pdf"
         if not data_loader.exists(remote_key):
+            logging.warning(
+                f"Warning: PDF for digest {remote_key} not found in bucket, skipping"
+            )
             continue
         local_path = os.path.join(local_pdf_dir, f"{digest}.pdf")
         data_loader.download_file(remote_key, local_path)

@@ -514,7 +514,6 @@ class RemoteDirectoryIterator:
         """Shut down the cached multiprocessing pool, if any."""
         if self._mp_pool is not None:
             self._mp_pool.terminate()
-            self._mp_pool.join()
             self._mp_pool = None
 
     def __enter__(self) -> Self:

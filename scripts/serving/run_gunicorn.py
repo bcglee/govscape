@@ -43,19 +43,21 @@ def download_indices(args):
         (remote_dm.index_img_pg_directory, local_dm.index_img_pg_directory),
         (remote_dm.index_metadata_directory, local_dm.index_metadata_directory),
     ]:
-        remote_iter = RemoteDirectoryIterator(
+        with RemoteDirectoryIterator(
             data_loader,
             remote_dir,
             REMOTE_CHECKPOINT_PATH,
             LOCAL_CHECKPOINT_PATH,
             local_dir,
-        )
-        finished = False
-        while not finished:
-            downloaded_files = remote_iter.download_batch()
-            if len(downloaded_files) == 0:
-                finished = True
-                print(f"Finished downloading indices from {remote_dir} to {local_dir}")
+        ) as remote_iter:
+            finished = False
+            while not finished:
+                downloaded_files = remote_iter.download_batch()
+                if len(downloaded_files) == 0:
+                    finished = True
+                    print(
+                        f"Finished downloading indices from {remote_dir} to {local_dir}"
+                    )
 
     remote_blacklist = remote_dm.blacklist_file
     local_blacklist = local_dm.blacklist_file

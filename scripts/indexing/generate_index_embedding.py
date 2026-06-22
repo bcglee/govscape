@@ -259,4 +259,7 @@ if __name__ == "__main__":
     def main():
         batched_file_download(BATCH_SIZE)
 
-    main()
+    try:
+        main()
+    finally:
+        remote_iter.close()

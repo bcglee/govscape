@@ -83,6 +83,8 @@ def test_data_loader_continuation_token(
     assert len(result2) == 2
     remote_iter.save_checkpoint()
 
+    remote_iter.close()
+
     # New iter should resume from checkpoint
     remote_iter2 = RemoteDirectoryIterator(
         loader,
@@ -98,6 +100,8 @@ def test_data_loader_continuation_token(
     # No more files to download
     result4 = remote_iter2.download_batch(max_keys=2)
     assert len(result4) == 0
+
+    remote_iter2.close()
 
 
 def test_upload_directory_compressed(loader: DataLoader, tmp_path: Path) -> None:
@@ -268,6 +272,8 @@ def test_remote_directory_iterator_compressed(
 
     # --- Verify checkpointing: a new iterator should have nothing left ---
     remote_iter.save_checkpoint()
+    remote_iter.close()
+
     remote_iter2 = RemoteDirectoryIterator(
         loader,
         remote_prefix,
@@ -279,3 +285,4 @@ def test_remote_directory_iterator_compressed(
     batch2 = remote_iter2.download_batch(max_keys=4)
     # The first iterator consumed all pages, so the second should be empty.
     assert len(batch2) == 0
+    remote_iter2.close()
