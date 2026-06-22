@@ -1,10 +1,19 @@
 import math
 import os
+import uuid
 from pathlib import Path
 
 import pytest
 
-from govscape.data_loader import LocalDataLoader, RemoteDirectoryIterator
+import boto3
+from botocore.config import Config
+
+from govscape.data_loader import (
+    DataLoader,
+    LocalDataLoader,
+    RemoteDirectoryIterator,
+    S3DataLoader,
+)
 
 
 def _touch(path: Path) -> None:
@@ -12,26 +21,53 @@ def _touch(path: Path) -> None:
     path.write_text("x")
 
 
+@pytest.fixture(params=["local", "s3"])
+def loader(request: pytest.FixtureRequest, tmp_path: Path) -> DataLoader:
+    """Provide a DataLoader for each backend so a single test covers both.
+
+    The ``local`` variant stores objects under ``tmp_path``. The ``s3`` variant
+    talks to the session-scoped moto mock server (see ``tests/conftest.py``);
+    each test gets a freshly created, uniquely named bucket for isolation.
+    """
+    if request.param == "local":
+        return LocalDataLoader(base_dir=str(tmp_path / "data"))
+
+    endpoint = request.getfixturevalue("moto_server")
+    bucket = f"test-bucket-{uuid.uuid4().hex[:12]}"
+    config = Config(max_pool_connections=10)
+    client = boto3.client("s3", endpoint_url=endpoint, config=config)
+    client.create_bucket(Bucket=bucket)
+    return S3DataLoader(bucket_name=bucket, config=config, s3_client=client)
+
+
+def _remote_basenames(loader: DataLoader, prefix: str) -> list[str]:
+    """Return the sorted basenames of objects stored under ``prefix``.
+
+    Uses the backend-agnostic ``list_objects`` interface so the same assertion
+    works for both the local and S3 loaders.
+    """
+    keys = loader.list_objects(prefix, max_keys=100000).keys
+    return sorted(os.path.basename(key) for key in keys)
+
+
 @pytest.mark.parametrize("use_multiprocessing", [False, True])
-def test_local_data_loader_continuation_token(
-    tmp_path: Path, use_multiprocessing: bool
+def test_data_loader_continuation_token(
+    loader: DataLoader, tmp_path: Path, use_multiprocessing: bool
 ) -> None:
-    base_dir = tmp_path / "data"
-    checkpoint_path = tmp_path / "checkpoint.json"
+    checkpoint_path = "checkpoint.json"
     local_checkpoint_path = tmp_path / "local_checkpoint.json"
 
     download_dir = tmp_path / "download"
 
-    # Create 5 files under a prefix directory
+    # Create 5 files under a prefix.
     prefix = "files"
     for i in range(5):
-        _touch(base_dir / prefix / f"file_{i}.txt")
+        loader.upload_bytes(b"x", f"{prefix}/file_{i}.txt")
 
-    loader = LocalDataLoader(base_dir=str(base_dir))
     remote_iter = RemoteDirectoryIterator(
         loader,
         prefix,
-        str(checkpoint_path),
+        checkpoint_path,
         str(local_checkpoint_path),
         local_dir=str(download_dir),
         use_multiprocessing=use_multiprocessing,
@@ -51,7 +87,7 @@ def test_local_data_loader_continuation_token(
     remote_iter2 = RemoteDirectoryIterator(
         loader,
         prefix,
-        str(checkpoint_path),
+        checkpoint_path,
         str(local_checkpoint_path),
         local_dir=str(download_dir),
         use_multiprocessing=use_multiprocessing,
@@ -64,8 +100,7 @@ def test_local_data_loader_continuation_token(
     assert len(result4) == 0
 
 
-def test_upload_directory_compressed(tmp_path: Path) -> None:
-    base_dir = tmp_path / "data"
+def test_upload_directory_compressed(loader: DataLoader, tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     remote_prefix = "uploaded"
 
@@ -74,13 +109,11 @@ def test_upload_directory_compressed(tmp_path: Path) -> None:
     for i in range(num_files):
         _touch(source_dir / f"subdir_{i // 100}" / f"file_{i}.txt")
 
-    loader = LocalDataLoader(base_dir=str(base_dir))
     loader.upload_directory(
         str(source_dir), remote_prefix, compress=True, chunk_size=chunk_size
     )
 
-    dest_dir = base_dir / remote_prefix
-    uploaded_files = sorted(dest_dir.iterdir())
+    uploaded_names = _remote_basenames(loader, remote_prefix)
 
     # Build the expected chunk names using the same hash logic as the
     # implementation: collect all files sorted, split into chunks, and hash
@@ -99,13 +132,12 @@ def test_upload_directory_compressed(tmp_path: Path) -> None:
     expected_names.sort()
 
     expected_chunks = math.ceil(num_files / chunk_size)
-    assert len(uploaded_files) == expected_chunks
-    assert all(f.name.endswith(".tar.gz") for f in uploaded_files)
-    assert [f.name for f in uploaded_files] == expected_names
+    assert len(uploaded_names) == expected_chunks
+    assert all(name.endswith(".tar.gz") for name in uploaded_names)
+    assert uploaded_names == expected_names
 
 
-def test_download_file_decompress(tmp_path: Path) -> None:
-    base_dir = tmp_path / "data"
+def test_download_file_decompress(loader: DataLoader, tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     download_dir = tmp_path / "download"
     remote_prefix = "uploaded"
@@ -117,18 +149,15 @@ def test_download_file_decompress(tmp_path: Path) -> None:
         for i in range(num_files):
             _touch(source_dir / subdir / f"file_{i}.txt")
 
-    loader = LocalDataLoader(base_dir=str(base_dir))
     loader.upload_directory(
         str(source_dir), remote_prefix, compress=True, chunk_size=1000
     )
 
     # There should be exactly one .tar.gz chunk.
-    dest_dir = base_dir / remote_prefix
-    tar_files = list(dest_dir.iterdir())
-    assert len(tar_files) == 1
-    tar_name = tar_files[0].name
-
-    remote_tar_path = f"{remote_prefix}/{tar_name}"
+    tar_keys = loader.list_objects(remote_prefix, max_keys=100000).keys
+    assert len(tar_keys) == 1
+    remote_tar_path = tar_keys[0]
+    tar_name = os.path.basename(remote_tar_path)
     local_tar_path = str(download_dir / tar_name)
 
     loader.download_file(remote_tar_path, local_tar_path, decompress=True)
@@ -147,8 +176,7 @@ def test_download_file_decompress(tmp_path: Path) -> None:
         assert extracted == expected
 
 
-def test_download_directory(tmp_path: Path) -> None:
-    base_dir = tmp_path / "data"
+def test_download_directory(loader: DataLoader, tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     download_dir = tmp_path / "download"
     remote_prefix = "uploaded"
@@ -157,7 +185,6 @@ def test_download_directory(tmp_path: Path) -> None:
     _touch(source_dir / "subdir_b" / "file_2.txt")
     _touch(source_dir / "file_3.txt")
 
-    loader = LocalDataLoader(base_dir=str(base_dir))
     loader.upload_directory(str(source_dir), remote_prefix)
     loader.download_directory(remote_prefix, str(download_dir))
 
@@ -168,7 +195,7 @@ def test_download_directory(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("use_multiprocessing", [False, True])
 def test_remote_directory_iterator_compressed(
-    tmp_path: Path, use_multiprocessing: bool
+    loader: DataLoader, tmp_path: Path, use_multiprocessing: bool
 ) -> None:
     """Round-trip test: upload with compression, iterate with RemoteDirectoryIterator.
 
@@ -176,11 +203,10 @@ def test_remote_directory_iterator_compressed(
     chunks, returns the correct extracted file paths, respects filter_fn,
     handles multiple chunks via batching, and works with checkpointing.
     """
-    base_dir = tmp_path / "data"
     download_dir = tmp_path / "download"
     source_dir = tmp_path / "source"
     remote_prefix = "compressed_files"
-    checkpoint_path = os.path.join(str(base_dir), "checkpoints", "checkpoint.json")
+    checkpoint_path = "checkpoints/checkpoint.json"
     local_checkpoint_path = str(tmp_path / "local_checkpoint.json")
 
     # Create 15 .npy files and 5 .txt files across subdirectories so we can
@@ -196,15 +222,13 @@ def test_remote_directory_iterator_compressed(
         _touch(source_dir / subdir / f"notes_{i}.txt")
     npy_files_created.sort()
 
-    loader = LocalDataLoader(base_dir=str(base_dir))
-
     # Upload with small chunk_size to force multiple .tar.gz archives.
     loader.upload_directory(str(source_dir), remote_prefix, compress=True, chunk_size=8)
 
     # Verify multiple chunks were created.
-    dest_dir = base_dir / remote_prefix
-    tar_files = [f for f in dest_dir.iterdir() if f.name.endswith(".tar.gz")]
-    assert len(tar_files) >= 2, "Expected multiple compressed chunks"
+    tar_names = _remote_basenames(loader, remote_prefix)
+    assert all(name.endswith(".tar.gz") for name in tar_names)
+    assert len(tar_names) >= 2, "Expected multiple compressed chunks"
 
     # --- Batch 1: download first batch with a filter for .npy files only ---
     remote_iter = RemoteDirectoryIterator(
