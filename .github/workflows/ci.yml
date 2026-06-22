@@ -18,10 +18,12 @@ jobs:
         uses: actions/checkout@v6
       - name: Install packages
         run: |
-          /opt/poetry/bin/poetry install
+          export PATH=$PATH:/opt/poetry/bin
+          poetry install
       - name: Run tests
         run: |
-          /opt/poetry/bin/poetry run pytest tests
+          export PATH=$PATH:/opt/poetry/bin
+          poetry run pytest tests
       - uses: codecov/codecov-action@v5
 
 on:

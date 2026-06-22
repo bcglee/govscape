@@ -155,6 +155,7 @@ def generate_embeddings(num_embeddings: int, dim: int, seed: int) -> np.ndarray:
         print("Downloaded batch of embeddings, total so far:", len(embeddings))
     if len(embeddings) < num_embeddings:
         raise ValueError(f"Expected {num_embeddings} embeddings, got {len(embeddings)}")
+    iterator.close()
     return np.array(embeddings[:num_embeddings], dtype=np.float32)
 
 

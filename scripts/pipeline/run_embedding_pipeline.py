@@ -296,6 +296,8 @@ def main():
         # Upload the performance JSON to S3
         data_loader.upload_file(local_perf_path, remote_perf_path)
 
+    remote_pdf_iter.close()
+
     # After all batches are processed, clean up the directories
     if os.path.exists(local_dm.data_dir):
         shutil.rmtree(local_dm.data_dir)

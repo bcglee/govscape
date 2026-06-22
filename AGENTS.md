@@ -9,6 +9,9 @@ it's clear for the reviewer which files were AI generated.
 This is a **mandatory requirement**. Include it with every modification to any file. If
 there are existing AI comments, add yours right after them.
 
+## Running Commands
+- In this directory, all python commands should be run using poetry, e.g. 'poetry run pytest...',  'poetry run python3 ...', 'poetry add [package-name]'.
+
 ## Coding style
 
 - Don't explain every line with a separate comment, use comments for complex chunks of code,

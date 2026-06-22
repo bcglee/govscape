@@ -180,13 +180,23 @@ class DataLoader(ABC):
 
 
 class S3DataLoader(DataLoader):
+    """DataLoader implementation for AWS S3 using boto3. For compliance
+    with source.coop, the bucket_name parameter may include an optional
+    prefix, e.g. "my-bucket/path/to/data", which will be prepended to
+    all prefixes/object keys.
+    """
+
     def __init__(
         self,
         bucket_name: str,
         config: Config,
         s3_client: S3Client | None = None,
     ) -> None:
-        self.bucket_name = bucket_name
+        if bucket_name.__contains__("/"):
+            self.bucket_name, self.base_prefix = bucket_name.split("/", 1)
+        else:
+            self.bucket_name = bucket_name
+            self.base_prefix = ""
         self.s3: S3Client = s3_client or boto3.client("s3", config=config)
 
     def list_objects(
@@ -197,7 +207,7 @@ class S3DataLoader(DataLoader):
     ) -> ListResult:
         kwargs = {
             "Bucket": self.bucket_name,
-            "Prefix": prefix,
+            "Prefix": self.base_prefix + prefix,
             "MaxKeys": max_keys,
         }
         if continuation_token:
@@ -226,7 +236,9 @@ class S3DataLoader(DataLoader):
         self, remote_path: str, local_path: str, decompress: bool = False
     ) -> list[str]:
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        self.s3.download_file(self.bucket_name, remote_path, local_path)
+        self.s3.download_file(
+            self.bucket_name, self.base_prefix + remote_path, local_path
+        )
         if decompress and local_path.endswith(".tar.gz"):
             return self._decompress_tar_gz(local_path)
         return [local_path]
@@ -243,17 +255,21 @@ class S3DataLoader(DataLoader):
                 "--log",
                 "error",
                 "sync",
-                f"s3://{self.bucket_name}/{normalized_prefix}",
+                f"s3://{self.bucket_name}/{normalized_prefix}*",
                 normalized_local_dir,
             ],
             check=True,
         )
 
     def upload_file(self, local_path: str, remote_path: str) -> None:
-        self.s3.upload_file(local_path, self.bucket_name, remote_path)
+        self.s3.upload_file(
+            local_path, self.bucket_name, self.base_prefix + remote_path
+        )
 
     def upload_bytes(self, data: bytes, remote_path: str) -> None:
-        self.s3.put_object(Bucket=self.bucket_name, Key=remote_path, Body=data)
+        self.s3.put_object(
+            Bucket=self.bucket_name, Key=self.base_prefix + remote_path, Body=data
+        )
 
     def upload_directory(
         self,
@@ -284,22 +300,27 @@ class S3DataLoader(DataLoader):
     def copy_object(self, source_path: str, dest_path: str) -> None:
         self.s3.copy_object(
             Bucket=self.bucket_name,
-            CopySource=f"/{self.bucket_name}/{source_path}",
-            Key=dest_path,
+            CopySource=f"/{self.bucket_name}/{self.base_prefix + source_path}",
+            Key=self.base_prefix + dest_path,
         )
 
     def delete_object(self, remote_path: str) -> None:
-        self.s3.delete_object(Bucket=self.bucket_name, Key=remote_path)
+        self.s3.delete_object(
+            Bucket=self.bucket_name, Key=self.base_prefix + remote_path
+        )
 
     def exists(self, remote_path: str) -> bool:
         try:
-            self.s3.head_object(Bucket=self.bucket_name, Key=remote_path)
+            self.s3.head_object(
+                Bucket=self.bucket_name, Key=self.base_prefix + remote_path
+            )
             return True
         except ClientError:
             return False
 
     def to_uri(self, remote_path: str) -> str:
-        return f"https://{self.bucket_name}.s3.amazonaws.com/{remote_path}"
+        return f"https://{self.bucket_name}.s3.amazonaws.com/\
+            {self.base_prefix + remote_path}"
 
 
 class LocalDataLoader(DataLoader):
@@ -493,7 +514,6 @@ class RemoteDirectoryIterator:
         """Shut down the cached multiprocessing pool, if any."""
         if self._mp_pool is not None:
             self._mp_pool.terminate()
-            self._mp_pool.join()
             self._mp_pool = None
 
     def __enter__(self) -> Self:

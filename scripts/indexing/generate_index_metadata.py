@@ -189,6 +189,8 @@ def main():
         local_dm.index_metadata_directory, remote_dm.index_metadata_directory
     )
 
+    remote_iter.close()
+
 
 def _read_metadata_row(filepath):
     try:
