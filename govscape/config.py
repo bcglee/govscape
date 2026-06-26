@@ -9,6 +9,8 @@ class DataModel:
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.txt_directory = os.path.join(data_dir, "txt")
+        self.ocr_text_directory = os.path.join(data_dir, "ocr_text")
+        self.ocr_metadata_directory = os.path.join(data_dir, "ocr_metadata")
         self.embedding_directory = os.path.join(data_dir, "embeddings")
         self.embedding_img_pg_directory = os.path.join(data_dir, "embeddings_img_pg")
         self.index_directory = os.path.join(data_dir, "index")
@@ -27,6 +29,15 @@ class DataModel:
     def txt_pdf_directory(self, digest: str) -> str:
         return os.path.join(self.txt_directory, digest)
 
+    def ocr_pdf_directory(self, digest: str) -> str:
+        return os.path.join(self.ocr_text_directory, digest)
+
+    def ocr_page_path(self, digest: str, pg_no: int) -> str:
+        return os.path.join(self.ocr_text_directory, digest, f"{digest}_{pg_no}.txt")
+    
+    def ocr_metadata_file_path(self, digest: str) -> str:
+        return os.path.join(self.ocr_metadata_directory, digest, "metadata.json")
+
     def img_pdf_directory(self, digest: str) -> str:
         return os.path.join(self.image_directory, digest)
 
@@ -43,6 +54,9 @@ class DataModel:
 
     def txt_page_path(self, digest: str, pg_no: int) -> str:
         return os.path.join(self.txt_directory, digest, f"{digest}_{pg_no}.txt")
+
+    def ocr_page_path(self, digest: str, pg_no: int) -> str:
+        return os.path.join(self.ocr_directory, digest, f"{digest}_{pg_no}.txt")
 
     def img_page_path(self, digest: str, pg_no: int) -> str:
         return os.path.join(self.image_directory, digest, f"{digest}_{pg_no}.jpeg")
