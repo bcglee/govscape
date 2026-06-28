@@ -5,10 +5,10 @@ version = "0.1.0"
 description = ""
 authors = ["kylebd99 <kdeeds@bu.edu>"]
 readme = "README.md"
+packages = [{ include = "govscape" }]
 
 [tool.poetry.dependencies]
-python = ">=3.11, <=3.14"
-govscape = { path = "govscape", develop = true }
+python = ">=3.11,<3.12"
 boto3 = "^1.39.4"
 botocore = {extras = ["crt"], version = "^1.42.39"}
 duckdb = "^1.4.4"
