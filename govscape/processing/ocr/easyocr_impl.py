@@ -1,7 +1,6 @@
 """EasyOCR implementation."""
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -19,7 +18,7 @@ class EasyOCRImpl(BaseOCR):
     EasyOCR is a Python library for OCR supporting 80+ languages.
     """
 
-    def __init__(self, languages: list | None = None, gpu: bool = False):
+    def __init__(self, languages: list = None, gpu: bool = False):
         """Initialize EasyOCR.
 
         Args:
@@ -28,7 +27,7 @@ class EasyOCRImpl(BaseOCR):
         """
         self.languages = languages or ["en"]
         self.gpu = gpu
-        self.reader: Any = None
+        self.reader = None
         self.logger = logging.getLogger(__name__)
 
     def validate(self) -> None:
@@ -47,21 +46,18 @@ class EasyOCRImpl(BaseOCR):
         except Exception as e:
             raise RuntimeError(f"Failed to initialize EasyOCR: {e}") from e
 
-    def extract_text(self, images: list[np.ndarray]) -> list[str]:
-        """Extract text from a batch of images using EasyOCR.
+    def extract_text(self, image: np.ndarray) -> str:
+        """Extract text from an image using EasyOCR.
 
         Args:
-            images: A list of numpy arrays, each a page image.
+            image: A numpy array representing the page image.
 
         Returns:
-            A list of extracted text strings, one per input image.
+            Extracted text as a string.
         """
         if self.reader is None:
             self.validate()
 
-        return [self._extract_single(image) for image in images]
-
-    def _extract_single(self, image: np.ndarray) -> str:
         try:
             results = self.reader.readtext(image)
             text_lines = [detection[1] for detection in results]

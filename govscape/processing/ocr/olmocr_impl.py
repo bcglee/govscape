@@ -1,7 +1,6 @@
 """OLMOcr OCR implementation."""
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -26,7 +25,7 @@ class OLMOcrImpl(BaseOCR):
             model_name: The OLMOcr model to use. Defaults to "default".
         """
         self.model_name = model_name
-        self.model: Any = None
+        self.model = None
         self.logger = logging.getLogger(__name__)
 
     def validate(self) -> None:
@@ -47,21 +46,18 @@ class OLMOcrImpl(BaseOCR):
         except Exception as e:
             raise RuntimeError(f"Failed to initialize OLMOcr: {e}") from e
 
-    def extract_text(self, images: list[np.ndarray]) -> list[str]:
-        """Extract text from a batch of images using OLMOcr.
+    def extract_text(self, image: np.ndarray) -> str:
+        """Extract text from an image using OLMOcr.
 
         Args:
-            images: A list of numpy arrays, each a page image.
+            image: A numpy array representing the page image.
 
         Returns:
-            A list of extracted text strings, one per input image.
+            Extracted text as a string.
         """
         if self.model is None:
             self.validate()
 
-        return [self._extract_single(image) for image in images]
-
-    def _extract_single(self, image: np.ndarray) -> str:
         try:
             result = self.model.recognize(image)
             if isinstance(result, dict) and "text" in result:

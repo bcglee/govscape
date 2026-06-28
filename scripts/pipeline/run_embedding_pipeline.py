@@ -4,10 +4,11 @@ import os
 import shutil
 import time
 
-import govscape as gs
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.utils import base_argument_parser, str2bool
+
+import govscape as gs
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -230,21 +231,13 @@ def main():
         local_dir=local_pdf_dir,
     )
 
-    _ocr_kwargs: dict = {}
-    if args.do_ocr:
-        if args.ocr_type in ("easyocr", "olmocr"):
-            _ocr_kwargs["languages"] = args.ocr_languages.split(",")
-            _ocr_kwargs["gpu"] = args.ocr_gpu
-        elif args.ocr_type == "paddleocr":
-            _ocr_kwargs["language"] = args.ocr_languages.split(",")[0]
-            _ocr_kwargs["use_gpu"] = args.ocr_gpu
-
     processor = gs.PDFProcessingPipeline(
         local_dm.data_dir,
         args.text_model_type,
         args.visual_model_type,
         ocr_type=args.ocr_type if args.do_ocr else None,
-        **_ocr_kwargs,
+        languages=args.ocr_languages.split(",") if args.do_ocr else None,
+        gpu=args.ocr_gpu if args.do_ocr else None,
     )
 
     overall_start_time = time.time()
@@ -295,8 +288,6 @@ def main():
 
         # Upload the performance JSON to S3
         data_loader.upload_file(local_perf_path, remote_perf_path)
-
-    remote_pdf_iter.close()
 
     # After all batches are processed, clean up the directories
     if os.path.exists(local_dm.data_dir):

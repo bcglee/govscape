@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "govscape"
+version = "0.1.0"
+description = ""
+authors = ["kylebd99 <kdeeds@cs.washington.edu>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = ">=3.11, <=3.14"
+numpy = "^1.25.0"
+faiss-cpu = "1.11.0"
+pdf2image = "^1.17.0"
+pdfplumber = "^0.11.5"
+transformers = "4.50.3"
+torch = "^2.6.0"
+argparse = "^1.4.0"
+pymupdf = "^1.25.5"
+sentence-transformers = "^4.0.1"
+pynvml = "^12.0.0"
+boto3 = "^1.39.4"
+flask = "3.1.0"
+flask-restx = "1.3.0"
+flask-cors = "5.0.1"
+reportlab = "^4.4.1"
+pytest = "^8.4.0"
+pypdfium2 = "^4.30"
+whoosh = "^2.7.4"
+gunicorn = "^23.0.0"
+lancedb = "^0.25.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

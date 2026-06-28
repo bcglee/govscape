@@ -1,13 +1,3 @@
-# AI modified: 2026-04-19 21:12:31 c1b6021e
-# AI modified: 2026-04-20 00:00:00 c1b6021e
-# AI modified: 2026-04-26 00:00:00 341724af
-from .hybrid import (
-    STRATEGY_POSTFILTER,
-    STRATEGY_PREFILTER,
-    AbstractHybridMetadataIndex,
-    HybridKeywordMetadataIndex,
-    HybridVectorMetadataIndex,
-)
 from .keyword import (
     AbstractKeywordIndex,
     LanceDBKeywordIndex,
@@ -27,16 +17,11 @@ from .vector import (
 )
 
 __all__ = [
-    "STRATEGY_POSTFILTER",
-    "STRATEGY_PREFILTER",
-    "AbstractHybridMetadataIndex",
     "AbstractKeywordIndex",
     "AbstractMetadataIndex",
     "AbstractVectorIndex",
     "DuckDBMetadataIndex",
     "FAISSIndex",
-    "HybridKeywordMetadataIndex",
-    "HybridVectorMetadataIndex",
     "LanceDBKeywordIndex",
     "LanceDBVectorIndex",
     "LuceneKeywordIndex",

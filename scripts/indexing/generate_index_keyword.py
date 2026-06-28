@@ -4,10 +4,20 @@ import os
 import shutil
 import time
 
+from govscape.config import DataModel
+from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
+from govscape.utils import base_argument_parser
+
 import govscape as gs
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.utils import base_argument_parser
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

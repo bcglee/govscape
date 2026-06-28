@@ -5,7 +5,6 @@ import shutil
 import time
 
 import duckdb
-
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.indexing import DuckDBMetadataIndex, SQLiteMetadataIndex
@@ -188,8 +187,6 @@ def main():
     data_loader.upload_directory(
         local_dm.index_metadata_directory, remote_dm.index_metadata_directory
     )
-
-    remote_iter.close()
 
 
 def _read_metadata_row(filepath):

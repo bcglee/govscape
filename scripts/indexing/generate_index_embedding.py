@@ -1,5 +1,3 @@
-# AI modified: 2026-04-20 00:00:00 c1b6021e
-# AI modified: 2026-04-20 00:00:00 4a7a8111
 import json
 import logging
 import os
@@ -8,11 +6,21 @@ import time
 
 import numpy as np
 
+from govscape.config import DataModel
+from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
+from govscape.utils import base_argument_parser
+
 import govscape as gs
 from govscape.config import DataModel
 from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
 from govscape.indexing import DuckDBMetadataIndex, SQLiteMetadataIndex
 from govscape.utils import base_argument_parser
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

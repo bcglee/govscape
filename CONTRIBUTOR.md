@@ -139,8 +139,8 @@ To do this, you need to start by creating a directory within govscape/data that 
 You can pull this data from the S3 bucket by using:
 
 ```
-poetry run python scripts/data_prep/download_sample_pdfs.py \
-    --bucket_name us-west-2.opendata.source.coop/govscape/eota-pdf-archive/ \
+poetry run python scripts/data_prep/download_test_data.py \
+    --bucket_name bcgl-public-bucket \
     --local_base_dir data/s3_mock \
     --num_pdfs 500
 ```

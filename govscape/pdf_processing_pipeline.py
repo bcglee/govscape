@@ -17,7 +17,7 @@ class PDFProcessingPipeline:
         data_dir: str,
         text_model_type: str,
         visual_model_type: str,
-        ocr_type: str | None = None,
+        ocr_type: str = None,
         **ocr_kwargs,
     ):
         self.data_model = DataModel(data_dir)
@@ -50,14 +50,11 @@ class PDFProcessingPipeline:
             )
             pdf_extraction_stage.validate()
             pdfs_successfully_parsed = pdf_extraction_stage.run()
-        parsed_summary = (
+        logging.info(
             f"PDFs successfully parsed: {pdfs_successfully_parsed} / {len(pdf_files)}"
         )
-        logging.info(parsed_summary)
 
         time2 = time.time()
-        if do_ocr and not self.ocr_type:
-            logging.warning("do_ocr=True but no ocr_type set; skipping OCR stage")
         if do_ocr and self.ocr_type:
             logging.info(f"Running OCR extraction using {self.ocr_type}")
             ocr_stage = OCRProcessingStage(
@@ -91,9 +88,7 @@ class PDFProcessingPipeline:
         time5 = time.time()
 
         pdf_to_txt_img_metadata = time2 - time1
-        # Compute ocr_time consistently as the interval between time2 and time3.
-        # If OCR was skipped, time3 == time2 so this will be ~0.0.
-        ocr_time = time3 - time2
+        ocr_time = time3 - time2 if do_ocr else 0.0
         text_embed_time = time4 - time3
         img_embed_time = time5 - time4
 

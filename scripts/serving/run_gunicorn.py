@@ -67,6 +67,14 @@ def download_indices(args):
     except Exception as e:
         print(f"No blacklist file to download ({e}); proceeding without one")
 
+    remote_blacklist = remote_dm.blacklist_file
+    local_blacklist = local_dm.blacklist_file
+    try:
+        data_loader.download_file(remote_blacklist, local_blacklist)
+        print(f"Downloaded blacklist: {remote_blacklist} -> {local_blacklist}")
+    except Exception as e:
+        print(f"No blacklist file to download ({e}); proceeding without one")
+
 
 def main():
     if "--" in sys.argv:

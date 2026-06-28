@@ -80,7 +80,7 @@ def generate_metadata(
             {
                 "crawl_url": f"https://{sub_domain}/reports/{digest}",
                 "crawl_date": crawl_date,
-                "digest": digest,
+                "digest": pdf_name,
                 "pretty_name": f"Document {idx}",
                 "sub_domain": sub_domain,
                 "page_count": rng.randint(1, 200),
@@ -89,7 +89,7 @@ def generate_metadata(
     return records
 
 
-# Type alias for a single query: (digests, filter_dict)
+# Type alias for a single query: (pdf_names, filter_dict)
 IndexQuery = tuple[list[str], list[Predicate]]
 
 

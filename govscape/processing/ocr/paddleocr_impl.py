@@ -1,7 +1,6 @@
 """PaddleOCR implementation."""
 
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -28,7 +27,7 @@ class PaddleOCRImpl(BaseOCR):
         """
         self.language = language
         self.use_gpu = use_gpu
-        self.ocr: Any = None
+        self.ocr = None
         self.logger = logging.getLogger(__name__)
 
     def validate(self) -> None:
@@ -50,27 +49,26 @@ class PaddleOCRImpl(BaseOCR):
         except Exception as e:
             raise RuntimeError(f"Failed to initialize PaddleOCR: {e}") from e
 
-    def extract_text(self, images: list[np.ndarray]) -> list[str]:
-        """Extract text from a batch of images using PaddleOCR.
+    def extract_text(self, image: np.ndarray) -> str:
+        """Extract text from an image using PaddleOCR.
 
         Args:
-            images: A list of numpy arrays, each a page image.
+            image: A numpy array representing the page image.
 
         Returns:
-            A list of extracted text strings, one per input image.
+            Extracted text as a string.
         """
         if self.ocr is None:
             self.validate()
 
-        return [self._extract_single(image) for image in images]
-
-    def _extract_single(self, image: np.ndarray) -> str:
         try:
             result = self.ocr.ocr(image, cls=True)
-            text_lines: list[str] = []
+            text_lines = []
             if result:
                 for line in result:
-                    text_lines.extend(detection[1][0] for detection in line)
+                    for detection in line:
+                        text = detection[1][0]
+                        text_lines.append(text)
             return "\n".join(text_lines)
         except Exception as e:
             self.logger.error(f"Error during PaddleOCR text extraction: {e}")
