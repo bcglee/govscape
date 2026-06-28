@@ -45,6 +45,9 @@ class OCRProcessingStage(ProcessingStage):
 
     def __init__(self, data_model: DataModel, ocr_type: str = "easyocr", **ocr_kwargs):
         self.data_model = data_model
+        self.ocr_type = ocr_type
+        self.ocr_kwargs = ocr_kwargs
+        # primary engine used for validation and single-threaded runs
         self.ocr_engine = _build_ocr_engine(ocr_type, **ocr_kwargs)
         self.logger = logging.getLogger(__name__)
 
@@ -66,7 +69,7 @@ class OCRProcessingStage(ProcessingStage):
         except Exception as e:
             raise ValueError(f"OCR engine validation failed: {e}") from e
 
-    def run(self):
+    def run(self, threads: int = 1, batch_size: int = 1000, compare: bool = False):
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
         error_count = 0
@@ -108,19 +111,77 @@ class OCRProcessingStage(ProcessingStage):
                 "OCR processing complete. Processed: 0, Errors: %d", error_count
             )
             return
+        # Create batches
+        batches: list[list] = []
+        for batch_start in range(0, len(all_images), batch_size):
+            batches.append(all_images[batch_start : batch_start + batch_size])
 
-        _BATCH_SIZE = 1000
+        def _run_single_threaded(batches_to_run: list[list]) -> tuple[list[str], int]:
+            texts: list[str] = []
+            errors = 0
+            for idx, batch in enumerate(batches_to_run):
+                try:
+                    texts.extend(self.ocr_engine.extract_text(batch))
+                except Exception as e:
+                    start_idx = idx * batch_size
+                    self.logger.error(f"OCR failed for batch {idx} (start {start_idx}): {e}")
+                    texts.extend("" for _ in batch)
+                    errors += len(batch)
+            return texts, errors
+
+        import time
+
+        # Optionally compare single-threaded vs multi-threaded run times
+        single_time = None
+        multi_time = None
         all_texts: list[str] = []
-        for batch_start in range(0, len(all_images), _BATCH_SIZE):
-            batch = all_images[batch_start : batch_start + _BATCH_SIZE]
-            try:
-                all_texts.extend(self.ocr_engine.extract_text(batch))
-            except Exception as e:
-                self.logger.error(
-                    f"OCR failed for batch starting at index {batch_start}: {e}"
-                )
-                all_texts.extend("" for _ in batch)
-                error_count += len(batch)
+
+        if compare and threads > 1:
+            t0 = time.perf_counter()
+            _single_texts, single_errors = _run_single_threaded(batches)
+            single_time = time.perf_counter() - t0
+            self.logger.info(f"Single-threaded OCR extract time: {single_time:.3f}s")
+
+        if threads <= 1:
+            t0 = time.perf_counter()
+            all_texts, errors = _run_single_threaded(batches)
+            multi_time = time.perf_counter() - t0
+            error_count += errors
+        else:
+            # Multi-threaded execution: create one engine instance per worker
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            engines = [
+                _build_ocr_engine(self.ocr_type, **self.ocr_kwargs)
+                for _ in range(threads)
+            ]
+
+            def _worker(batch_index_and_batch):
+                idx, batch = batch_index_and_batch
+                engine = engines[idx % len(engines)]
+                try:
+                    return engine.extract_text(batch)
+                except Exception as e:
+                    start_idx = idx * batch_size
+                    self.logger.error(f"OCR failed for batch {idx} (start {start_idx}): {e}")
+                    return ["" for _ in batch]
+
+            t0 = time.perf_counter()
+            with ThreadPoolExecutor(max_workers=threads) as exc:
+                # submit batches preserving their index so we can restore order
+                futures = [
+                    exc.submit(_worker, (i, batch)) for i, batch in enumerate(batches)
+                ]
+                # collect results in order of submission (which matches batch order)
+                for fut in futures:
+                    try:
+                        res = fut.result()
+                        all_texts.extend(res)
+                    except Exception as e:  # pragma: no cover - defensive
+                        self.logger.error(f"Unexpected worker error: {e}")
+                        all_texts.extend("")
+            multi_time = time.perf_counter() - t0
+            self.logger.info(f"Multi-threaded OCR extract time ({threads} workers): {multi_time:.3f}s")
 
         processed_count = 0
         for (digest, page_num), text in zip(all_metadata, all_texts, strict=True):
@@ -133,6 +194,16 @@ class OCRProcessingStage(ProcessingStage):
             f"OCR processing complete. Processed: {processed_count}, "
             f"Errors: {error_count}",
         )
+
+        # Return a summary for external analysis (timings may be None)
+        return {
+            "processed_count": processed_count,
+            "error_count": error_count,
+            "single_time": single_time,
+            "multi_time": multi_time,
+            "threads": threads,
+            "batch_size": batch_size,
+        }
 
     def _write_page_text(self, digest: str, page_num: int, text: str) -> bool:
         try:
