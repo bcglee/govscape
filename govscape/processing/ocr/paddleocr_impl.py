@@ -73,3 +73,25 @@ class PaddleOCRImpl(BaseOCR):
         except Exception as e:
             self.logger.error(f"Error during PaddleOCR text extraction: {e}")
             return ""
+
+    def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of images using PaddleOCR."""
+        if self.ocr is None:
+            self.validate()
+
+        texts: list[str] = []
+        for image in images:
+            try:
+                result = self.ocr.ocr(image, cls=True)
+                text_lines = []
+                if result:
+                    for line in result:
+                        for detection in line:
+                            text = detection[1][0]
+                            text_lines.append(text)
+                texts.append("\n".join(text_lines))
+            except Exception as e:
+                self.logger.error(f"Error during PaddleOCR batch extraction: {e}")
+                texts.append("")
+
+        return texts

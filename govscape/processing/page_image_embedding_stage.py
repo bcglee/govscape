@@ -34,10 +34,8 @@ class PageImageEmbeddingStage(ProcessingStage):
 
     def validate(self) -> None:
         if not os.path.isdir(self.data_model.image_directory):
-            raise ValueError(
-                f"Image input directory does not exist: \
-                            {self.data_model.image_directory}"
-            )
+            raise ValueError(f"Image input directory does not exist: \
+                            {self.data_model.image_directory}")
 
     def run(self):
         os.makedirs(self.data_model.embedding_img_pg_directory, exist_ok=True)

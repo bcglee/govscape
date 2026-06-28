@@ -76,3 +76,23 @@ class OcrMyPDFImpl(BaseOCR):
         except Exception as e:
             self.logger.error(f"Error during OcrMyPDF text extraction: {e}")
             return ""
+
+    def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of images using OcrMyPDF/Tesseract."""
+        if self.validate is None:
+            self.validate()
+
+        texts: list[str] = []
+        for image in images:
+            try:
+                import pytesseract
+
+                if isinstance(image, np.ndarray):
+                    image = Image.fromarray(image.astype("uint8"))
+
+                texts.append(pytesseract.image_to_string(image, lang=self.language))
+            except Exception as e:
+                self.logger.error(f"Error during OcrMyPDF batch extraction: {e}")
+                texts.append("")
+
+        return texts

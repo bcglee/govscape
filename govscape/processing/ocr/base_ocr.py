@@ -25,3 +25,7 @@ class BaseOCR(ABC):
     @abstractmethod
     def validate(self) -> None:
         """Validate OCR engine initialization and required dependencies."""
+
+    def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of page images."""
+        return [self.extract_text(image) for image in images]

@@ -68,3 +68,24 @@ class OLMOcrImpl(BaseOCR):
         except Exception as e:
             self.logger.error(f"Error during OLMOcr text extraction: {e}")
             return ""
+
+    def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
+        """Extract text from a batch of images using OLMOcr."""
+        if self.model is None:
+            self.validate()
+
+        texts: list[str] = []
+        for image in images:
+            try:
+                result = self.model.recognize(image)
+                if isinstance(result, dict) and "text" in result:
+                    texts.append(result["text"])
+                elif isinstance(result, str):
+                    texts.append(result)
+                else:
+                    texts.append(str(result))
+            except Exception as e:
+                self.logger.error(f"Error during OLMOcr batch extraction: {e}")
+                texts.append("")
+
+        return texts

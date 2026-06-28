@@ -6,6 +6,7 @@ import re
 from multiprocessing import Pool, cpu_count
 
 import pandas as pd
+
 from govscape.data_loader import build_data_loader
 from govscape.utils import base_argument_parser
 

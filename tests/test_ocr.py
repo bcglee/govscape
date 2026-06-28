@@ -1,4 +1,4 @@
-# AI modified: 2026-05-09 govscape
+# AI modified: 2026-06-28T00:00:00Z 8d3cd388768f3fe7d5fdd24a4e7a8bd391a654d8
 """Tests for OCR implementations and OCRProcessingStage."""
 
 import os
@@ -36,6 +36,28 @@ class TestBaseOCR:
 
         with pytest.raises(TypeError):
             IncompleteOCR()
+
+    def test_base_ocr_extract_text_batch_uses_extract_text(self):
+        """BaseOCR batch processing should reuse extract_text per image."""
+
+        class BatchOCR(BaseOCR):
+            def __init__(self):
+                self.calls = []
+
+            def validate(self):
+                pass
+
+            def extract_text(self, image):
+                self.calls.append(image)
+                return f"text-{image[0]}"
+
+        ocr = BatchOCR()
+        images = [np.array([1]), np.array([2])]
+
+        texts = ocr.extract_text_batch(images)
+
+        assert texts == ["text-1", "text-2"]
+        assert ocr.calls == images
 
 
 class TestEasyOCRImpl:
@@ -279,3 +301,33 @@ class TestOCRProcessingStage:
             with open(txt_file) as f:
                 content = f.read()
                 assert content == "test"
+
+    def test_ocr_stage_uses_batch_processing(self, temp_data_dir):
+        """OCR processing should honor the configured batch size."""
+        pytest.importorskip("cv2", reason="cv2 (OpenCV) is required for this test")
+
+        tmpdir, data_model = temp_data_dir
+        stage = OCRProcessingStage(data_model=data_model, ocr_type="easyocr")
+        call_sizes = []
+
+        def fake_extract_text_batch(images):
+            call_sizes.append(len(images))
+            return [f"text-{idx}" for idx in range(len(images))]
+
+        with (
+            patch.object(stage.ocr_engine, "validate"),
+            patch.object(stage.ocr_engine, "extract_text_batch", side_effect=fake_extract_text_batch),
+        ):
+            digest = "batchdigest1234567890abcdef1234567890"
+            img_dir = os.path.join(data_model.image_directory, digest)
+            os.makedirs(img_dir, exist_ok=True)
+
+            import cv2
+
+            for page_num in range(3):
+                dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
+                cv2.imwrite(os.path.join(img_dir, f"{digest}_{page_num}.jpeg"), dummy_image)
+
+            stage.run(batch_size=2)
+
+        assert call_sizes == [2, 1]

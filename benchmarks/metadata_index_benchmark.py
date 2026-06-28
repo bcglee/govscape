@@ -80,7 +80,7 @@ def generate_metadata(
             {
                 "crawl_url": f"https://{sub_domain}/reports/{digest}",
                 "crawl_date": crawl_date,
-                "digest": pdf_name,
+                "digest": digest,
                 "pretty_name": f"Document {idx}",
                 "sub_domain": sub_domain,
                 "page_count": rng.randint(1, 200),
