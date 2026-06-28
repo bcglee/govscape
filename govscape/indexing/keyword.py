@@ -40,25 +40,11 @@ def _load_lucene():
             lucene.initVM()
 
             # import Java-side classes ONLY after initVM
-            global \
-                Paths, \
-                FSDirectory, \
-                StandardAnalyzer, \
-                Document, \
-                Field, \
-                StringField, \
-                TextField, \
-                StoredField
-            global \
-                IndexWriter, \
-                IndexWriterConfig, \
-                DirectoryReader, \
-                IndexSearcher, \
-                BooleanClause, \
-                BooleanQuery, \
-                TermQuery, \
-                LuceneQueryParser, \
-                BM25Similarity
+            global Paths, FSDirectory, StandardAnalyzer, Document, Field
+            global StringField, TextField, StoredField
+            global IndexWriter, IndexWriterConfig, DirectoryReader, IndexSearcher
+            global BooleanClause, BooleanQuery, TermQuery
+            global LuceneQueryParser, BM25Similarity
             global LuceneTerm
 
             from java.nio.file import Paths  # type: ignore[import]
@@ -264,16 +250,14 @@ class SQLiteKeywordIndex(AbstractKeywordIndex):
             os.makedirs(self.index_keyword_directory)
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
-        self.cursor.execute(
-            """
+        self.cursor.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS fts_txt USING fts5 (
                 text,
                 pdf_name,
                 page_count,
                 name UNINDEXED
             );
-            """
-        )
+            """)
         self.conn.commit()
 
     def _has_name_column(self):

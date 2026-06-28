@@ -110,23 +110,33 @@ class OCRProcessingStage(ProcessingStage):
             self.logger.info(
                 "OCR processing complete. Processed: 0, Errors: %d", error_count
             )
-            return
+            return None
         # Create batches
-        batches: list[list] = []
-        for batch_start in range(0, len(all_images), batch_size):
-            batches.append(all_images[batch_start : batch_start + batch_size])
+        batches: list[list] = [
+            all_images[i : i + batch_size]
+            for i in range(0, len(all_images), batch_size)
+        ]
+
+        def _handle_batch(batch_idx: int, batch: list) -> tuple[list[str], int]:
+            try:
+                return self.ocr_engine.extract_text(batch), 0
+            except Exception as e:
+                start_idx = batch_idx * batch_size
+                self.logger.error(
+                    "OCR failed for batch %d (start %d): %s",
+                    batch_idx,
+                    start_idx,
+                    e,
+                )
+                return ["" for _ in batch], len(batch)
 
         def _run_single_threaded(batches_to_run: list[list]) -> tuple[list[str], int]:
             texts: list[str] = []
             errors = 0
             for idx, batch in enumerate(batches_to_run):
-                try:
-                    texts.extend(self.ocr_engine.extract_text(batch))
-                except Exception as e:
-                    start_idx = idx * batch_size
-                    self.logger.error(f"OCR failed for batch {idx} (start {start_idx}): {e}")
-                    texts.extend("" for _ in batch)
-                    errors += len(batch)
+                res_texts, res_errors = _handle_batch(idx, batch)
+                texts.extend(res_texts)
+                errors += res_errors
             return texts, errors
 
         import time
@@ -149,7 +159,7 @@ class OCRProcessingStage(ProcessingStage):
             error_count += errors
         else:
             # Multi-threaded execution: create one engine instance per worker
-            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from concurrent.futures import ThreadPoolExecutor
 
             engines = [
                 _build_ocr_engine(self.ocr_type, **self.ocr_kwargs)
@@ -163,7 +173,12 @@ class OCRProcessingStage(ProcessingStage):
                     return engine.extract_text(batch)
                 except Exception as e:
                     start_idx = idx * batch_size
-                    self.logger.error(f"OCR failed for batch {idx} (start {start_idx}): {e}")
+                    self.logger.error(
+                        "OCR failed for batch %d (start %d): %s",
+                        idx,
+                        start_idx,
+                        e,
+                    )
                     return ["" for _ in batch]
 
             t0 = time.perf_counter()
@@ -172,16 +187,24 @@ class OCRProcessingStage(ProcessingStage):
                 futures = [
                     exc.submit(_worker, (i, batch)) for i, batch in enumerate(batches)
                 ]
+
                 # collect results in order of submission (which matches batch order)
-                for fut in futures:
+                def _get_future_result(idx: int, fut):
                     try:
-                        res = fut.result()
-                        all_texts.extend(res)
+                        return fut.result()
                     except Exception as e:  # pragma: no cover - defensive
-                        self.logger.error(f"Unexpected worker error: {e}")
-                        all_texts.extend("")
+                        self.logger.error("Unexpected worker error: %s", e)
+                        return ["" for _ in batches[idx]]
+
+                for i, fut in enumerate(futures):
+                    res = _get_future_result(i, fut)
+                    all_texts.extend(res)
             multi_time = time.perf_counter() - t0
-            self.logger.info(f"Multi-threaded OCR extract time ({threads} workers): {multi_time:.3f}s")
+            self.logger.info(
+                "Multi-threaded OCR extract time (%d workers): %.3fs",
+                threads,
+                multi_time,
+            )
 
         processed_count = 0
         for (digest, page_num), text in zip(all_metadata, all_texts, strict=True):

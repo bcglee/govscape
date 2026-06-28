@@ -177,24 +177,19 @@ class SQLiteMetadataIndex(AbstractMetadataIndex):
                 page_count INTEGER
             );
         """)
-        self.cursor.execute(
-            """
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS metadata_sub_domain (
                 digest TEXT,
                 sub_domain TEXT
             );
-            """
-        )
-        self.cursor.execute(
-            """
+            """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS metadata_crawl_date (
                 digest TEXT,
                 crawl_date TEXT
             );
-            """
-        )
-        self.cursor.execute(
-            """
+            """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS metadata_vectors (
                 vector_store_key TEXT,
                 digest TEXT,
@@ -203,8 +198,7 @@ class SQLiteMetadataIndex(AbstractMetadataIndex):
                 vector_dim INTEGER,
                 PRIMARY KEY (vector_store_key, digest, page)
             );
-            """
-        )
+            """)
         self.conn.commit()
 
     def add_batch(self, metadata_dicts):
@@ -281,12 +275,10 @@ class SQLiteMetadataIndex(AbstractMetadataIndex):
             "CREATE INDEX IF NOT EXISTS idx_metadata_crawl_date_crawl_date_digest "
             "ON metadata_crawl_date (digest, crawl_date);"
         )
-        self.cursor.execute(
-            """
+        self.cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_metadata_vectors_key_digest
             ON metadata_vectors (vector_store_key, digest);
-            """
-        )
+            """)
 
         self.cursor.execute("""PRAGMA journal_mode = WAL;""")
         self.cursor.execute("""PRAGMA optimize;""")
@@ -506,32 +498,26 @@ class DuckDBMetadataIndex(AbstractMetadataIndex):
                 page_count INTEGER
             );
         """)
-        self.conn.execute(
-            """
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS metadata_sub_domain (
                 digest TEXT,
                 sub_domain TEXT
             );
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS metadata_crawl_date (
                 digest TEXT,
                 crawl_date TEXT
             );
-            """
-        )
-        self.conn.execute(
-            """
+            """)
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS metadata_vectors (
                 vector_store_key TEXT,
                 digest TEXT,
                 page TEXT,
                 vector FLOAT[]
             );
-            """
-        )
+            """)
 
     def add_batch(self, metadata_dicts):
         self._connect()
@@ -616,12 +602,10 @@ class DuckDBMetadataIndex(AbstractMetadataIndex):
             "CREATE INDEX IF NOT EXISTS idx_metadata_crawl_date_digest "
             "ON metadata_crawl_date (digest);"
         )
-        self.conn.execute(
-            """
+        self.conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_metadata_vectors_key_digest
             ON metadata_vectors (vector_store_key, digest);
-            """
-        )
+            """)
         self.conn.checkpoint()
 
     def search(self, digests: list[str], predicates: list[Predicate] | None = None):
@@ -710,15 +694,13 @@ class DuckDBMetadataIndex(AbstractMetadataIndex):
         self.conn.execute("DROP INDEX IF EXISTS idx_metadata_vectors_key_digest;")
         vector_table = pa.Table.from_pylist(rows)
         self.conn.register("_vector_batch", vector_table)
-        self.conn.execute(
-            """
+        self.conn.execute("""
             DELETE FROM metadata_vectors
             USING _vector_batch
             WHERE metadata_vectors.vector_store_key = _vector_batch.vector_store_key
               AND metadata_vectors.digest = _vector_batch.digest
               AND metadata_vectors.page = _vector_batch.page
-            """
-        )
+            """)
         self.conn.execute("INSERT INTO metadata_vectors SELECT * FROM _vector_batch")
         self.conn.unregister("_vector_batch")
 

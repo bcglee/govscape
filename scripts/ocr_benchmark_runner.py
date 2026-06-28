@@ -7,14 +7,14 @@ Usage:
 Defaults read PDFs from `tests/test_data/large/PDFs` and writes outputs to
 `data/ocr_benchmark_output` and CSV to `data/ocr_benchmark_output/ocr_timings.csv`.
 """
+
 import csv
-import os
 import sys
 from pathlib import Path
 
 from govscape.config import DataModel
-from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 from govscape.processing.ocr_processing_stage import OCRProcessingStage
+from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 
 
 def main(
@@ -38,7 +38,10 @@ def main(
     data_model = DataModel(str(out_data_dir))
 
     # Extract PDFs to images and text using existing stage
-    print(f"Converting {len(pdf_files)} PDFs to images in {data_model.image_directory}...")
+    print(
+        f"Converting {len(pdf_files)} PDFs to images in "
+        f"{data_model.image_directory}..."
+    )
     pdf_stage = PDFExtractionStage(data_model, pdf_files, cpu_count)
     pdf_stage.run()
 
@@ -55,15 +58,17 @@ def main(
     # Always run a single-thread baseline first
     print("Running single-threaded OCR baseline...")
     res_single = ocr_stage.run(threads=1, batch_size=batch_size, compare=False)
-    rows.append({
-        "mode": "single",
-        "threads": 1,
-        "batch_size": batch_size,
-        "single_time": res_single.get("single_time"),
-        "multi_time": res_single.get("multi_time"),
-        "processed_count": res_single.get("processed_count"),
-        "error_count": res_single.get("error_count"),
-    })
+    rows.append(
+        {
+            "mode": "single",
+            "threads": 1,
+            "batch_size": batch_size,
+            "single_time": res_single.get("single_time"),
+            "multi_time": res_single.get("multi_time"),
+            "processed_count": res_single.get("processed_count"),
+            "error_count": res_single.get("error_count"),
+        }
+    )
 
     # Run multi-threaded tests
     for t in threads_list:
@@ -73,15 +78,17 @@ def main(
         # Create a fresh stage to ensure engines are fresh
         ocr_stage_mt = OCRProcessingStage(data_model)
         res = ocr_stage_mt.run(threads=t, batch_size=batch_size, compare=True)
-        rows.append({
-            "mode": "multi",
-            "threads": t,
-            "batch_size": batch_size,
-            "single_time": res.get("single_time"),
-            "multi_time": res.get("multi_time"),
-            "processed_count": res.get("processed_count"),
-            "error_count": res.get("error_count"),
-        })
+        rows.append(
+            {
+                "mode": "multi",
+                "threads": t,
+                "batch_size": batch_size,
+                "single_time": res.get("single_time"),
+                "multi_time": res.get("multi_time"),
+                "processed_count": res.get("processed_count"),
+                "error_count": res.get("error_count"),
+            }
+        )
 
     # Write CSV
     with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
