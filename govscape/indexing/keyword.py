@@ -108,6 +108,22 @@ class AbstractKeywordIndex(ABC):
         :return: Total number of embeddings.
         """
 
+    def search_filtered(self, query, k, allowed_names):
+        if not allowed_names:
+            return [], [], []
+
+        scores, pdf_names, pages = self.search(query, k)
+        allowed = set(allowed_names)
+        filtered_scores, filtered_names, filtered_pages = [], [], []
+
+        for score, pdf_name, page in zip(scores, pdf_names, pages, strict=False):
+            if pdf_name in allowed:
+                filtered_scores.append(score)
+                filtered_names.append(pdf_name)
+                filtered_pages.append(page)
+
+        return filtered_scores, filtered_names, filtered_pages
+
 
 class LanceDBKeywordIndex(AbstractKeywordIndex):
     def __init__(self, index_keyword_directory):
