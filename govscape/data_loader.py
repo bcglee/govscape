@@ -255,7 +255,7 @@ class S3DataLoader(DataLoader):
                 "--log",
                 "error",
                 "sync",
-                f"s3://{self.bucket_name}/{normalized_prefix}*",
+                f"s3://{self.bucket_name}/{normalized_prefix}",
                 normalized_local_dir,
             ],
             check=True,

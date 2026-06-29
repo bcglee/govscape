@@ -89,7 +89,7 @@ def generate_metadata(
     return records
 
 
-# Type alias for a single query: (digests, filter_dict)
+# Type alias for a single query: (pdf_names, filter_dict)
 IndexQuery = tuple[list[str], list[Predicate]]
 
 

@@ -1,5 +1,4 @@
 # AI modified: 20260309 764fe895
-# AI modified: 2026-04-26T22:00:43Z eac4f332
 import pytest
 
 from govscape.indexing import (
