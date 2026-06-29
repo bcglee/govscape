@@ -125,8 +125,8 @@ def run(
                             totals[k] += counts[k]
                     except Exception as e:
                         log_error(f"parse failed {futures[fut]}", e)
-                data_loader.upload_directory(ocr_text_dir, remote_dm.ocr_text_directory)
-                data_loader.upload_directory(ocr_metadata_dir, remote_dm.ocr_metadata_directory)
+                data_loader.upload_directory(local_dir=ocr_text_dir, remote_prefix=remote_dm.ocr_text_directory, compress=True)
+                data_loader.upload_directory(local_dir=ocr_metadata_dir, remote_prefix=remote_dm.ocr_metadata_directory, compress=True)
 
             it.save_checkpoint()
             shutil.rmtree(in_dir, ignore_errors=True)
