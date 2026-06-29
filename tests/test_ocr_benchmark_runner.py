@@ -1,8 +1,9 @@
+# AI modified: 2026-06-29T00:00:00Z ae90b40f0be6148f154a65bc4f211dfdfed48490
 """Small runner to extract PDFs from a folder, run OCR single vs multi-threaded,
 and write timing results to CSV for analysis.
 
 Usage:
-    python scripts/ocr_benchmark_runner.py
+    python tests/test_ocr_benchmark_runner.py
 
 Defaults read PDFs from `tests/test_data/large/PDFs` and writes outputs to
 `data/ocr_benchmark_output` and CSV to `data/ocr_benchmark_output/ocr_timings.csv`.
@@ -18,8 +19,8 @@ from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 
 
 def main(
-    pdf_dir: str = "tests/test_data/large/PDFs",
-    out_data_dir: str = "data/ocr_benchmark_output",
+    pdf_dir: str | Path = "tests/test_data/large/PDFs",
+    out_data_dir: str | Path = "data/ocr_benchmark_output",
     threads_list=(1, 4),
     batch_size: int = 500,
     cpu_count: int = 2,
@@ -39,8 +40,7 @@ def main(
 
     # Extract PDFs to images and text using existing stage
     print(
-        f"Converting {len(pdf_files)} PDFs to images in "
-        f"{data_model.image_directory}..."
+        f"Converting {len(pdf_files)} PDFs to images in {data_model.image_directory}..."
     )
     pdf_stage = PDFExtractionStage(data_model, pdf_files, cpu_count)
     pdf_stage.run()

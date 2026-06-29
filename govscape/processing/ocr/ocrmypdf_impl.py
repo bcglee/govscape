@@ -1,3 +1,4 @@
+# AI modified: 2026-06-29 00:00:00 ae90b40f0be6148f154a65bc4f211dfdfed48490
 """OcrMyPDF implementation."""
 
 import logging
@@ -77,22 +78,22 @@ class OcrMyPDFImpl(BaseOCR):
             self.logger.error(f"Error during OcrMyPDF text extraction: {e}")
             return ""
 
+    def _extract_single_text(self, image: np.ndarray) -> str:
+        """Extract text from a single image and log any failures."""
+        try:
+            import pytesseract
+
+            if isinstance(image, np.ndarray):
+                image = Image.fromarray(image.astype("uint8"))
+
+            return pytesseract.image_to_string(image, lang=self.language)
+        except Exception as e:
+            self.logger.error(f"Error during OcrMyPDF batch extraction: {e}")
+            return ""
+
     def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
         """Extract text from a batch of images using OcrMyPDF/Tesseract."""
         if self.validate is None:
             self.validate()
 
-        texts: list[str] = []
-        for image in images:
-            try:
-                import pytesseract
-
-                if isinstance(image, np.ndarray):
-                    image = Image.fromarray(image.astype("uint8"))
-
-                texts.append(pytesseract.image_to_string(image, lang=self.language))
-            except Exception as e:
-                self.logger.error(f"Error during OcrMyPDF batch extraction: {e}")
-                texts.append("")
-
-        return texts
+        return [self._extract_single_text(image) for image in images]

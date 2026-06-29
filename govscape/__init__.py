@@ -1,4 +1,5 @@
 # AI modified: 2026-06-28 00:00:00 efa6046e31518ce0c8f83630892d98a3b4a437bb
+# AI modified: 2026-06-29 00:00:00 ae90b40f0be6148f154a65bc4f211dfdfed48490
 from importlib import import_module
 
 __all__ = [
@@ -28,16 +29,34 @@ __all__ = [
 ]
 
 _EXPORTS = {
-    "BGESmall_TextEmbeddingModel": (".text_embedding_models", "BGESmall_TextEmbeddingModel"),
-    "BGE_TextEmbeddingModel": (".text_embedding_models", "BGE_TextEmbeddingModel"),
-    "CLIP_VisualEmbeddingModel": (".visual_embedding_models", "CLIP_VisualEmbeddingModel"),
+    "BGESmall_TextEmbeddingModel": (
+        ".text_embedding_models",
+        "BGESmall_TextEmbeddingModel",
+    ),
+    "BGE_TextEmbeddingModel": (
+        ".text_embedding_models",
+        "BGE_TextEmbeddingModel",
+    ),
+    "CLIP_VisualEmbeddingModel": (
+        ".visual_embedding_models",
+        "CLIP_VisualEmbeddingModel",
+    ),
     "DataModel": (".config", "DataModel"),
-    "Dummy_TextEmbeddingModel": (".text_embedding_models", "Dummy_TextEmbeddingModel"),
-    "Dummy_VisualEmbeddingModel": (".visual_embedding_models", "Dummy_VisualEmbeddingModel"),
+    "Dummy_TextEmbeddingModel": (
+        ".text_embedding_models",
+        "Dummy_TextEmbeddingModel",
+    ),
+    "Dummy_VisualEmbeddingModel": (
+        ".visual_embedding_models",
+        "Dummy_VisualEmbeddingModel",
+    ),
     "FAISSIndex": (".indexing", "FAISSIndex"),
     "LanceDBKeywordIndex": (".indexing", "LanceDBKeywordIndex"),
     "LuceneKeywordIndex": (".indexing", "LuceneKeywordIndex"),
-    "PDFProcessingPipeline": (".pdf_processing_pipeline", "PDFProcessingPipeline"),
+    "PDFProcessingPipeline": (
+        ".pdf_processing_pipeline",
+        "PDFProcessingPipeline",
+    ),
     "RemoteDirectoryIterator": (".data_loader", "RemoteDirectoryIterator"),
     "SQLiteKeywordIndex": (".indexing", "SQLiteKeywordIndex"),
     "SQLiteMetadataIndex": (".indexing", "SQLiteMetadataIndex"),

@@ -18,8 +18,10 @@ _HOSTNAME_EXPR = "regexp_extract(url, '^https?://([^/?#]+)', 1)"
 
 def _run_stats(parquet_path: str) -> str:
     con = duckdb.connect()
-    con.execute(f"CREATE VIEW cdx AS SELECT *, {_HOSTNAME_EXPR} AS hostname \
-            FROM '{parquet_path}'")
+    con.execute(
+        f"CREATE VIEW cdx AS SELECT *, {_HOSTNAME_EXPR} AS hostname \
+            FROM '{parquet_path}'"
+    )
 
     total_entries = con.execute("SELECT count(*) FROM cdx").fetchone()[0]
     distinct_digests = con.execute("SELECT count(DISTINCT digest) FROM cdx").fetchone()[

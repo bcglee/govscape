@@ -316,7 +316,11 @@ class TestOCRProcessingStage:
 
         with (
             patch.object(stage.ocr_engine, "validate"),
-            patch.object(stage.ocr_engine, "extract_text_batch", side_effect=fake_extract_text_batch),
+            patch.object(
+                stage.ocr_engine,
+                "extract_text_batch",
+                side_effect=fake_extract_text_batch,
+            ),
         ):
             digest = "batchdigest1234567890abcdef1234567890"
             img_dir = os.path.join(data_model.image_directory, digest)
@@ -326,7 +330,10 @@ class TestOCRProcessingStage:
 
             for page_num in range(3):
                 dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
-                cv2.imwrite(os.path.join(img_dir, f"{digest}_{page_num}.jpeg"), dummy_image)
+                cv2.imwrite(
+                    os.path.join(img_dir, f"{digest}_{page_num}.jpeg"),
+                    dummy_image,
+                )
 
             stage.run(batch_size=2)
 

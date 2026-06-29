@@ -1,3 +1,4 @@
+# AI modified: 2026-06-29 00:00:00 ae90b40f0be6148f154a65bc4f211dfdfed48490
 """PaddleOCR implementation."""
 
 import logging
@@ -74,24 +75,24 @@ class PaddleOCRImpl(BaseOCR):
             self.logger.error(f"Error during PaddleOCR text extraction: {e}")
             return ""
 
+    def _extract_single_text(self, image: np.ndarray) -> str:
+        """Extract text from a single image and log any failures."""
+        try:
+            result = self.ocr.ocr(image, cls=True)
+            text_lines = []
+            if result:
+                for line in result:
+                    for detection in line:
+                        text = detection[1][0]
+                        text_lines.append(text)
+            return "\n".join(text_lines)
+        except Exception as e:
+            self.logger.error(f"Error during PaddleOCR batch extraction: {e}")
+            return ""
+
     def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
         """Extract text from a batch of images using PaddleOCR."""
         if self.ocr is None:
             self.validate()
 
-        texts: list[str] = []
-        for image in images:
-            try:
-                result = self.ocr.ocr(image, cls=True)
-                text_lines = []
-                if result:
-                    for line in result:
-                        for detection in line:
-                            text = detection[1][0]
-                            text_lines.append(text)
-                texts.append("\n".join(text_lines))
-            except Exception as e:
-                self.logger.error(f"Error during PaddleOCR batch extraction: {e}")
-                texts.append("")
-
-        return texts
+        return [self._extract_single_text(image) for image in images]

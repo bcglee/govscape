@@ -1,3 +1,4 @@
+# AI modified: 2026-06-29 00:00:00 ae90b40f0be6148f154a65bc4f211dfdfed48490
 """EasyOCR implementation."""
 
 import logging
@@ -66,19 +67,19 @@ class EasyOCRImpl(BaseOCR):
             self.logger.error(f"Error during EasyOCR text extraction: {e}")
             return ""
 
+    def _extract_single_text(self, image: np.ndarray) -> str:
+        """Extract text from a single image and log any failures."""
+        try:
+            results = self.reader.readtext(image)
+            text_lines = [detection[1] for detection in results]
+            return "\n".join(text_lines)
+        except Exception as e:
+            self.logger.error(f"Error during EasyOCR batch extraction: {e}")
+            return ""
+
     def extract_text_batch(self, images: list[np.ndarray]) -> list[str]:
         """Extract text from a batch of images using EasyOCR."""
         if self.reader is None:
             self.validate()
 
-        texts: list[str] = []
-        for image in images:
-            try:
-                results = self.reader.readtext(image)
-                text_lines = [detection[1] for detection in results]
-                texts.append("\n".join(text_lines))
-            except Exception as e:
-                self.logger.error(f"Error during EasyOCR batch extraction: {e}")
-                texts.append("")
-
-        return texts
+        return [self._extract_single_text(image) for image in images]
