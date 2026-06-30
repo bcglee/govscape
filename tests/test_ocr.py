@@ -1,7 +1,5 @@
 """Tests for OCR implementations and OCRProcessingStage."""
 
-# AI modified: 2026-06-30T00:00:00Z 9572ec457fa5bc348c0a58148e220cc1ff48e98f
-
 import os
 import tempfile
 from time import perf_counter
