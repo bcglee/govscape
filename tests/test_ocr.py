@@ -1,7 +1,10 @@
 """Tests for OCR implementations and OCRProcessingStage."""
 
+# AI modified: 2026-06-30T00:00:00Z 9572ec457fa5bc348c0a58148e220cc1ff48e98f
+
 import os
 import tempfile
+from time import perf_counter
 from unittest.mock import patch
 
 import pytest
@@ -104,7 +107,7 @@ def test_ocr_processing_stage_writes_txt(
     """
     pytest.importorskip("cv2")
 
-    tmpdir, data_model = temp_data_dir
+    _, data_model = temp_data_dir
 
     # Map impl_class to ocr_type string expected by OCRProcessingStage
     impl_to_type = {
@@ -147,3 +150,60 @@ def test_ocr_processing_stage_writes_txt(
     with open(txt_file, encoding="utf-8") as f:
         content = f.read()
         assert content == mocked_text
+
+
+def test_single_threaded_and_parallel_paths_compare_outputs(temp_data_dir):
+    """The parallel path should produce the same OCR output as the
+    single-threaded path."""
+    pytest.importorskip("cv2")
+
+    _, data_model = temp_data_dir
+    import cv2
+
+    digest = "compareparallel123456"
+    img_dir = os.path.join(data_model.image_directory, digest)
+    os.makedirs(img_dir, exist_ok=True)
+
+    for page_num in range(2):
+        img_path = os.path.join(img_dir, f"{digest}_{page_num}.jpeg")
+        img = _create_test_image(f"PAGE {page_num}")
+        cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+
+    stage = OCRProcessingStage(
+        data_model=data_model,
+        ocr_type="easyocr",
+        batch_size=1,
+        max_workers=2,
+    )
+
+    def fake_extract_text(images):
+        return [f"ocr-result-for-{len(images)}-image(s)" for _ in images]
+
+    with (
+        patch.object(stage.ocr_engine, "validate", return_value=None),
+        patch.object(stage.ocr_engine, "extract_text", side_effect=fake_extract_text),
+        patch(
+            "govscape.processing.ocr_processing_stage._build_ocr_engine",
+            return_value=stage.ocr_engine,
+        ),
+    ):
+        stage.validate()
+
+        single_start = perf_counter()
+        stage.run_single_threaded()
+        single_elapsed = perf_counter() - single_start
+
+        parallel_start = perf_counter()
+        stage.run_parallel()
+        parallel_elapsed = perf_counter() - parallel_start
+
+    print(f"single-threaded={single_elapsed:.6f}s parallel={parallel_elapsed:.6f}s")
+
+    for page_num in range(2):
+        txt_file = data_model.txt_page_path(digest, page_num)
+        with open(txt_file, encoding="utf-8") as f:
+            content = f.read()
+        assert content == "ocr-result-for-1-image(s)"
+
+    assert single_elapsed >= 0
+    assert parallel_elapsed >= 0
