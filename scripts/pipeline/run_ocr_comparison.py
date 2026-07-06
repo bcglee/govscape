@@ -13,8 +13,25 @@ from govscape.processing.ocr_processing_stage import OCRProcessingStage
 from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 
 
+class FakeOCR:
+    def validate(self) -> None:
+        return None
+
+    def extract_text(self, images):
+        return [f"ocr-result-for-{len(images)}-image(s)" for _ in images]
+
+
+def _find_repo_root(start: Path) -> Path:
+    for candidate in [start, *start.parents]:
+        pyproj = candidate / "pyproject.toml"
+        gov_dir = candidate / "govscape"
+        if pyproj.exists() and gov_dir.exists():
+            return candidate
+    raise FileNotFoundError("Could not locate repository root from script path")
+
+
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = _find_repo_root(Path(__file__).resolve())
     data_dir = repo_root / "tests" / "test_data" / "small"
     output_dir = repo_root / "tmp_ocr_compare"
     output_dir.mkdir(exist_ok=True)
@@ -40,6 +57,7 @@ def main() -> None:
     if not pdf_files:
         raise FileNotFoundError(f"No PDF files found in {data_dir / 'PDFs'}")
 
+    print(f"Using repository root: {repo_root}")
     print(f"Converting {len(pdf_files)} PDFs to images...")
     extract_stage = PDFExtractionStage(
         data_model=data_model,
@@ -48,31 +66,34 @@ def main() -> None:
     )
     extract_stage.run()
 
-    stage = OCRProcessingStage(
+    serial_stage = OCRProcessingStage(
+        data_model=data_model,
+        ocr_type="easyocr",
+        batch_size=1,
+        max_workers=1,
+    )
+    multiprocessing_stage = OCRProcessingStage(
         data_model=data_model,
         ocr_type="easyocr",
         batch_size=1,
         max_workers=2,
     )
 
-    def fake_extract_text(images):
-        return [f"ocr-result-for-{len(images)}-image(s)" for _ in images]
-
-    with (
-        patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(stage.ocr_engine, "extract_text", side_effect=fake_extract_text),
+    with patch(
+        "govscape.processing.ocr_processing_stage._build_ocr_engine",
+        return_value=FakeOCR(),
     ):
-        print("Running single-threaded OCR...")
-        single_start = time.perf_counter()
-        stage.run_single_threaded()
-        single_elapsed = time.perf_counter() - single_start
+        print("Running serial processing...")
+        serial_start = time.perf_counter()
+        serial_stage.run_single_threaded()
+        serial_elapsed = time.perf_counter() - serial_start
 
-        print("Running parallel OCR...")
+        print("Running multiprocessing OCR...")
         parallel_start = time.perf_counter()
-        stage.run_parallel()
+        multiprocessing_stage.run_parallel()
         parallel_elapsed = time.perf_counter() - parallel_start
 
-    print(f"single-threaded={single_elapsed:.6f}s parallel={parallel_elapsed:.6f}s")
+    print(f"serial={serial_elapsed:.6f}s multiprocessing={parallel_elapsed:.6f}s")
 
 
 if __name__ == "__main__":
