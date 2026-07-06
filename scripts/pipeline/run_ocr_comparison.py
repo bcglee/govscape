@@ -9,8 +9,6 @@ import numpy as np
 from PIL import Image
 
 from govscape.config import DataModel
-from govscape.processing.ocr_processing_stage import OCRProcessingStage
-from govscape.processing.pdf_extraction_stage import PDFExtractionStage
 
 
 class FakeOCR:
@@ -40,6 +38,8 @@ def main() -> None:
     pdf_files = sorted((data_dir / "PDFs").glob("*.pdf"))
 
     class FakeCV2:
+        COLOR_BGR2RGB = 4
+
         @staticmethod
         def imread(path):
             image = Image.open(path).convert("RGB")
@@ -49,16 +49,19 @@ def main() -> None:
         def cvtColor(image, _code):
             return image
 
-    import govscape.processing.ocr_processing_stage as ocr_stage_module
-
-    ocr_stage_module.cv2 = FakeCV2
-    ocr_stage_module.CV2_AVAILABLE = True
-
     if not pdf_files:
         raise FileNotFoundError(f"No PDF files found in {data_dir / 'PDFs'}")
 
     print(f"Using repository root: {repo_root}")
     print(f"Converting {len(pdf_files)} PDFs to images...")
+
+    import govscape.processing.ocr_processing_stage as ocr_stage_module
+    from govscape.processing.ocr_processing_stage import OCRProcessingStage
+    from govscape.processing.pdf_extraction_stage import PDFExtractionStage
+
+    ocr_stage_module.cv2 = FakeCV2
+    ocr_stage_module.CV2_AVAILABLE = True
+
     extract_stage = PDFExtractionStage(
         data_model=data_model,
         pdf_files=[str(path) for path in pdf_files],
@@ -66,23 +69,42 @@ def main() -> None:
     )
     extract_stage.run()
 
-    serial_stage = OCRProcessingStage(
-        data_model=data_model,
-        ocr_type="easyocr",
-        batch_size=1,
-        max_workers=1,
-    )
-    multiprocessing_stage = OCRProcessingStage(
-        data_model=data_model,
-        ocr_type="easyocr",
-        batch_size=1,
-        max_workers=2,
-    )
+    class FakeExecutor:
+        def __init__(self, *args, **kwargs):
+            pass
 
-    with patch(
-        "govscape.processing.ocr_processing_stage._build_ocr_engine",
-        return_value=FakeOCR(),
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def map(self, fn, items):
+            return [fn(item) for item in items]
+
+    with (
+        patch(
+            "govscape.processing.ocr_processing_stage._build_ocr_engine",
+            return_value=FakeOCR(),
+        ),
+        patch(
+            "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
+            FakeExecutor,
+        ),
     ):
+        serial_stage = OCRProcessingStage(
+            data_model=data_model,
+            ocr_type="easyocr",
+            batch_size=1,
+            max_workers=1,
+        )
+        multiprocessing_stage = OCRProcessingStage(
+            data_model=data_model,
+            ocr_type="easyocr",
+            batch_size=1,
+            max_workers=2,
+        )
+
         print("Running serial processing...")
         serial_start = time.perf_counter()
         serial_stage.run_single_threaded()

@@ -68,6 +68,12 @@ class PDFExtractionStage(ProcessingStage):
             )
 
     def run(self):
+        if self.cpu_count <= 1:
+            return sum(
+                _convert_single_pdf(self.data_model, pdf_file)
+                for pdf_file in self.pdf_files
+            )
+
         ctx = get_context("spawn")
         with ctx.Pool(processes=self.cpu_count) as pool:
             results = pool.starmap(

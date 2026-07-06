@@ -1,21 +1,30 @@
 """OCR Processing Stage - Extracts text from PDF pages using OCR engines."""
 
 import contextlib
+import importlib
 import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
 
-try:
-    import cv2
-
-    CV2_AVAILABLE = True
-except ImportError:
-    cv2 = None  # type: ignore[assignment]
-    CV2_AVAILABLE = False
-
 from ..config import DataModel
 from .ocr.base_ocr import BaseOCR
 from .processing_stage import ProcessingStage
+
+cv2 = None
+CV2_AVAILABLE = None
+
+
+def _load_cv2() -> None:
+    global cv2, CV2_AVAILABLE
+    if CV2_AVAILABLE is not None:
+        return
+
+    try:
+        cv2 = importlib.import_module("cv2")
+        CV2_AVAILABLE = True
+    except Exception:
+        cv2 = None
+        CV2_AVAILABLE = False
 
 
 def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
@@ -54,6 +63,7 @@ class OCRProcessingStage(ProcessingStage):
         self.logger = logging.getLogger(__name__)
 
     def validate(self) -> None:
+        _load_cv2()
         if not CV2_AVAILABLE:
             raise ImportError(
                 "cv2 (OpenCV) is required for OCR processing. "
@@ -159,6 +169,8 @@ class OCRProcessingStage(ProcessingStage):
         all_metadata: list[tuple[str, int]] = []
         engine_name = self.ocr_engine.__class__.__name__.lower()
 
+        _load_cv2()
+
         for digest_dir in os.scandir(self.data_model.image_directory):
             if not digest_dir.is_dir():
                 continue
@@ -173,6 +185,8 @@ class OCRProcessingStage(ProcessingStage):
             for page_file in page_files:
                 image_path = os.path.join(digest_dir.path, page_file)
                 try:
+                    if cv2 is None:
+                        raise RuntimeError("cv2 is not available")
                     image = cv2.imread(image_path)
                     if image is None:
                         self.logger.warning(f"Failed to read image: {image_path}")
