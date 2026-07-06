@@ -1,7 +1,5 @@
 """OCR Processing Stage - Extracts text from PDF pages using OCR engines."""
 
-# AI modified: 2026-06-30T00:00:00Z 9572ec457fa5bc348c0a58148e220cc1ff48e98f
-
 import contextlib
 import logging
 import os
@@ -77,6 +75,7 @@ class OCRProcessingStage(ProcessingStage):
         self.run_single_threaded()
 
     def run_single_threaded(self):
+        self.validate()
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
         error_count = 0
@@ -144,6 +143,7 @@ class OCRProcessingStage(ProcessingStage):
         )
 
     def run_parallel(self):
+        self.validate()
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
         error_count = 0
