@@ -13,6 +13,16 @@ except ImportError:
     olmocr = None
 
 
+def _get_olmocr_model_class() -> type | None:
+    if olmocr is None:
+        return None
+
+    if hasattr(olmocr, "OLMOcr"):
+        return olmocr.OLMOcr
+
+    return None
+
+
 class OLMOcrImpl(BaseOCR):
     """OCR implementation using OLMOcr.
 
@@ -36,11 +46,16 @@ class OLMOcrImpl(BaseOCR):
                 "olmocr is not installed. Install it with: pip install olmocr"
             )
 
-        try:
-            # Initialize the model
-            OLMOcrModel = olmocr.OLMOcr
+        model_class = _get_olmocr_model_class()
+        if model_class is None:
+            raise RuntimeError(
+                "Installed olmocr package does not provide a compatible `OLMOcr` "
+                "API. Please install a compatible olmocr release or use a different "
+                "OCR backend."
+            )
 
-            self.model = OLMOcrModel(model_name=self.model_name)
+        try:
+            self.model = model_class(model_name=self.model_name)
             self.logger.info(
                 f"OLMOcr model '{self.model_name}' initialized successfully"
             )

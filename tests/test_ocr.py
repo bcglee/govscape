@@ -42,6 +42,15 @@ def _create_test_image(text: str, size=(300, 80)) -> np.ndarray:
         return np.full((size[1], size[0], 3), 255, dtype=np.uint8)
 
 
+def _is_olmocr_compatible() -> bool:
+    try:
+        import olmocr
+    except ImportError:
+        return False
+
+    return hasattr(olmocr, "OLMOcr")
+
+
 @pytest.fixture
 def temp_data_dir():
     """Create temporary data directory for testing and yield DataModel."""
@@ -68,6 +77,12 @@ def test_ocr_implementations_on_sample_images(impl_class, init_args, skip_pkg):
     # Skip based on known package name when provided
     if skip_pkg:
         pytest.importorskip(skip_pkg)
+
+    # Skip olmocr if the installed package is not compatible with the expected API.
+    if impl_class is OLMOcrImpl and not _is_olmocr_compatible():
+        pytest.skip(
+            "Installed olmocr package does not expose a compatible `OLMOcr` API."
+        )
 
     # OcrMyPDF requires both ocrmypdf and pytesseract
     if impl_class is OcrMyPDFImpl:
