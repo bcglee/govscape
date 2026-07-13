@@ -80,11 +80,21 @@ class LocalProxy(Proxy):
         return normalize_date(date), score
 
 
+def dates_agree(a: str, b: str, validation: str) -> bool:
+    if validation == "exact":
+        return a == b
+    # year: N/A must still match N/A; otherwise compare year prefixes
+    if "N/A" in (a, b):
+        return a == b
+    return a[:4] == b[:4]
+
+
 class LocalOracle(Oracle):
-    def __init__(self, client: OpenAI, model: str):
+    def __init__(self, client: OpenAI, model: str, validation: str = "exact"):
         super().__init__(verbose=True, max_workers=8)
         self.client = client
         self.model = model
+        self.validation = validation
         self.tokens_in = 0
         self.tokens_out = 0
 
@@ -100,7 +110,7 @@ class LocalOracle(Oracle):
         self.tokens_out += resp.usage.completion_tokens
         date, _ = parse_extraction_json(resp.choices[0].message.content)
         oracle_date = normalize_date(date)
-        return oracle_date == proxy_output, oracle_date
+        return dates_agree(oracle_date, proxy_output, self.validation), oracle_date
 
 
 def main():
@@ -108,6 +118,15 @@ def main():
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--target", type=float, default=0.9)
     parser.add_argument("--delta", type=float, default=0.1)
+    parser.add_argument(
+        "--validation",
+        choices=["exact", "year"],
+        default="exact",
+        help="How the oracle judges proxy agreement (drives cascade routing)",
+    )
+    parser.add_argument(
+        "--method_name", default="bargain", help="results/<method_name>.jsonl"
+    )
     args = parser.parse_args()
 
     client = OpenAI(base_url=BASE_URL, api_key="dummy")
@@ -121,7 +140,7 @@ def main():
     data_records = [oracle_excerpt(r) for r in records]
 
     proxy = LocalProxy(client, model)
-    oracle = LocalOracle(client, model)
+    oracle = LocalOracle(client, model, validation=args.validation)
     bargain = BARGAIN_A(proxy, oracle, target=args.target, delta=args.delta)
 
     start = time.perf_counter()
@@ -143,7 +162,7 @@ def main():
         row["tokens_in"] = tokens_in // len(rows)
         row["tokens_out"] = tokens_out // len(rows)
 
-    out = write_results("bargain", rows)
+    out = write_results(args.method_name, rows)
     n_oracle = int(sum(oracle_used))
     print(
         f"Wrote {len(rows)} rows to {out}\n"

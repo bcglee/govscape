@@ -1,0 +1,13 @@
+# Date-extraction results
+
+Corpus: 150 docs (138 dated, 12 N/A per labels; 30 with scanned/OCR pages)
+
+| method | n | year_acc | ym_acc | exact_acc | na_precision | na_recall | year_acc_scan | year_acc_digital | tokens/doc | ms/doc |
+|---|---|---|---|---|---|---|---|---|---|---|
+| bargain | 150 | 0.98 | 0.99 | 0.98 | 0.92 | 1.00 | 1.00 | 0.97 | 2848 | 4076 |
+| bargain_year | 150 | 0.99 | 0.99 | 0.97 | 0.92 | 1.00 | 1.00 | 0.98 | 2701 | 3927 |
+| baseline_llm | 150 | 0.85 | 0.80 | 0.72 | 0.65 | 0.92 | 0.70 | 0.88 | 928 | 1711 |
+| baseline_metadata | 150 | 0.43 | 0.33 | 0.29 | 0.12 | 0.17 | 0.33 | 0.46 | 0 | 0 |
+| baseline_regex | 150 | 0.54 | 0.48 | 0.38 | 0.20 | 0.92 | 0.44 | 0.56 | 0 | 0 |
+| docetl | 150 | 0.76 | 0.77 | 0.66 | 0.37 | 0.83 | 0.63 | 0.79 | 1943 | 1110 |
+| palimpzest | 150 | 0.67 | 0.63 | 0.59 | 0.27 | 0.83 | 0.48 | 0.72 | 1653 | 1562 |

@@ -152,6 +152,23 @@ def chat_completion(
         return json.load(r)
 
 
+def vllm_token_counters(base_url: str = DEFAULT_BASE_URL) -> tuple[int, int]:
+    """Read vLLM's cumulative (prompt, generation) token counters.
+
+    Snapshot before/after a run to attribute tokens to frameworks that don't
+    expose usage themselves.
+    """
+    url = base_url.removesuffix("/v1") + "/metrics"
+    with urllib.request.urlopen(url, timeout=10) as r:
+        text = r.read().decode()
+    totals = {"prompt": 0, "generation": 0}
+    for line in text.splitlines():
+        for kind in totals:
+            if line.startswith(f"vllm:{kind}_tokens_total"):
+                totals[kind] += int(float(line.split()[-1]))
+    return totals["prompt"], totals["generation"]
+
+
 def parse_extraction_json(content: str) -> tuple[str | None, str]:
     """Parse {"creation_date": ..., "evidence": ...} from model output."""
     m = re.search(r"\{.*\}", content, re.DOTALL)

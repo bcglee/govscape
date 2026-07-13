@@ -15,5 +15,7 @@ exec /home/ubuntu/venvs/vllm/bin/vllm serve "$MODEL" \
   --max-model-len "$MAX_LEN" \
   --gpu-memory-utilization 0.90 \
   --enforce-eager \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes \
   --host 127.0.0.1 \
   --port "$PORT"

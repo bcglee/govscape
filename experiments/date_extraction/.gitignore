@@ -4,4 +4,5 @@ corpus/s3_sample/
 corpus/data/
 methods/docetl/docs.json
 methods/docetl/docetl_output.json
+methods/docetl/docetl_run*.log
 .docetl/

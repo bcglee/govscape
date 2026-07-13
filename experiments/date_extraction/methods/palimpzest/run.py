@@ -21,6 +21,7 @@ from common import (  # noqa: E402
     doc_excerpt,
     load_manifest,
     result_row,
+    vllm_token_counters,
     write_results,
 )
 
@@ -76,9 +77,11 @@ def main():
         policy=pz.MaxQuality(),
         progress=True,
     )
+    in_before, out_before = vllm_token_counters()
     start = time.perf_counter()
     output = dataset.run(config)
     wall_ms = (time.perf_counter() - start) * 1000
+    in_after, out_after = vllm_token_counters()
 
     df = output.to_df()
     by_digest = {row["digest"]: row for _, row in df.iterrows() if "digest" in row}
@@ -90,6 +93,8 @@ def main():
                 record["digest"],
                 None if out is None else str(out.get("creation_date", "")),
                 evidence="" if out is None else str(out.get("evidence", "")),
+                tokens_in=(in_after - in_before) // len(records),
+                tokens_out=(out_after - out_before) // len(records),
                 wall_ms=wall_ms / len(records),
             )
         )
