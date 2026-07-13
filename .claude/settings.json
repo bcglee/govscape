@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry run pytest *)",
+      "Bash(poetry run mypy *)",
+      "Bash(poetry run ruff check *)",
+      "Bash(poetry run pip show *)",
+      "Bash(poetry env info)",
+      "Bash(nvidia-smi *)",
+      "Bash(aws s3 ls *)"
+    ]
+  }
+}

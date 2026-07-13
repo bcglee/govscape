@@ -1,0 +1,7 @@
+# Generated data — rebuild with corpus/build_corpus.py and the method run scripts
+corpus/s3_mock/
+corpus/s3_sample/
+corpus/data/
+methods/docetl/docs.json
+methods/docetl/docetl_output.json
+.docetl/

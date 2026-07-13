@@ -1,0 +1,41 @@
+# AI modified: 2026-07-13 9572ec45
+# DocETL pipeline: single map op extracting the document creation date.
+# Model is served locally by vLLM (serving/serve_vllm.sh); HOSTED_VLLM_API_BASE
+# must point at it (set by run.sh).
+default_model: hosted_vllm/Qwen/Qwen2.5-7B-Instruct-AWQ
+
+datasets:
+  gov_pdfs:
+    type: file
+    path: docs.json
+
+operations:
+  - name: extract_creation_date
+    type: map
+    prompt: |
+      Below is text from a U.S. government PDF. Determine the date the
+      document was actually written or created — NOT the date it was
+      scanned, digitized, published online, or crawled. For a letter this
+      is the date the letter was written; for a report, the date on the
+      report itself.
+
+      Use YYYY-MM-DD, YYYY-MM, or YYYY depending on how precisely the
+      document states it. If the document does not reveal when it was
+      written, use "N/A".
+
+      Document text:
+      {{ input.text }}
+    output:
+      schema:
+        creation_date: str
+        evidence: str
+
+pipeline:
+  steps:
+    - name: extract
+      input: gov_pdfs
+      operations:
+        - extract_creation_date
+  output:
+    type: file
+    path: docetl_output.json
