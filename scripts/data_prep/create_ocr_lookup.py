@@ -39,47 +39,49 @@ def log_error(label: str, error: Exception):
     with open(ERROR_LOG, "a") as f:
         f.write(f"ERROR: {msg}\n")
 
-def parse_jsonl(jsonl_path: str, ocr_text_tar_dir: str, worker_id: str) -> dict:
+def parse_jsonl(jsonl_path: str, ocr_metadata_dir: str, worker_id: str) -> dict:
     pages_staged = 0
     fallback_docs = 0
     fallback_pages = 0
     docs_seen = 0
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with open(jsonl_path, encoding="utf-8") as f:
-            for line in f:
-                try:
-                    doc = json.loads(line)
-                except Exception as e:
-                    log_error(f"JSONL parse in {jsonl_path}", e)
-                    continue
+    # with tempfile.TemporaryDirectory() as tmpdir:        # no longer needed
+    with open(jsonl_path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                doc = json.loads(line)
+            except Exception as e:
+                log_error(f"JSONL parse in {jsonl_path}", e)
+                continue
 
-                docs_seen += 1
-                text = doc["text"]
-                digest = extract_pdf_id(doc["metadata"]["Source-File"])
+            docs_seen += 1
+            # text = doc["text"]
+            digest = extract_pdf_id(doc["metadata"]["Source-File"])
 
-                digest_text_dir = Path(tmpdir) / digest
-                digest_text_dir.mkdir(parents=True, exist_ok=True)
-                for start, end, page_no in doc["attributes"]["pdf_page_numbers"]:
-                    (digest_text_dir / f"{digest}_{page_no}.txt").write_text(
-                        text[start:end], encoding="utf-8"
-                    )
-                    pages_staged += 1
+            # digest_text_dir = Path(tmpdir) / digest
+            # digest_text_dir.mkdir(parents=True, exist_ok=True)
+            # for start, end, page_no in doc["attributes"]["pdf_page_numbers"]:
+            #     (digest_text_dir / f"{digest}_{page_no}.txt").write_text(
+            #         text[start:end], encoding="utf-8"
+            #     )
+            #     pages_staged += 1
 
-                tar_path = Path(ocr_text_tar_dir) / f"{digest}.tar.gz"
-                with tarfile.open(tar_path, "w:gz") as tar:
-                    tar.add(digest_text_dir, arcname=digest)
-                shutil.rmtree(digest_text_dir)
+            # tar_path = Path(ocr_text_tar_dir) / f"{digest}.tar.gz"
+            # with tarfile.open(tar_path, "w:gz") as tar:
+            #     tar.add(digest_text_dir, arcname=digest)
+            # shutil.rmtree(digest_text_dir)
 
-                doc_fallback = doc["metadata"].get("total-fallback-pages", 0)
-                if doc_fallback > 0:
-                    fallback_docs += 1
-                    fallback_pages += doc_fallback
+            digest_metadata_dir = Path(ocr_metadata_dir) / digest
+            digest_metadata_dir.mkdir(parents=True, exist_ok=True)
+            (digest_metadata_dir / "metadata.json").write_text(
+                json.dumps(doc), encoding="utf-8"
+            )
 
-    logging.info(
-        "[%s] %s: %d pages, %d/%d docs needed fallback",
-        worker_id, Path(jsonl_path).name, pages_staged, fallback_docs, docs_seen,
-    )
+            doc_fallback = doc["metadata"].get("total-fallback-pages", 0)
+            if doc_fallback > 0:
+                fallback_docs += 1
+                fallback_pages += doc_fallback
+                open(LOCAL_DATA_DIR / "fallback_ignore.txt", "a", encoding="utf-8").write(f"{digest}\n")
     return {
         "pages": pages_staged,
         "docs": docs_seen,
@@ -90,10 +92,10 @@ def parse_jsonl(jsonl_path: str, ocr_text_tar_dir: str, worker_id: str) -> dict:
 def run(data_loader, remote_dm, batch_size):
     LOCAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
     in_dir = str(LOCAL_DATA_DIR / "jsonl_in")
-    ocr_text_tar_dir = str(LOCAL_DATA_DIR / "text_tars_out")   # holds {digest}.tar.gz files
+    ocr_metadata_dir = str(LOCAL_DATA_DIR / "pages_metadata_out")
 
     remote_checkpoint = os.path.join(
-        remote_dm.checkpoints_directory, "ocr_extraction.checkpoint"
+        remote_dm.checkpoints_directory, "ocr_metadata_extraction.checkpoint"
     )
     totals = {"pages": 0, "docs": 0, "fallback_docs": 0, "fallback_pages": 0}
 
@@ -101,7 +103,7 @@ def run(data_loader, remote_dm, batch_size):
         data_loader=data_loader,
         prefix=OCR_PREFIX,
         remote_checkpoint_path=remote_checkpoint,
-        local_checkpoint_path=str(LOCAL_DATA_DIR / "ocr_extraction.checkpoint"),
+        local_checkpoint_path=str(LOCAL_DATA_DIR / "ocr_metadata_extraction.checkpoint"),
         local_dir=in_dir,
         use_multiprocessing=False,
     ) as it, ProcessPoolExecutor() as pool:
@@ -110,9 +112,9 @@ def run(data_loader, remote_dm, batch_size):
             jsonl_paths = it.download_batch(max_keys=batch_size)
 
             if jsonl_paths:
-                Path(ocr_text_tar_dir).mkdir(parents=True, exist_ok=True)
+                Path(ocr_metadata_dir).mkdir(parents=True, exist_ok=True)
                 futures = {
-                    pool.submit(parse_jsonl, p, ocr_text_tar_dir, f"w{i}"): p
+                    pool.submit(parse_jsonl, p, ocr_metadata_dir, f"w{i}"): p
                     for i, p in enumerate(jsonl_paths)
                 }
                 for fut in futures:
@@ -122,23 +124,22 @@ def run(data_loader, remote_dm, batch_size):
                             totals[k] += counts[k]
                     except Exception as e:
                         log_error(f"parse failed {futures[fut]}", e)
-
+                # data_loader.upload_directory(
+                #     local_dir=ocr_text_tar_dir,
+                #     remote_prefix=remote_dm.ocr_text_directory,
+                #     compress=False,
+                # )
                 data_loader.upload_directory(
-                    local_dir=ocr_text_tar_dir,
-                    remote_prefix=remote_dm.ocr_text_directory,
-                    compress=False,
+                    local_dir=ocr_metadata_dir,
+                    remote_prefix=remote_dm.ocr_metadata_directory,
+                    compress=True,
                 )
 
             it.save_checkpoint()
             shutil.rmtree(in_dir, ignore_errors=True)
-            shutil.rmtree(ocr_text_tar_dir, ignore_errors=True)
-            batch_num += 1
-            logging.info(
-                "Batch %d complete (finished=%s) — running totals: "
-                "%d docs, %d needed fallback (%d fallback pages)",
-                batch_num, it.finished,
-                totals["docs"], totals["fallback_docs"], totals["fallback_pages"],
-            )
+            # shutil.rmtree(ocr_text_tar_dir, ignore_errors=True)
+            shutil.rmtree(ocr_metadata_dir, ignore_errors=True)
+
     pct = (100 * totals["fallback_docs"] / totals["docs"]) if totals["docs"] else 0.0
     logging.info(
         "Done. %d docs total, %d needed OCR fallback (%.1f%%), %d fallback pages.",
