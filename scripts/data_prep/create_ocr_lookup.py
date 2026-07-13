@@ -132,7 +132,7 @@ def run(data_loader, remote_dm, batch_size):
                 data_loader.upload_directory(
                     local_dir=ocr_metadata_dir,
                     remote_prefix=remote_dm.ocr_metadata_directory,
-                    compress=True,
+                    compress=False,
                 )
 
             it.save_checkpoint()
