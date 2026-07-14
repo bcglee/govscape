@@ -122,3 +122,35 @@ Findings:
    text than any method). Human gold labeling (`provenance` upgrade in
    `eval/labels.jsonl`) is the planned next step; treat absolute numbers as
    agreement-with-annotator until then.
+
+## Model-size sweep (2026-07-14)
+
+`serving/run_model_sweep.sh` reruns the direct baseline with smaller models
+(all with vLLM guided-JSON decoding, `json_mode` in `common.chat_completion`):
+
+| model | year_acc | ym_acc | na_precision | na_recall | ms/doc |
+|---|---|---|---|---|---|
+| Qwen2.5-0.5B | 0.69 | 0.62 | 0.00 | 0.00 | 903 |
+| Qwen2.5-1.5B | 0.65 | 0.46 | 0.09 | 0.17 | 1299 |
+| Qwen2.5-3B | 0.74 | 0.74 | 0.30 | 0.58 | 1963 |
+| Phi-3.5-mini (3.8B) | 0.71 | 0.64 | 0.34 | 0.92 | 3040 |
+| Qwen2.5-7B-AWQ | 0.85 | 0.80 | 0.62 | 0.83 | 1749 |
+
+Sweep findings:
+
+1. **Guided JSON is mandatory below 7B.** Without `response_format` enforcement,
+   Qwen2.5-3B rambled a reasoning preamble past the token cap on 34/150 docs and
+   scored 0.31 year accuracy; with guided decoding it scored 0.74. The 7B was
+   format-reliable either way. Format compliance, not extraction ability, is the
+   first thing that breaks with model size.
+2. **Year-level accuracy degrades gracefully; abstention collapses.** Even 0.5B
+   gets 0.69 year accuracy (most docs state a prominent date — grabbing it is
+   easy, cf. the regex baseline at 0.54). But N/A handling scales steeply:
+   0.5B never abstains correctly (0.00 precision), 3B reaches 0.30, 7B 0.62.
+   Distinguishing "this document does not reveal its date" from "I found some
+   date-like string" is the capability that requires scale.
+3. **Precision scales too:** month-level accuracy is 0.46-0.74 below 7B vs 0.80
+   at 7B — small models more often return a year when the doc states a full date.
+4. Caveat: labels are silver from Qwen2.5-7B, so the sweep measures agreement
+   with the 7B annotator; same-family models may be slightly favored. The
+   qualitative gaps (abstention, granularity) are large enough to survive that.

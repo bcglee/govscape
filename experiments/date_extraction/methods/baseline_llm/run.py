@@ -24,6 +24,11 @@ from common import (  # noqa: E402
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--method_name",
+        default="baseline_llm",
+        help="results/<method_name>.jsonl (used by the model-size sweep)",
+    )
     args = parser.parse_args()
 
     model = served_model()
@@ -37,7 +42,12 @@ def main():
         start = time.perf_counter()
         prompt = EXTRACTION_PROMPT.format(text=doc_excerpt(record))
         try:
-            resp = chat_completion([{"role": "user", "content": prompt}], model=model)
+            resp = chat_completion(
+                [{"role": "user", "content": prompt}],
+                model=model,
+                max_tokens=300,
+                json_mode=True,
+            )
             content = resp["choices"][0]["message"]["content"]
             date, evidence = parse_extraction_json(content)
             usage = resp.get("usage", {})
@@ -56,7 +66,7 @@ def main():
         if (i + 1) % 25 == 0:
             print(f"{i + 1}/{len(records)}")
 
-    out = write_results("baseline_llm", rows)
+    out = write_results(args.method_name, rows)
     print(f"Wrote {len(rows)} rows to {out}")
 
 

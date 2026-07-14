@@ -133,8 +133,13 @@ def chat_completion(
     max_tokens: int = 200,
     temperature: float = 0.0,
     logprobs: bool = False,
+    json_mode: bool = False,
 ) -> dict:
-    """Call the local OpenAI-compatible endpoint; returns the raw response."""
+    """Call the local OpenAI-compatible endpoint; returns the raw response.
+
+    json_mode uses vLLM guided decoding to force valid JSON output — small
+    models otherwise ramble a preamble and hit max_tokens before any JSON.
+    """
     body = {
         "model": model or served_model(base_url),
         "messages": messages,
@@ -143,6 +148,8 @@ def chat_completion(
     }
     if logprobs:
         body["logprobs"] = True
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=json.dumps(body).encode(),
