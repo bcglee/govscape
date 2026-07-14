@@ -134,11 +134,14 @@ def chat_completion(
     temperature: float = 0.0,
     logprobs: bool = False,
     json_mode: bool = False,
+    extra_body: dict | None = None,
 ) -> dict:
     """Call the local OpenAI-compatible endpoint; returns the raw response.
 
     json_mode uses vLLM guided decoding to force valid JSON output — small
     models otherwise ramble a preamble and hit max_tokens before any JSON.
+    extra_body merges extra request fields (e.g. top_p, presence_penalty,
+    chat_template_kwargs={"enable_thinking": False} for Qwen3.5).
     """
     body = {
         "model": model or served_model(base_url),
@@ -150,6 +153,8 @@ def chat_completion(
         body["logprobs"] = True
     if json_mode:
         body["response_format"] = {"type": "json_object"}
+    if extra_body:
+        body.update(extra_body)
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=json.dumps(body).encode(),
@@ -177,7 +182,19 @@ def vllm_token_counters(base_url: str = DEFAULT_BASE_URL) -> tuple[int, int]:
 
 
 def parse_extraction_json(content: str) -> tuple[str | None, str]:
-    """Parse {"creation_date": ..., "evidence": ...} from model output."""
+    """Parse {"creation_date": ..., "evidence": ...} from model output.
+
+    Reasoning models may bury the JSON in surrounding prose — prefer the last
+    well-formed object that mentions creation_date before falling back to the
+    outermost brace span.
+    """
+    candidates = re.findall(r'\{[^{}]*"creation_date"[^{}]*\}', content, re.DOTALL)
+    for cand in reversed(candidates):
+        try:
+            data = json.loads(cand)
+        except json.JSONDecodeError:
+            continue
+        return data.get("creation_date"), str(data.get("evidence", ""))
     m = re.search(r"\{.*\}", content, re.DOTALL)
     if not m:
         return None, f"unparseable output: {content[:100]}"
