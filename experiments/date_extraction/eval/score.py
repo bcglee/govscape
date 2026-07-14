@@ -26,6 +26,8 @@ LABELS_PATH = os.path.join(EXPERIMENT_DIR, "eval", "labels.jsonl")
 
 
 def load_jsonl(path: str) -> list[dict]:
+    if not os.path.isfile(path):
+        return []
     with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f]
 
@@ -92,9 +94,18 @@ def ratio(num: int, den: int) -> str:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--labels", default=LABELS_PATH)
+    parser.add_argument(
+        "--gold",
+        default=os.path.join(EXPERIMENT_DIR, "eval", "labels_gold.jsonl"),
+        help="Overlay these gold labels onto --labels by digest (if present)",
+    )
     args = parser.parse_args()
 
     labels = {r["digest"]: r for r in load_jsonl(args.labels)}
+    gold = {r["digest"]: r for r in load_jsonl(args.gold)}
+    labels.update(gold)  # gold takes precedence per digest
+    if gold:
+        print(f"Overlaid {len(gold)} gold labels onto {len(labels)} total\n")
     scanned = {
         r["digest"] for r in load_manifest() if r["ocr_pages"] or r["empty_pages"]
     }

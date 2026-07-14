@@ -75,6 +75,36 @@ bash experiments/date_extraction/methods/docetl/run.sh
 poetry run python experiments/date_extraction/eval/score.py
 ```
 
+### Gold labeling (human)
+
+Silver labels (7B annotator) are the default ground truth; upgrade any subset to
+human gold with the browser labeling app. It shows each PDF's pages plus candidate
+dates (metadata / regex / silver / every model, grouped by agreement) and records
+your call to `eval/labels_gold.jsonl` (non-destructive, resumable):
+
+```bash
+# on the server
+poetry run python experiments/date_extraction/eval/label_app.py
+# from your laptop, tunnel the port, then open http://127.0.0.1:5055
+ssh -L 5055:127.0.0.1:5055 <server>
+```
+
+Per document: read the pages (page-nav + "open raw PDF" link; the crawl date is
+shown as an upper bound), then click a candidate chip or type the date the document
+was *written* (any of YYYY / YYYY-MM / YYYY-MM-DD; free text is normalized on save),
+or hit **N/A**. Mark **hard/uncertain** and add notes for tricky cases. It opens at
+the first unlabeled doc and you can stop anytime.
+
+Score against gold (overlays gold onto silver per digest, so partial labeling still
+counts — un-labeled docs fall back to their silver label):
+
+```bash
+poetry run python experiments/date_extraction/eval/score.py   # auto-uses labels_gold.jsonl
+```
+
+Each gold record keeps `silver_date` alongside the human `date`, so you can measure
+how far the 7B annotator drifted from ground truth once labeling is done.
+
 Serving notes (T4 / SM75): fp16 only; `--enforce-eager` because torch.compile is
 pathologically slow on Turing; `--tool-call-parser hermes` because DocETL requests
 schema output via tool-calling. The AWQ int4 7B (~5.5 GB weights) leaves room for
