@@ -184,3 +184,40 @@ Sweep findings:
 4. Caveat: labels are silver from Qwen2.5-7B, so the sweep measures agreement
    with the 7B annotator; same-family models may be slightly favored. The
    qualitative gaps (abstention, granularity) are large enough to survive that.
+
+## Gold-label results (2026-07-14, 79 human labels)
+
+79/150 docs now have human gold labels (`eval/labels_gold.jsonl`, incl. all 12
+formerly-N/A docs and 17/30 scans; 5 flagged uncertain). `score.py` overlays gold
+onto silver by default; pass `--labels eval/labels_gold.jsonl` for the gold-only
+view. Gold-only (68 dated, 11 N/A):
+
+| method | year_acc | ym_acc | exact_acc | na_precision | na_recall |
+|---|---|---|---|---|---|
+| silver annotator (7B, full doc) | 0.85 | — | 0.51 | 1.00 | 0.36 |
+| bargain / bargain_year | 0.82–0.85 | 0.75 | ~0.51 | 1.00 | 0.45 |
+| baseline_llm (7B direct) | 0.81 | 0.66 | 0.44 | 1.00 | 0.36 |
+| docetl | 0.79 | 0.70 | 0.56 | 0.64 | 0.64 |
+| direct_qwen3b / phi3.5 / qwen0.5b | 0.72 | 0.57–0.67 | 0.50–0.63 | — | — |
+| baseline_metadata | 0.43 | 0.30 | 0.25 | 0.00 | 0.00 |
+
+Findings vs the silver-only evaluation:
+
+1. **The silver annotator was measurably wrong.** It matches human gold exactly
+   on only 38/79 docs (48%); 85% at year level. Failure modes: hallucinating
+   dates on undatable docs (gold has 19 N/A across 150 vs silver's 12), century
+   misreads on old scans (1592→1892, 1666→1866 style), and coarser granularity
+   than the document supports.
+2. **BARGAIN's near-perfect silver scores were indeed circular.** Against gold it
+   falls from 0.98 to 0.82–0.85 year accuracy — statistically indistinguishable
+   from the direct 7B call (0.81) and DocETL (0.79) at n=68 (±~9%). Reading 3x
+   more context buys granularity (ym/exact), not year-level accuracy.
+3. **Abstention is the open problem for every LLM method.** All 7B-based methods
+   have perfect N/A precision but recall <= 0.45: when they answer N/A it's
+   right, but they hallucinate a date on more than half the docs a human judges
+   undatable. DocETL's laxer prompt scaffolding trades precision for the best
+   recall (0.64).
+4. **Rankings among the frameworks are unchanged** (metadata << regex < small
+   models < Palimpzest < DocETL <= direct 7B <= BARGAIN), so the silver-label
+   methodology was directionally sound — it inflated absolute numbers, not the
+   ordering.
