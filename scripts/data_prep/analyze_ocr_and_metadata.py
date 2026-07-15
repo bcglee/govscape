@@ -13,13 +13,13 @@ import tarfile
 import unicodedata
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
+from botocore import UNSIGNED
+from botocore.config import Config
 
 import boto3
 import tiktoken
 import pyarrow as pa
 import pyarrow.parquet as pq
-from botocore import UNSIGNED
-from botocore.config import Config
 from rapidfuzz.distance import LCSseq, Levenshtein
 
 from govscape.config import DataModel
@@ -34,8 +34,9 @@ logging.basicConfig(
 
 DEFAULT_BUCKET = "eot-pdf-archive"
 OCR_TEXT_PREFIX = "ocr_text/"
-PDF_BUCKET = "bcgl-public-bucket"
-PDF_KEY_TEMPLATE = "2020_EOT_PDFs/PDFs/{digest}.pdf"
+PDF_BUCKET = "govscape"
+PDF_KEY_TEMPLATE = "eota-pdf-archive/pdfs/{digest}.pdf"
+PDF_ENDPOINT = "https://data.source.coop"
 EXTRACTED_TEXT_PREFIX = "pdf_extracted_text"
 METRICS_REMOTE_SUBDIR = "ocr_metrics"
 
@@ -186,7 +187,11 @@ pdfium = None
 def _init_worker() -> None:
     """Per-process setup"""
     global _PDF_S3, pdfium
-    _PDF_S3 = boto3.client("s3")
+    _PDF_S3 = boto3.client(
+        "s3",
+        endpoint_url=PDF_ENDPOINT,
+        config=Config(signature_version=UNSIGNED),
+    )
     import pypdfium2 as pdfium
     _encoder()
  
