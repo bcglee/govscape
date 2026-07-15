@@ -65,15 +65,29 @@ def main():
         default=None,
         help="Hybrid-reasoning toggle for Qwen3.5-style models",
     )
+    parser.add_argument(
+        "--max_tokens", type=int, default=None, help="Override the mode default"
+    )
+    parser.add_argument(
+        "--digests_file",
+        default=None,
+        help="Only process digests listed in this file (one per line)",
+    )
     args = parser.parse_args()
 
     model = served_model()
     print(f"model: {model}  thinking: {args.thinking or 'n/a'}")
     records = load_manifest()
+    if args.digests_file:
+        with open(args.digests_file, encoding="utf-8") as f:
+            wanted = {line.strip() for line in f if line.strip()}
+        records = [r for r in records if r["digest"] in wanted]
     if args.limit:
         records = records[: args.limit]
 
     temperature, max_tokens, extra_body, json_mode = request_config(args.thinking)
+    if args.max_tokens:
+        max_tokens = args.max_tokens
 
     rows = []
     for i, record in enumerate(records):

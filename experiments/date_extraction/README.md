@@ -221,3 +221,42 @@ Findings vs the silver-only evaluation:
    models < Palimpzest < DocETL <= direct 7B <= BARGAIN), so the silver-label
    methodology was directionally sound — it inflated absolute numbers, not the
    ordering.
+
+## Qwen3.5 family + reasoning toggle (2026-07-15)
+
+`serving/run_qwen35_sweep.sh` runs the direct baseline with Qwen3.5 dense models
+in both thinking and non-thinking mode (needs vLLM 0.25.1 in the `vllm-q35` venv;
+served with `--reasoning-parser qwen3`). Scored against gold-overlaid labels (n=150):
+
+| model | mode | year_acc | ym_acc | exact_acc | na_prec | na_rec | ms/doc |
+|---|---|---|---|---|---|---|---|
+| Qwen2.5-7B-AWQ (ref) | greedy | 0.82 | 0.70 | 0.56 | 0.69 | 0.58 | 1749 |
+| Qwen3.5-4B (fp16) | non-think | 0.80 | 0.65 | 0.50 | 0.52 | 0.68 | 2830 |
+| Qwen3.5-2B (fp16) | non-think | 0.69 | 0.64 | 0.60 | 0.56 | 0.79 | 2200 |
+| Qwen3.5-0.8B (fp16) | non-think | 0.74 | 0.68 | 0.63 | 0.38 | 0.16 | 2627 |
+| Qwen3.5-4B | think | 0.66 | 0.69 | 0.60 | 0.33 | 0.84 | 146267 |
+| Qwen3.5-2B | think | 0.62 | 0.56 | 0.49 | 0.42 | 0.74 | 2333 |
+| Qwen3.5-0.8B | think | 0.63 | 0.60 | 0.50 | 0.35 | 0.42 | 2538 |
+
+Findings:
+
+1. **Reasoning hurts year accuracy at every size** (4B 0.80→0.66, 2B 0.69→0.62,
+   0.8B 0.74→0.63). For "find the date on the page" there is little to reason
+   about; thinking mostly adds variance (and the model-card thinking sampling is
+   hotter, temp 1.0 vs 0.7).
+2. **But reasoning shifts the model toward caution:** thinking raises N/A recall
+   (4B 0.68→0.84) while lowering N/A precision and committing to fewer dates —
+   which is exactly what tanks year_acc (abstaining on a dated doc is a miss) even
+   as the dates it *does* give get more precise (4B exact 0.50→0.60). Reasoning
+   trades coverage for precision, not the other way around.
+3. **Generational gain is real:** Qwen3.5-4B non-thinking (0.80) ties the
+   Qwen2.5-7B reference (0.82) at ~half the parameters, and Qwen3.5-0.8B (0.74)
+   matches the old Qwen2.5-3B.
+4. **Thinking's cost is prohibitive here:** 4B-think needed a 12k-token budget
+   (median 3.3k think tokens; 51/150 docs hit the original 4k cap and were
+   re-run) and lands at ~146 s/doc — a ~50x slowdown over its own non-thinking
+   mode, for *worse* accuracy. Not viable for a million-doc batch.
+5. Caveat: Qwen3.5 runs use fp16 (no int4 build was used here) so ms/doc is not
+   comparable to the AWQ 7B; the QuantTrio AWQ builds would roughly halve it.
+   Thinking is served free-form (guided JSON suppresses the think block), so
+   those rows lack schema enforcement — a minor disadvantage to thinking.
