@@ -561,6 +561,9 @@ def run(args) -> None:
                         write_batch_parquet(
                             batch_rows, str(metrics_dir / f"metrics_batch_{batch_num:06d}.parquet")
                         )
+            if args.profile_only:
+                (LOCAL_DATA_DIR / "profile_report_partial.json").write_text(
+                    json.dumps(dict(profile_totals), indent=2))
             it.save_checkpoint()
             for d in (in_dir, work_dir, out_tar_dir):
                 shutil.rmtree(d, ignore_errors=True)
