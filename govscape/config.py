@@ -31,9 +31,6 @@ class DataModel:
 
     def ocr_pdf_directory(self, digest: str) -> str:
         return os.path.join(self.ocr_text_directory, digest)
-
-    def ocr_page_path(self, digest: str, pg_no: int) -> str:
-        return os.path.join(self.ocr_text_directory, digest, f"{digest}_{pg_no}.txt")
     
     def ocr_metadata_file_path(self, digest: str) -> str:
         return os.path.join(self.ocr_metadata_directory, digest, "metadata.json")
@@ -56,7 +53,7 @@ class DataModel:
         return os.path.join(self.txt_directory, digest, f"{digest}_{pg_no}.txt")
 
     def ocr_page_path(self, digest: str, pg_no: int) -> str:
-        return os.path.join(self.ocr_directory, digest, f"{digest}_{pg_no}.txt")
+        return os.path.join(self.ocr_text_directory, digest, f"{digest}_{pg_no}.txt")
 
     def img_page_path(self, digest: str, pg_no: int) -> str:
         return os.path.join(self.image_directory, digest, f"{digest}_{pg_no}.jpeg")
