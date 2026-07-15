@@ -5,6 +5,7 @@ import collections
 import heapq
 import json
 import logging
+import time
 import os
 import random
 import re
@@ -15,6 +16,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from botocore import UNSIGNED
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 import boto3
 import tiktoken
@@ -39,6 +41,8 @@ PDF_KEY_TEMPLATE = "eota-pdf-archive/pdfs/{digest}.pdf"
 PDF_ENDPOINT = "https://data.source.coop"
 EXTRACTED_TEXT_PREFIX = "pdf_extracted_text"
 METRICS_REMOTE_SUBDIR = "ocr_metrics"
+TRANSIENT_CODES = {"500", "502", "503", "SlowDown",
+                   "520", "521", "522", "523", "524", "525", "526"}
 
 LOCAL_DATA_DIR = Path("data/ocr_agreement")
 ERROR_LOG = LOCAL_DATA_DIR / "errors.log"
@@ -210,7 +214,7 @@ def _extract_pdf_pages(pdf_path: str) -> list[str]:
         for i in range(len(pdf)):
             page = pdf[i]
             textpage = page.get_textpage()
-            pages.append(textpage.get_text_range())
+            pages.append(textpage.get_text_bounded())
             textpage.close()
             page.close()
     finally:
@@ -247,7 +251,17 @@ def process_digest(
     key = PDF_KEY_TEMPLATE.format(digest=digest)
     try:
         os.makedirs(work_dir, exist_ok=True)
-        _PDF_S3.download_file(PDF_BUCKET, key, pdf_local)
+        for attempt in range(4):
+            try:
+                _PDF_S3.download_file(PDF_BUCKET, key, pdf_local)
+                break
+            except ClientError as e:
+                code = str(e.response.get("Error", {}).get("Code", ""))
+                if code in TRANSIENT_CODES and attempt < 3:
+                    logging.warning("transient %s on %s, retry %d", code, key, attempt + 1)
+                    time.sleep((2 ** attempt) + random.random())
+                    continue
+                raise
     except Exception as e:
         _log_error(f"PDF DOWNLOAD FAILED s3://{PDF_BUCKET}/{key}", e)
         result["error"] = f"pdf_download: {e}"
