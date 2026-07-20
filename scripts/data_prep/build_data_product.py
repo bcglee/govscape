@@ -13,6 +13,7 @@ from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
+from concurrent.futures import ThreadPoolExecutor
 
 from ocr_common import (
     ARCHIVE_PREFIX, COOP_BUCKET, DIGEST_RE, NATIVE_BUCKET, NATIVE_PREFIX,
@@ -120,11 +121,15 @@ _BCGL = None
 pdfium = None
 _CREDS_PATH = None
 
+# Use Data Loader and Remote Directory Iterator and if they don't work
+# If we do not know why they work, then we can try to scale and adapt them
 def _init_worker(creds_path: str, native: bool) -> None:
     global _ANON, _WRITER, _BCGL, pdfium
+    from botocore.config import Config
+    cfg = Config(max_pool_connections=60, retries={"max_attempts": 3, "mode": "standard"})
     _ANON = make_coop_anon_client()
     _WRITER = CoopWriter(creds_path, native=native)
-    _BCGL = boto3.client("s3")
+    _BCGL = boto3.client("s3", config=cfg)
     import pypdfium2 as pdfium
 
 def _extract_pdf_pages(pdf_path: str) -> dict[int, str]:
@@ -141,27 +146,37 @@ def _extract_pdf_pages(pdf_path: str) -> dict[int, str]:
         pdf.close()
     return pages
 
-def _fetch_devserving_pages(digest: str, tmp_dir: str) -> dict[int, str] | None:
-    """dev-serving text if present. Files are 0-indexed; keys returned +1."""
+def _fetch_devserving_pages(digest, tmp_dir):
     prefix = f"{DEV_SERVING_PREFIX}{digest}/"
+    all_keys = []
     keys, token = list_keys(_BCGL, BCGL_BUCKET, prefix)
-    all_keys = list(keys)
+    all_keys.extend(keys)
     while token:
         keys, token = list_keys(_BCGL, BCGL_BUCKET, prefix, continuation=token)
         all_keys.extend(keys)
     if not all_keys:
         return None
-    pages: dict[int, str] = {}
-    for key in all_keys:
+
+    def fetch_one(key):
         stem = Path(key).stem
         try:
             pg0 = int(stem.rsplit("_", 1)[1])
         except (IndexError, ValueError):
-            continue
-        local = os.path.join(tmp_dir, f"{digest}_{pg0}.txt")
-        download_with_retry(_BCGL, BCGL_BUCKET, key, local)
-        pages[pg0 + 1] = Path(local).read_text(encoding="utf-8", errors="replace")
-        os.remove(local)
+            return None
+        obj = _BCGL.get_object(Bucket=BCGL_BUCKET, Key=key)
+        return pg0 + 1, obj["Body"].read().decode("utf-8", errors="replace")
+
+    pages = {}
+    if len(all_keys) == 1:
+        r = fetch_one(all_keys[0])
+        if r: pages[r[0]] = r[1]
+        return pages or None
+
+    n = min(16, len(all_keys))
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        for r in ex.map(fetch_one, all_keys):
+            if r:
+                pages[r[0]] = r[1]
     return pages or None
 
 def process_digest(digest: str, work_dir: str,
@@ -175,26 +190,27 @@ def process_digest(digest: str, work_dir: str,
         pdf_key = PDF_KEY_TEMPLATE.format(digest=digest)
         pdf_local = os.path.join(tmp_dir, f"{digest}.pdf")
 
-        # Miss gate: HEAD against the NATIVE bucket (no CDN in the path)
-        try:
-            _WRITER.client.head_object(Bucket=NATIVE_BUCKET,
-                                       Key=f"{NATIVE_PREFIX}{pdf_key}")
-        except ClientError as e:
-            if is_not_found(e):
-                result["miss"] = True
-                c["miss"] += 1
-                return result
-            raise
-
         if not skip_pdf_upload:
-            if _WRITER.native:
+            try:
                 _WRITER.copy_object(NATIVE_BUCKET, f"{NATIVE_PREFIX}{pdf_key}",
                                     f"{PRODUCT_PREFIX}/pdfs/{digest}.pdf")
                 c["pdf_copied"] += 1
-            else:
-                download_with_retry(_ANON, COOP_BUCKET, pdf_key, pdf_local)
-                _WRITER.upload_file(pdf_local, f"{PRODUCT_PREFIX}/pdfs/{digest}.pdf")
-                c["pdf_uploaded"] += 1
+            except ClientError as e:
+                if is_not_found(e):
+                    result["miss"] = True
+                    c["miss"] += 1
+                    return result
+                raise
+        else:
+            try:
+                _WRITER.client.head_object(Bucket=NATIVE_BUCKET,
+                                           Key=f"{NATIVE_PREFIX}{pdf_key}")
+            except ClientError as e:
+                if is_not_found(e):
+                    result["miss"] = True
+                    c["miss"] += 1
+                    return result
+                raise
 
         pages = _fetch_devserving_pages(digest, tmp_dir)
         if pages is not None:
