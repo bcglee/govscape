@@ -175,9 +175,10 @@ def process_digest(digest: str, work_dir: str,
         pdf_key = PDF_KEY_TEMPLATE.format(digest=digest)
         pdf_local = os.path.join(tmp_dir, f"{digest}.pdf")
 
-        # Miss gate: HEAD, not download — push NOTHING if the PDF is absent
+        # Miss gate: HEAD against the NATIVE bucket (no CDN in the path)
         try:
-            _ANON.head_object(Bucket=COOP_BUCKET, Key=pdf_key)
+            _WRITER.client.head_object(Bucket=NATIVE_BUCKET,
+                                       Key=f"{NATIVE_PREFIX}{pdf_key}")
         except ClientError as e:
             if is_not_found(e):
                 result["miss"] = True
