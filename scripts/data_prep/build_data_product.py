@@ -201,7 +201,8 @@ def process_digest(digest: str, work_dir: str,
             c["devserving_hit"] += 1
         else:
             if not os.path.exists(pdf_local):
-                download_with_retry(_ANON, COOP_BUCKET, pdf_key, pdf_local)
+                download_with_retry(_WRITER.client, NATIVE_BUCKET,
+                                    f"{NATIVE_PREFIX}{pdf_key}", pdf_local)
             pages = _extract_pdf_pages(pdf_local)
             c["pypdfium_extracted"] += 1
         tar_path = tar_pages(pages, digest, tmp_dir)
