@@ -96,6 +96,52 @@ class CoopWriter:
         self._with_retry(dest_key, lambda: self.client.copy_object(
             Bucket=self.bucket, Key=self.prefix + dest_key,
             CopySource={"Bucket": src_bucket, "Key": src_key}, ACL=OWNER_ACL))
+            
+    def _with_retry(self, op_desc: str, fn) -> None:
+        """Every exit is success-or-raise — no silent fall-through."""
+        attempt = 0
+        auth_reloads = 0
+        while True:
+            try:
+                fn()
+                return
+            except ClientError as e:
+                code = str(e.response.get("Error", {}).get("Code", ""))
+                if code in AUTH_ERROR_CODES:
+                    auth_reloads += 1
+                    self._reload(code)
+                    if auth_reloads % 5 == 0:
+                        logging.warning("PAUSED on stale creds (%s) — %d reloads; "
+                                        "overwrite %s to resume", op_desc,
+                                        auth_reloads, self.creds_path)
+                    time.sleep(min(60, 5 * auth_reloads))
+                    continue
+                if code in TRANSIENT_CODES and attempt < self.attempts - 1:
+                    attempt += 1
+                    logging.warning("transient %s on %s, retry %d",
+                                    code, op_desc, attempt)
+                    time.sleep((2 ** (attempt - 1)) + random.random())
+                    continue
+                raise
+            except Exception as e:  # S3UploadFailedError wraps ClientError;
+                # connection resets arrive as generic exceptions
+                msg = str(e)
+                if any(c in msg for c in AUTH_ERROR_CODES):
+                    auth_reloads += 1
+                    self._reload("wrapped auth error")
+                    if auth_reloads % 5 == 0:
+                        logging.warning("PAUSED on stale creds (%s) — %d reloads; "
+                                        "overwrite %s to resume", op_desc,
+                                        auth_reloads, self.creds_path)
+                    time.sleep(min(60, 5 * auth_reloads))
+                    continue
+                if attempt < self.attempts - 1:
+                    attempt += 1
+                    logging.warning("upload error on %s (%s), retry %d",
+                                    op_desc, msg[:300], attempt)
+                    time.sleep((2 ** (attempt - 1)) + random.random())
+                    continue
+                raise
 
 def download_with_retry(client, bucket: str, key: str, local_path: str,
                         attempts: int = 4) -> None:
