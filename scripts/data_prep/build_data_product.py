@@ -15,10 +15,11 @@ import boto3
 from botocore.exceptions import ClientError
 
 from ocr_common import (
-    ARCHIVE_PREFIX, COOP_BUCKET, DIGEST_RE, PDF_KEY_TEMPLATE, PRODUCT_PREFIX,
+    ARCHIVE_PREFIX, COOP_BUCKET, DIGEST_RE, NATIVE_BUCKET, NATIVE_PREFIX,
+    PDF_KEY_TEMPLATE, PRODUCT_PREFIX,
     CoopWriter, JsonCheckpoint, download_with_retry, is_not_found,
     list_keys, load_ignore_list, make_coop_anon_client, make_error_logger,
-    setup_logging, tar_pages, AuthExhausted
+    setup_logging, tar_pages,
 )
 
 AWS_BUCKET = "eot-pdf-archive"
@@ -38,12 +39,14 @@ def digest_from_key(key: str) -> str | None:
     candidate = parts[1].removesuffix(".tar.gz")
     return candidate if DIGEST_RE.match(candidate) else None
 
-def copy_one_key(aws_client, writer, key):
-    body = aws_client.get_object(Bucket=AWS_BUCKET, Key=key)["Body"].read()
-    writer.put_bytes(body, f"{PRODUCT_PREFIX}/{key}")
+def copy_one_key(writer, key):
+    writer.copy_object(AWS_BUCKET, key, f"{PRODUCT_PREFIX}/{key}")
     return key
 
 def phase_copy(writer: CoopWriter, exclude: set[str], threads: int) -> None:
+    if not writer.native:
+        raise SystemExit("phase copy requires --native (server-side CopyObject); "
+                         "the proxy endpoint does not support it")
     aws_client = boto3.client("s3")
     for prefix in ("ocr_text/", "ocr_metadata/"):
         ckpt = JsonCheckpoint(str(LOCAL_DIR / f"copy_{prefix.rstrip('/')}.ckpt"))
@@ -64,8 +67,7 @@ def phase_copy(writer: CoopWriter, exclude: set[str], threads: int) -> None:
                         batch_skipped += 1
                         continue
                     work.append(k)
-                futures = [pool.submit(copy_one_key, aws_client, writer, k)
-                           for k in work]
+                futures = [pool.submit(copy_one_key, writer, k) for k in work]
                 for fut in futures:
                     fut.result()
                     copied += 1
@@ -118,11 +120,10 @@ _BCGL = None
 pdfium = None
 _CREDS_PATH = None
 
-def _init_worker(creds_path: str) -> None:
-    global _ANON, _WRITER, _BCGL, pdfium, _CREDS_PATH
-    _CREDS_PATH = creds_path
+def _init_worker(creds_path: str, native: bool) -> None:
+    global _ANON, _WRITER, _BCGL, pdfium
     _ANON = make_coop_anon_client()
-    _WRITER = CoopWriter(creds_path)
+    _WRITER = CoopWriter(creds_path, native=native)
     _BCGL = boto3.client("s3")
     import pypdfium2 as pdfium
 
@@ -171,11 +172,12 @@ def process_digest(digest: str, work_dir: str,
     tmp_dir = os.path.join(work_dir, digest)
     os.makedirs(tmp_dir, exist_ok=True)
     try:
-        # First attempt to pull PDF
+        pdf_key = PDF_KEY_TEMPLATE.format(digest=digest)
         pdf_local = os.path.join(tmp_dir, f"{digest}.pdf")
+
+        # Miss gate: HEAD, not download — push NOTHING if the PDF is absent
         try:
-            download_with_retry(_ANON, COOP_BUCKET,
-                                PDF_KEY_TEMPLATE.format(digest=digest), pdf_local)
+            _ANON.head_object(Bucket=COOP_BUCKET, Key=pdf_key)
         except ClientError as e:
             if is_not_found(e):
                 result["miss"] = True
@@ -183,24 +185,28 @@ def process_digest(digest: str, work_dir: str,
                 return result
             raise
 
-        # Upload PDF
         if not skip_pdf_upload:
-            _WRITER.upload_file(pdf_local, f"{PRODUCT_PREFIX}/pdfs/{digest}.pdf")
-            c["pdf_uploaded"] += 1
+            if _WRITER.native:
+                _WRITER.copy_object(NATIVE_BUCKET, f"{NATIVE_PREFIX}{pdf_key}",
+                                    f"{PRODUCT_PREFIX}/pdfs/{digest}.pdf")
+                c["pdf_copied"] += 1
+            else:
+                download_with_retry(_ANON, COOP_BUCKET, pdf_key, pdf_local)
+                _WRITER.upload_file(pdf_local, f"{PRODUCT_PREFIX}/pdfs/{digest}.pdf")
+                c["pdf_uploaded"] += 1
 
-        # Try to ping text, if not present, extract
         pages = _fetch_devserving_pages(digest, tmp_dir)
         if pages is not None:
             c["devserving_hit"] += 1
         else:
+            if not os.path.exists(pdf_local):
+                download_with_retry(_ANON, COOP_BUCKET, pdf_key, pdf_local)
             pages = _extract_pdf_pages(pdf_local)
             c["pypdfium_extracted"] += 1
         tar_path = tar_pages(pages, digest, tmp_dir)
         _WRITER.upload_file(
             tar_path, f"{PRODUCT_PREFIX}/extracted_text/{digest}.tar.gz")
         c["text_uploaded"] += 1
-    except AuthExhausted:
-        raise
     except Exception as e:
         log_error(f"process failed {digest}", e)
         result["error"] = str(e)
@@ -209,7 +215,7 @@ def process_digest(digest: str, work_dir: str,
         shutil.rmtree(tmp_dir, ignore_errors=True)
     return result
 
-def phase_text(creds_path: str, exclude: set[str],
+def phase_text(creds_path: str, native: bool, exclude: set[str],
                workers: int, batch_size: int, skip_pdf_upload: bool) -> None:
     aws_client = boto3.client("s3")
     work_dir = str(LOCAL_DIR / "text_work")
@@ -221,7 +227,7 @@ def phase_text(creds_path: str, exclude: set[str],
     token = ckpt.state.get("token")
     totals = collections.Counter(ckpt.state.get("totals", {}))
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
-                             initargs=(creds_path,)) as pool:
+                             initargs=(creds_path, native)) as pool:
         while True:
             keys, token = list_keys(aws_client, AWS_BUCKET, "ocr_text/",
                                     continuation=token, max_keys=batch_size)
@@ -236,9 +242,6 @@ def phase_text(creds_path: str, exclude: set[str],
                     totals.update(r["counts"])
                     if r["miss"]:
                         batch_misses.append(r["digest"])
-                except AuthExhausted as e:
-                    log_error("HALTING: credentials expired and never refreshed", e)
-                    raise SystemExit(1)
                 except Exception as e:
                     log_error(f"worker crashed on {futures[fut]}", e)
                     totals["errors"] += 1
@@ -258,6 +261,8 @@ def main() -> None:
     setup_logging()
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--phase", choices=["text", "copy", "cdx", "all"], default="all")
+    p.add_argument("--native", action="store_true",
+                   help="write via native AWS bucket (Option 3 grant) — no creds file")
     p.add_argument("--creds", default="source_coop_creds.json",
                    help="source.coop credentials JSON (refresh by overwriting)")
     p.add_argument("--fallback-ignore", default="fallback_ignore.txt")
@@ -272,14 +277,14 @@ def main() -> None:
 
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     exclude = load_ignore_list(args.fallback_ignore)
-    writer = CoopWriter(args.creds)
+    writer = CoopWriter(args.creds, native=args.native)
     all_misses_path = str(LOCAL_DIR / "all_misses.txt")
 
     # Text extraction phase
     if args.phase in ("text", "all"):
-        phase_text(args.creds, exclude,
+        phase_text(args.creds, args.native, exclude,
                    args.workers, args.batch_size, args.skip_pdf_upload)
-
+                   
     all_misses = load_ignore_list(all_misses_path)
     if args.phase in ("copy", "cdx") and not JsonCheckpoint(
             str(LOCAL_DIR / "text.ckpt")).state.get("finished"):

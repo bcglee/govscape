@@ -23,6 +23,11 @@ ARCHIVE_PREFIX = "eota-pdf-archive"
 PRODUCT_PREFIX = "eota-ocr"
 PDF_KEY_TEMPLATE = f"{ARCHIVE_PREFIX}/pdfs/{{digest}}.pdf"
 
+NATIVE_BUCKET = "us-west-2.opendata.source.coop"
+NATIVE_REGION = "us-west-2"
+NATIVE_PREFIX = "govscape/"          # product paths sit under this in the native bucket
+OWNER_ACL = "bucket-owner-full-control"   # REQUIRED on every native write, per their docs
+
 DIGEST_RE = re.compile(r"^[A-Z2-7]{32}$")    # base32 SHA-1
 
 TRANSIENT_CODES = {
@@ -56,70 +61,41 @@ def make_coop_authed_client(creds_path: str):
     )
 
 class CoopWriter:
-    """Authed writer with two self-healing behaviors"""
-
-    def __init__(self, creds_path: str, attempts: int = 4) -> None:
-        self.creds_path = creds_path
+    def __init__(self, creds_path: str | None = None, attempts: int = 4,
+                 native: bool = False) -> None:
+        self.native = native
         self.attempts = attempts
-        self.client = make_coop_authed_client(creds_path)
+        self.creds_path = creds_path
+        if native:
+            self.client = boto3.client("s3", region_name=NATIVE_REGION)  # instance role
+            self.bucket, self.prefix = NATIVE_BUCKET, NATIVE_PREFIX
+        else:
+            self.client = make_coop_authed_client(creds_path)
+            self.bucket, self.prefix = COOP_BUCKET, ""
 
     def _reload(self, reason: str) -> None:
-        logging.warning("auth error (%s) — reloading creds from %s",
-                        reason, self.creds_path)
+        if self.native:
+            raise RuntimeError(f"auth error in native mode ({reason}) — "
+                               "this is a real permissions problem, not stale creds")
+        logging.warning("auth error (%s) — reloading creds from %s", reason, self.creds_path)
         self.client = make_coop_authed_client(self.creds_path)
 
-    def _with_retry(self, op_desc: str, fn) -> None:
-        """Every exit is success-or-raise — no silent fall-through."""
-        attempt = 0
-        auth_reloads = 0
-        while True:
-            try:
-                fn()
-                return
-            except ClientError as e:
-                code = str(e.response.get("Error", {}).get("Code", ""))
-                if code in AUTH_ERROR_CODES:
-                    auth_reloads += 1
-                    self._reload(code)
-                    if auth_reloads % 5 == 0:      # once per ~5 min of stall
-                        logging.warning("PAUSED on stale creds (%s) — %d reloads; "
-                                        "overwrite %s to resume", op_desc,
-                                        auth_reloads, self.creds_path)
-                    time.sleep(min(60, 5 * auth_reloads))
-                    continue
-                if code in TRANSIENT_CODES and attempt < self.attempts - 1:
-                    attempt += 1
-                    logging.warning("transient %s on %s, retry %d",
-                                    code, op_desc, attempt)
-                    time.sleep((2 ** (attempt - 1)) + random.random())
-                    continue
-                raise
-            except Exception as e:
-                msg = str(e)
-                if any(c in msg for c in AUTH_ERROR_CODES):
-                    auth_reloads += 1
-                    self._reload("wrapped auth error")
-                    if auth_reloads % 5 == 0:
-                        logging.warning("PAUSED on stale creds (%s) — %d reloads; "
-                                        "overwrite %s to resume", op_desc,
-                                        auth_reloads, self.creds_path)
-                    time.sleep(min(60, 5 * auth_reloads))
-                    continue
-                if attempt < self.attempts - 1:
-                    attempt += 1
-                    logging.warning("upload error on %s (%s), retry %d",
-                                    op_desc, msg[:120], attempt)
-                    time.sleep((2 ** (attempt - 1)) + random.random())
-                    continue
-                raise
-
     def upload_file(self, local_path: str, key: str) -> None:
+        extra = {"ACL": OWNER_ACL} if self.native else None
         self._with_retry(key, lambda: self.client.upload_file(
-            local_path, COOP_BUCKET, key))
+            local_path, self.bucket, self.prefix + key, ExtraArgs=extra))
 
     def put_bytes(self, data: bytes, key: str) -> None:
-        self._with_retry(key, lambda: self.client.put_object(
-            Bucket=COOP_BUCKET, Key=key, Body=data))
+        kwargs = {"Bucket": self.bucket, "Key": self.prefix + key, "Body": data}
+        if self.native:
+            kwargs["ACL"] = OWNER_ACL
+        self._with_retry(key, lambda: self.client.put_object(**kwargs))
+
+    def copy_object(self, src_bucket: str, src_key: str, dest_key: str) -> None:
+        """Server-side copy — zero bytes through the instance. Native mode only."""
+        self._with_retry(dest_key, lambda: self.client.copy_object(
+            Bucket=self.bucket, Key=self.prefix + dest_key,
+            CopySource={"Bucket": src_bucket, "Key": src_key}, ACL=OWNER_ACL))
 
 def download_with_retry(client, bucket: str, key: str, local_path: str,
                         attempts: int = 4) -> None:
