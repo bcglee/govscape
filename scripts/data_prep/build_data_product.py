@@ -14,6 +14,7 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 
 from ocr_common import (
     ARCHIVE_PREFIX, COOP_BUCKET, DIGEST_RE, NATIVE_BUCKET, NATIVE_PREFIX,
@@ -242,25 +243,36 @@ def phase_text(creds_path, native, exclude, workers, batch_size, skip_pdf_upload
         logging.info("phase text already finished"); return
     token = ckpt.state.get("token")
     totals = collections.Counter(ckpt.state.get("totals", {}))
-    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
-                             initargs=(creds_path, native)) as pool:
+
+    def _make_pool():
+        return ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
+                                   initargs=(creds_path, native),
+                                   max_tasks_per_child=500)
+    pool = _make_pool()
+    try:
         while True:
             keys, token = list_keys(aws_client, AWS_BUCKET, "ocr_text/",
                                     continuation=token, max_keys=batch_size)
             digests = [d for d in (digest_from_key(k) for k in keys)
                        if d and d not in exclude]
-            futures = {pool.submit(process_digest, d, work_dir,
-                                   skip_pdf_upload): d for d in digests}
-            batch_misses = []
-            for fut in futures:
-                try:
-                    r = fut.result()
-                    totals.update(r["counts"])
-                    if r["miss"]:
-                        batch_misses.append(r["digest"])
-                except Exception as e:
-                    log_error(f"worker crashed on {futures[fut]}", e)
-                    totals["errors"] += 1
+            try:
+                futures = {pool.submit(process_digest, d, work_dir,
+                                       skip_pdf_upload): d for d in digests}
+                batch_misses = []
+                for fut in futures:
+                    try:
+                        r = fut.result()
+                        totals.update(r["counts"])
+                        if r["miss"]:
+                            batch_misses.append(r["digest"])
+                    except Exception as e:
+                        log_error(f"worker error {futures[fut]}", e)
+                        totals["errors"] += 1
+            except BrokenProcessPool:
+                logging.error("pool broke — rebuilding, re-running this batch")
+                pool.shutdown(wait=False)
+                pool = _make_pool()
+                continue
             if batch_misses:
                 with open(all_misses_path, "a") as f:
                     f.write("\n".join(batch_misses) + "\n")
@@ -270,6 +282,8 @@ def phase_text(creds_path, native, exclude, workers, batch_size, skip_pdf_upload
             logging.info("text phase: %s", dict(totals))
             if token is None:
                 break
+    finally:
+        pool.shutdown(wait=False)
     logging.info("phase text done: %s", dict(totals))
 
 def main() -> None:
