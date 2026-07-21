@@ -234,36 +234,21 @@ def process_digest(digest: str, work_dir: str,
     return result
 
 def phase_text(creds_path, native, exclude, workers, batch_size, skip_pdf_upload):
-    import queue, threading
     aws_client = boto3.client("s3")
     work_dir = str(LOCAL_DIR / "text_work")
     all_misses_path = LOCAL_DIR / "all_misses.txt"
     ckpt = JsonCheckpoint(str(LOCAL_DIR / "text.ckpt"))
     if ckpt.state.get("finished"):
         logging.info("phase text already finished"); return
-    start_token = ckpt.state.get("token")
+    token = ckpt.state.get("token")
     totals = collections.Counter(ckpt.state.get("totals", {}))
-
-    q: queue.Queue = queue.Queue(maxsize=2)
-    def _producer():
-        token = start_token
+    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
+                             initargs=(creds_path, native)) as pool:
         while True:
             keys, token = list_keys(aws_client, AWS_BUCKET, "ocr_text/",
                                     continuation=token, max_keys=batch_size)
             digests = [d for d in (digest_from_key(k) for k in keys)
                        if d and d not in exclude]
-            q.put((digests, token))
-            if token is None:
-                q.put(None); return
-    threading.Thread(target=_producer, daemon=True).start()
-
-    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
-                             initargs=(creds_path, native)) as pool:
-        while True:
-            item = q.get()
-            if item is None:
-                break
-            digests, next_token = item
             futures = {pool.submit(process_digest, d, work_dir,
                                    skip_pdf_upload): d for d in digests}
             batch_misses = []
@@ -279,11 +264,13 @@ def phase_text(creds_path, native, exclude, workers, batch_size, skip_pdf_upload
             if batch_misses:
                 with open(all_misses_path, "a") as f:
                     f.write("\n".join(batch_misses) + "\n")
-
-            ckpt.state = {"token": next_token, "totals": dict(totals),
-                          "finished": next_token is None}
+            ckpt.state = {"token": token, "totals": dict(totals),
+                          "finished": token is None}
             ckpt.save()
             logging.info("text phase: %s", dict(totals))
+            if token is None:
+                break
+    logging.info("phase text done: %s", dict(totals))
 
 def main() -> None:
     setup_logging()
