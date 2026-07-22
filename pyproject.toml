@@ -36,8 +36,19 @@ reportlab = "^4.4.1"
 s5cmd = "^0.3.3"
 scipy = "^1.13"
 sentence-transformers = "^4.0.1"
-torch = "^2.6.0"
-torchvision = "^0.25.0"
+# On Linux, install the CUDA (cu130) torch/torchvision builds from the PyTorch
+# index so GPU hosts (e.g. the aarch64 DGX Spark) get GPU support out of the box;
+# the CUDA wheels still import and run CPU-only where no GPU is present. macOS /
+# Windows have no CUDA wheels, so they fall back to the default (CPU) build.
+# GPU presence is not expressible in dependency markers, so this keys on platform.
+torch = [
+    { version = "2.10.0", source = "pytorch-cu130", markers = "sys_platform == 'linux'" },
+    { version = "2.10.0", markers = "sys_platform != 'linux'" },
+]
+torchvision = [
+    { version = "0.25.0", source = "pytorch-cu130", markers = "sys_platform == 'linux'" },
+    { version = "0.25.0", markers = "sys_platform != 'linux'" },
+]
 transformers = "4.50.3"
 warcio = "^1.7.5"
 whoosh = "^2.7.4"
@@ -70,6 +81,13 @@ ocr = [
     "ocrmypdf",
     "pytesseract",
 ]
+
+[[tool.poetry.source]]
+# Explicit priority: used only by packages that reference it (torch/torchvision),
+# never for general dependency resolution.
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

@@ -19,15 +19,25 @@ class EasyOCRImpl(BaseOCR):
     EasyOCR is a Python library for OCR supporting 80+ languages.
     """
 
-    def __init__(self, languages: list | None = None, gpu: bool = False):
+    def __init__(
+        self,
+        languages: list | None = None,
+        gpu: bool = False,
+        batch_size: int = 256,
+    ):
         """Initialize EasyOCR.
 
         Args:
             languages: List of language codes (e.g., ['en', 'fr']). Defaults to ['en'].
             gpu: Whether to use GPU for inference. Defaults to False.
+            batch_size: Number of detected text crops recognized per forward pass.
+                Larger values batch the recognition network and are much faster on
+                GPU (~1.7x at 256 vs EasyOCR's per-crop default of 1); it is capped
+                internally by the number of crops on a page.
         """
         self.languages = languages or ["en"]
         self.gpu = gpu
+        self.batch_size = batch_size
         self.reader: Any = None
         self.logger = logging.getLogger(__name__)
 
@@ -63,7 +73,7 @@ class EasyOCRImpl(BaseOCR):
 
     def _extract_single(self, image: np.ndarray) -> str:
         try:
-            results = self.reader.readtext(image)
+            results = self.reader.readtext(image, batch_size=self.batch_size)
             text_lines = [detection[1] for detection in results]
             return "\n".join(text_lines)
         except Exception as e:

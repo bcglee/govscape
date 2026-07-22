@@ -23,4 +23,5 @@ scripts/__pycache__/*
 .metadata_index_benchmark/*
 .vector_index_benchmark/*
 .ocr_benchmark_data/*
+.ocr_bench_work/*
 **/__pycache__/*
