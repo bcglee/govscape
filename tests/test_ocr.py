@@ -4,8 +4,7 @@
 
 import os
 import tempfile
-from time import perf_counter
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -58,6 +57,51 @@ def temp_data_dir():
         data_model = DataModel(tmpdir)
         os.makedirs(data_model.image_directory, exist_ok=True)
         yield tmpdir, data_model
+
+
+class _StaticTextOCR:
+    """Fake OCR engine returning a fixed string for every image.
+
+    Lets us exercise the OCRProcessingStage orchestration (batching, worker
+    dispatch, metadata mapping, writing) without loading a real OCR model.
+    """
+
+    TEXT = "fake-ocr-text"
+
+    def validate(self) -> None:
+        return None
+
+    def extract_text(self, images):
+        return [self.TEXT for _ in images]
+
+
+class _InlineProcessPoolExecutor:
+    """Drop-in ProcessPoolExecutor substitute that runs everything in-process.
+
+    It honors ``initializer``/``initargs`` exactly like the real executor, so the
+    per-worker engine setup in ``run_parallel`` is exercised, while avoiding the
+    spawning of real processes (and loading of real OCR models) during tests.
+    """
+
+    map_calls = 0
+
+    def __init__(
+        self, max_workers=None, mp_context=None, initializer=None, initargs=()
+    ):
+        self._initializer = initializer
+        self._initargs = initargs
+
+    def __enter__(self):
+        if self._initializer is not None:
+            self._initializer(*self._initargs)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def map(self, fn, items):
+        type(self).map_calls += 1
+        return [fn(item) for item in items]
 
 
 OCR_IMPLS = [
@@ -151,9 +195,22 @@ def test_ocr_processing_stage_writes_txt(
 
     # Patch engine methods to avoid external OCR dependencies during pipeline test.
     # extract_text is batched, so it returns a list with one entry per image.
+    # run() dispatches batches to worker processes that rebuild the engine via
+    # _build_ocr_engine, so patch that (and run the pool inline) to keep the test
+    # hermetic and independent of the multiprocessing start method.
+    worker_engine = MagicMock()
+    worker_engine.extract_text.return_value = [mocked_text]
     with (
         patch.object(stage.ocr_engine, "validate", return_value=None),
         patch.object(stage.ocr_engine, "extract_text", return_value=[mocked_text]),
+        patch(
+            "govscape.processing.ocr_processing_stage._build_ocr_engine",
+            return_value=worker_engine,
+        ),
+        patch(
+            "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
+            _InlineProcessPoolExecutor,
+        ),
     ):
         # Validate and run stage
         stage.validate()
@@ -167,8 +224,9 @@ def test_ocr_processing_stage_writes_txt(
         assert content == mocked_text
 
 
-def test_run_uses_process_pool_executor(monkeypatch, temp_data_dir):
-    """The default execution path should use a process-based executor."""
+def test_run_dispatches_batches_through_process_pool(temp_data_dir):
+    """run() should dispatch batches through a ProcessPoolExecutor, building the
+    engine via the per-worker initializer."""
     pytest.importorskip("cv2")
 
     _, data_model = temp_data_dir
@@ -189,46 +247,28 @@ def test_run_uses_process_pool_executor(monkeypatch, temp_data_dir):
         max_workers=2,
     )
 
-    class DummyProcessPoolExecutor:
-        def __init__(self, *args, **kwargs):
-            self.args = args
-            self.kwargs = kwargs
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def map(self, fn, items):
-            return [fn(item) for item in items]
-
-    used_executor = {"value": False}
-
-    def fake_map(self, fn, items):
-        used_executor["value"] = True
-        return [fn(item) for item in items]
-
-    class TrackingExecutor(DummyProcessPoolExecutor):
-        def map(self, fn, items):
-            return fake_map(self, fn, items)
-
+    _InlineProcessPoolExecutor.map_calls = 0
     with (
         patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(stage.ocr_engine, "extract_text", return_value=["process-pool"]),
+        patch(
+            "govscape.processing.ocr_processing_stage._build_ocr_engine",
+            return_value=_StaticTextOCR(),
+        ),
         patch(
             "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
-            TrackingExecutor,
+            _InlineProcessPoolExecutor,
         ),
     ):
         stage.run()
 
-    assert used_executor["value"] is True
+    assert _InlineProcessPoolExecutor.map_calls == 1
     txt_file = data_model.txt_page_path(digest, 0)
     assert os.path.exists(txt_file)
+    with open(txt_file, encoding="utf-8") as f:
+        assert f.read() == _StaticTextOCR.TEXT
 
 
-def test_single_threaded_and_parallel_paths_compare_outputs(temp_data_dir):
+def test_single_threaded_and_parallel_paths_produce_same_output(temp_data_dir):
     """The parallel path should produce the same OCR output as the
     single-threaded path."""
     pytest.importorskip("cv2")
@@ -252,34 +292,36 @@ def test_single_threaded_and_parallel_paths_compare_outputs(temp_data_dir):
         max_workers=2,
     )
 
-    def fake_extract_text(images):
-        return [f"ocr-result-for-{len(images)}-image(s)" for _ in images]
+    def read_pages() -> dict[int, str]:
+        pages = {}
+        for page_num in range(2):
+            with open(
+                data_model.txt_page_path(digest, page_num), encoding="utf-8"
+            ) as f:
+                pages[page_num] = f.read()
+        return pages
 
     with (
         patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(stage.ocr_engine, "extract_text", side_effect=fake_extract_text),
+        patch.object(
+            stage.ocr_engine,
+            "extract_text",
+            side_effect=lambda images: [_StaticTextOCR.TEXT for _ in images],
+        ),
         patch(
             "govscape.processing.ocr_processing_stage._build_ocr_engine",
-            return_value=stage.ocr_engine,
+            return_value=_StaticTextOCR(),
+        ),
+        patch(
+            "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
+            _InlineProcessPoolExecutor,
         ),
     ):
-        stage.validate()
-
-        single_start = perf_counter()
         stage.run_single_threaded()
-        single_elapsed = perf_counter() - single_start
+        single_output = read_pages()
 
-        parallel_start = perf_counter()
         stage.run_parallel()
-        parallel_elapsed = perf_counter() - parallel_start
+        parallel_output = read_pages()
 
-    print(f"single-threaded={single_elapsed:.6f}s parallel={parallel_elapsed:.6f}s")
-
-    for page_num in range(2):
-        txt_file = data_model.txt_page_path(digest, page_num)
-        with open(txt_file, encoding="utf-8") as f:
-            content = f.read()
-        assert content == "ocr-result-for-1-image(s)"
-
-    assert single_elapsed >= 0
-    assert parallel_elapsed >= 0
+    assert single_output == parallel_output
+    assert parallel_output == {0: _StaticTextOCR.TEXT, 1: _StaticTextOCR.TEXT}

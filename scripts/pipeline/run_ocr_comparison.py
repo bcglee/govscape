@@ -178,10 +178,15 @@ def main() -> None:
     print("PDF extraction complete.")
 
     class FakeExecutor:
-        def __init__(self, *args, **kwargs):
-            pass
+        def __init__(
+            self, max_workers=None, mp_context=None, initializer=None, initargs=()
+        ):
+            self._initializer = initializer
+            self._initargs = initargs
 
         def __enter__(self):
+            if self._initializer is not None:
+                self._initializer(*self._initargs)
             return self
 
         def __exit__(self, exc_type, exc, tb):
