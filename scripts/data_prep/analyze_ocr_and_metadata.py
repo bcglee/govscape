@@ -195,7 +195,7 @@ def process_digest(digest: str) -> list[dict]:
             else:
                 bucket = ("ocr_only" if has_ocr
                           else "pdf_text_only" if has_pdf else "neither")
-                tok = len(enc.encode(ocr_t or pdf_t, disallowed_special=()))
+                tok = len(enc.encode_ordinary(ocr_t or pdf_t))
                 rows.append({"digest": digest, "page": pg, "bucket": bucket,
                              "extracted_tar_missing": ext_missing,
                              "tokens_present": tok})
