@@ -5,6 +5,7 @@ import importlib
 import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 
 from ..config import DataModel
 from .ocr.base_ocr import BaseOCR
@@ -140,13 +141,15 @@ class OCRProcessingStage(ProcessingStage):
 
         worker_count = self.max_workers or max(1, min(4, os.cpu_count() or 1))
         all_texts: list[str] = []
-        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+        with ProcessPoolExecutor(
+            max_workers=worker_count,
+            mp_context=get_context("spawn"),
+            initializer=_init_ocr_worker,
+            initargs=(self.ocr_type, self.ocr_kwargs),
+        ) as executor:
             for batch_texts, batch_errors in executor.map(
                 _process_batch_in_process,
-                [
-                    (self.ocr_type, self.ocr_kwargs, batch_images)
-                    for batch_images, _batch_metadata in batch_specs
-                ],
+                [batch_images for batch_images, _batch_metadata in batch_specs],
             ):
                 all_texts.extend(batch_texts)
                 error_count += batch_errors
@@ -219,11 +222,26 @@ class OCRProcessingStage(ProcessingStage):
             return False
 
 
-def _process_batch_in_process(
-    batch_info: tuple[str, dict, list],
-) -> tuple[list[str], int]:
-    ocr_type, ocr_kwargs, batch_images = batch_info
-    ocr_engine = _build_ocr_engine(ocr_type, **ocr_kwargs)
+# Per-worker OCR engine, built once by the process pool initializer and reused
+# across every batch that worker handles (avoids reloading the model per batch).
+_WORKER_OCR_ENGINE: BaseOCR | None = None
+
+
+def _init_ocr_worker(ocr_type: str, ocr_kwargs: dict) -> None:
+    global _WORKER_OCR_ENGINE
+    _WORKER_OCR_ENGINE = _build_ocr_engine(ocr_type, **ocr_kwargs)
+
+
+def _process_batch_in_process(batch_images: list) -> tuple[list[str], int]:
+    ocr_engine = _WORKER_OCR_ENGINE
+    if ocr_engine is None:
+        # Should never happen: the pool initializer builds the engine before any
+        # batch is dispatched. Guard defensively so a batch cannot silently vanish.
+        logging.getLogger(__name__).error(
+            "OCR worker engine was not initialized; failing batch of %d images.",
+            len(batch_images),
+        )
+        return [""] * len(batch_images), len(batch_images)
     try:
         texts = ocr_engine.extract_text(batch_images)
         return texts, 0
