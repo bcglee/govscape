@@ -67,7 +67,7 @@ class CoopWriter:
         self.attempts = attempts
         self.creds_path = creds_path
         if native:
-            self.client = boto3.client("s3", region_name=NATIVE_REGION)  # instance role
+            self.client = boto3.client("s3", region_name=NATIVE_REGION, config=Config(max_pool_connections=80))  # instance role
             self.bucket, self.prefix = NATIVE_BUCKET, NATIVE_PREFIX
         else:
             self.client = make_coop_authed_client(creds_path)
