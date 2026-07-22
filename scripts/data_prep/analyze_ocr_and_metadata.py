@@ -7,7 +7,7 @@ import os
 import re
 import tarfile
 import unicodedata
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, ThreadPoolExecutor
 from pathlib import Path
 
 import boto3
@@ -173,14 +173,18 @@ def process_digest(digest: str) -> list[dict]:
         ocr_pages = untar_pages_from_bytes(_get_tar_bytes(ocr_key))
 
         ext_key = f"{PRODUCT_KEY_PREFIX}/extracted_text/{digest}.tar.gz"
-        try:
-            pdf_pages = untar_pages_from_bytes(_get_tar_bytes(ext_key))
-            ext_missing = False
-        except ClientError as e:
-            if is_not_found(e):
-                pdf_pages, ext_missing = {}, True
-            else:
-                raise
+        with ThreadPoolExecutor(max_workers=2) as tp:
+            ocr_fut = tp.submit(_get_tar_bytes, ocr_key)
+            ext_fut = tp.submit(_get_tar_bytes, ext_key)
+            ocr_pages = untar_pages_from_bytes(ocr_fut.result())
+            try:
+                pdf_pages = untar_pages_from_bytes(ext_fut.result())
+                ext_missing = False
+            except ClientError as e:
+                if is_not_found(e):
+                    pdf_pages, ext_missing = {}, True
+                else:
+                    raise
 
         enc = _encoder()
         rows: list[dict] = []
