@@ -18,7 +18,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 from rapidfuzz.distance import LCSseq, Levenshtein
 
-from data_loader import S3DataLoader
+from govscape.data_loader import S3DataLoader
 from ocr_common import (
     DIGEST_RE, NATIVE_BUCKET, NATIVE_PREFIX, NATIVE_REGION, PRODUCT_PREFIX,
     JsonCheckpoint, is_not_found, load_ignore_list, make_error_logger,
