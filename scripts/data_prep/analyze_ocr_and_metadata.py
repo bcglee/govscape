@@ -170,8 +170,6 @@ def process_digest(digest: str) -> list[dict]:
     """Return per-page metric rows for one digest. Empty list on hard error"""
     try:
         ocr_key = f"{PRODUCT_KEY_PREFIX}/ocr_text/{digest}.tar.gz"
-        ocr_pages = untar_pages_from_bytes(_get_tar_bytes(ocr_key))
-
         ext_key = f"{PRODUCT_KEY_PREFIX}/extracted_text/{digest}.tar.gz"
         with ThreadPoolExecutor(max_workers=2) as tp:
             ocr_fut = tp.submit(_get_tar_bytes, ocr_key)
@@ -258,63 +256,67 @@ def run(args) -> None:
 
     with ProcessPoolExecutor(max_workers=args.workers,
                              initializer=_init_worker) as pool:
-        while True:
+        def _list_next(tok):
             res = lister.list_objects(list_prefix, max_keys=args.batch_size,
-                                      continuation_token=token)
-            token = res.continuation_token
-            digests = []
+                                    continuation_token=tok)
+            digs = []
             for k in res.keys:
                 d = Path(k).name.removesuffix(".tar.gz")
                 if DIGEST_RE.match(d) and d not in exclude:
-                    digests.append(d)
+                    digs.append(d)
+            return digs, res.continuation_token
 
-            if digests:
-                logging.info("batch %d: %d digests submitted", batch_num, len(digests))
-                batch_rows = []
-                future_to_digest = {pool.submit(process_digest, d): d for d in digests}
-                for fut in as_completed(future_to_digest):
-                    d = future_to_digest[fut]
-                    digests_done += 1
-                    try:
-                        r = fut.result()
-                    except Exception as e:  # hard crash: worker died, no return value
-                        log_error(f"worker crashed on {d}", e)
-                        with open(MISS_LEDGER, "a") as f:
-                            f.write(json.dumps({"digest": d, "reason": "worker_crash",
-                                                "error": repr(e), "batch": batch_num}) + "\n")
-                        continue
-                    if r["error"] is not None:
-                        with open(MISS_LEDGER, "a") as f:
-                            f.write(json.dumps({"digest": d, "reason": "process_error",
-                                                "error": r["error"], "batch": batch_num}) + "\n")
-                    elif not r["rows"]:
-                        with open(MISS_LEDGER, "a") as f:
-                            f.write(json.dumps({"digest": d, "reason": "zero_rows",
-                                                "error": None, "batch": batch_num}) + "\n")
-                    batch_rows.extend(r["rows"])
-                if batch_rows:
-                    fname = f"metrics_batch_{batch_num:06d}.parquet"
-                    fpath = str(metrics_dir / fname)
-                    write_batch_parquet(batch_rows, fpath)
-                    if not args.no_cloud_sync:
-                        parquet_client.upload_file(
-                            fpath, PARQUET_BUCKET,
-                            f"{PARQUET_REMOTE_PREFIX}/{fname}")
+        list_pool = ThreadPoolExecutor(max_workers=1)
+        digests, token = _list_next(token) 
+        while digests:
+            next_future = list_pool.submit(_list_next, token)
+
+            logging.info("batch %d: %d digests submitted", batch_num, len(digests))
+            batch_rows = []
+            future_to_digest = {pool.submit(process_digest, d): d for d in digests}
+            for fut in as_completed(future_to_digest):
+                d = future_to_digest[fut]
+                digests_done += 1
+                try:
+                    r = fut.result()
+                except Exception as e:
+                    log_error(f"worker crashed on {d}", e)
+                    with open(MISS_LEDGER, "a") as f:
+                        f.write(json.dumps({"digest": d, "reason": "worker_crash",
+                                            "error": repr(e), "batch": batch_num}) + "\n")
+                    continue
+                if r["error"] is not None:
+                    with open(MISS_LEDGER, "a") as f:
+                        f.write(json.dumps({"digest": d, "reason": "process_error",
+                                            "error": r["error"], "batch": batch_num}) + "\n")
+                elif not r["rows"]:
+                    with open(MISS_LEDGER, "a") as f:
+                        f.write(json.dumps({"digest": d, "reason": "zero_rows",
+                                            "error": None, "batch": batch_num}) + "\n")
+                batch_rows.extend(r["rows"])
+
+            if batch_rows:
+                fname = f"metrics_batch_{batch_num:06d}.parquet"
+                fpath = str(metrics_dir / fname)
+                write_batch_parquet(batch_rows, fpath)
+                if not args.no_cloud_sync:
+                    parquet_client.upload_file(
+                        fpath, PARQUET_BUCKET, f"{PARQUET_REMOTE_PREFIX}/{fname}")
 
             batch_num += 1
+            # collect prefetched next batch (listed during compute above)
+            digests, token = next_future.result()
             ckpt.state = {"token": token, "batch_num": batch_num,
-                          "digests_done": digests_done, "finished": token is None}
+                        "digests_done": digests_done, "finished": token is None}
             ckpt.save()
-            logging.info("batch %d done — %d digests processed so far",
-                         batch_num, digests_done)
+            logging.info("batch %d done — %d processed", batch_num, digests_done)
 
             if args.sample and digests_done >= args.sample:
                 break
-            if token is None:
-                break
 
-    logging.info("==== EXTRACTION DONE ==== %d digests, %d batches",
-                 digests_done, batch_num)
+        list_pool.shutdown()
+        logging.info("==== EXTRACTION DONE ==== %d digests, %d batches",
+                    digests_done, batch_num)
 
 def main() -> None:
     setup_logging()
