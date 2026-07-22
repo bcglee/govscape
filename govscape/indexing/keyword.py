@@ -5,8 +5,6 @@ import threading
 from abc import ABC, abstractmethod
 
 import pyarrow as pa
-from lancedb import connect
-from lancedb.query import MatchQuery, PhraseQuery
 from whoosh.fields import ID, NUMERIC, TEXT, Schema
 from whoosh.filedb.filestore import FileStorage
 from whoosh.index import create_in
@@ -149,6 +147,10 @@ class LanceDBKeywordIndex(AbstractKeywordIndex):
 
     def _connect(self):
         if self.db is None:
+            # Imported lazily: importing lancedb starts a background asyncio event
+            # loop, which makes forking (used by the data/processing pools) unsafe.
+            from lancedb import connect
+
             os.makedirs(self.index_keyword_directory, exist_ok=True)
             self.db = connect(self.index_keyword_directory)
 
@@ -199,6 +201,8 @@ class LanceDBKeywordIndex(AbstractKeywordIndex):
             self.load_index()
         if not query:
             return [], [], []
+
+        from lancedb.query import MatchQuery, PhraseQuery
 
         query_obj = None
         if query[0] == '"' and query[-1] == '"':

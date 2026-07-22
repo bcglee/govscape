@@ -40,12 +40,17 @@ def _create_test_image(text: str, size=(300, 80)) -> np.ndarray:
 
 
 def _is_olmocr_compatible() -> bool:
+    # olmOCR runs a ~7B vision-language model (large download + slow, GPU-bound
+    # inference), so its real-inference test is opt-in via RUN_OLMOCR_MODEL=1
+    # rather than run on every suite invocation.
+    if not os.environ.get("RUN_OLMOCR_MODEL"):
+        return False
     try:
-        import olmocr
+        import transformers
     except ImportError:
         return False
 
-    return hasattr(olmocr, "OLMOcr")
+    return hasattr(transformers, "Qwen2_5_VLForConditionalGeneration")
 
 
 @pytest.fixture
