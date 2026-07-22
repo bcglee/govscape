@@ -1,4 +1,3 @@
-# AI modified: 2026-03-14 4a6b1b72
 from flask import current_app, request
 from flask_restx import Namespace, Resource, fields
 

@@ -1,7 +1,5 @@
 """Tests for OCR implementations and OCRProcessingStage."""
 
-# AI modified: 2026-07-06 b7bf8e91fd27285b9ac0d8ba9d483c47d6d6689e
-
 import os
 import tempfile
 from unittest.mock import MagicMock, patch

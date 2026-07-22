@@ -1,6 +1,3 @@
-# AI modified: 2026-03-08 f62d40b8
-# AI modified: 2026-03-14 4a6b1b72
-# AI modified: 2026-04-26 00:00:00 341724af
 # This file defines the logic for serving requests to the user.
 import math
 import os

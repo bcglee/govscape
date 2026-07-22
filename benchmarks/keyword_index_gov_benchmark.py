@@ -1,5 +1,3 @@
-# AI modified: 2026-02-21 d8ae3e4a
-# AI modified: 2026-02-22 d8ae3e4a
 """Benchmark utilities for AbstractKeywordIndex implementations on real documents.
 
 Loads pages from a directory tree of the form:
