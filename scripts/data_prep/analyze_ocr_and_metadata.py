@@ -7,7 +7,7 @@ import os
 import re
 import tarfile
 import unicodedata
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import boto3
@@ -24,6 +24,7 @@ from ocr_common import (
     JsonCheckpoint, is_not_found, load_ignore_list, make_error_logger,
     setup_logging,
 )
+import json
 
 # Target
 PRODUCT_KEY_PREFIX = f"{NATIVE_PREFIX}{PRODUCT_PREFIX}"   # govscape/eota-ocr
@@ -199,10 +200,10 @@ def process_digest(digest: str) -> list[dict]:
                 rows.append({"digest": digest, "page": pg, "bucket": bucket,
                              "extracted_tar_missing": ext_missing,
                              "tokens_present": tok})
-        return rows
-    except Exception as e:  # noqa: BLE001 — isolate one bad digest, keep going
+        return {"digest": digest, "rows": rows, "error": None}
+    except Exception as e:
         log_error(f"analysis failed {digest}", e)
-        return []
+        return {"digest": digest, "rows": [], "error": repr(e)}
 
 # Parquet file
 _FLOAT, _INT, _STR, _BOOL = pa.float64(), pa.int64(), pa.string(), pa.bool_()
@@ -231,6 +232,7 @@ def write_batch_parquet(rows: list[dict], path: str) -> None:
     pq.write_table(pa.Table.from_pylist(rows, schema=PARQUET_SCHEMA),
                    path, compression="zstd")
 
+MISS_LEDGER = LOCAL_DIR / "analysis_misses.jsonl"
 # Main run functions
 def run(args) -> None:
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
@@ -264,10 +266,28 @@ def run(args) -> None:
 
             if digests:
                 logging.info("batch %d: %d digests submitted", batch_num, len(digests))
-                batch_rows: list[dict] = []
-                for rows in pool.map(process_digest, digests):
+                batch_rows = []
+                future_to_digest = {pool.submit(process_digest, d): d for d in digests}
+                for fut in as_completed(future_to_digest):
+                    d = future_to_digest[fut]
                     digests_done += 1
-                    batch_rows.extend(rows)
+                    try:
+                        r = fut.result()
+                    except Exception as e:  # hard crash: worker died, no return value
+                        log_error(f"worker crashed on {d}", e)
+                        with open(MISS_LEDGER, "a") as f:
+                            f.write(json.dumps({"digest": d, "reason": "worker_crash",
+                                                "error": repr(e), "batch": batch_num}) + "\n")
+                        continue
+                    if r["error"] is not None:
+                        with open(MISS_LEDGER, "a") as f:
+                            f.write(json.dumps({"digest": d, "reason": "process_error",
+                                                "error": r["error"], "batch": batch_num}) + "\n")
+                    elif not r["rows"]:
+                        with open(MISS_LEDGER, "a") as f:
+                            f.write(json.dumps({"digest": d, "reason": "zero_rows",
+                                                "error": None, "batch": batch_num}) + "\n")
+                    batch_rows.extend(r["rows"])
                 if batch_rows:
                     fname = f"metrics_batch_{batch_num:06d}.parquet"
                     fpath = str(metrics_dir / fname)
