@@ -253,29 +253,49 @@ def run(args) -> None:
     exclude = load_ignore_list(args.ignore_list)
     list_prefix = f"{PRODUCT_KEY_PREFIX}/ocr_text/"
 
-    ckpt = JsonCheckpoint(str(LOCAL_DIR / "analysis.ckpt"))
+    ckpt = JsonCheckpoint(str(LOCAL_DIR / args.ckpt))
+    if ckpt.state.get("finished"):
+        logging.info("checkpoint %s marked finished — refusing to re-walk",
+                     args.ckpt)
+        return
     token = ckpt.state.get("token")
     batch_num = ckpt.state.get("batch_num", 0)
     digests_done = ckpt.state.get("digests_done", 0)
 
-    def _list_next(tok):
-        res = lister.list_objects(list_prefix, max_keys=args.batch_size,
-                                  continuation_token=tok)
-        digs = []
-        for k in res.keys:
-            d = Path(k).name.removesuffix(".tar.gz")
-            if DIGEST_RE.match(d) and d not in exclude:
-                digs.append(d)
-        return digs, res.continuation_token
+    if args.digest_list:
+        pending = [d for d in Path(args.digest_list).read_text().split()
+                   if DIGEST_RE.match(d)]
+        logging.info("digest-list mode: %d digests from %s",
+                     len(pending), args.digest_list)
+
+        def _list_next(tok):
+            i = tok or 0
+            nxt = i + args.batch_size
+            return pending[i:nxt], (nxt if nxt < len(pending) else None)
+    else:
+        def _list_next(tok):
+            res = lister.list_objects(list_prefix, max_keys=args.batch_size,
+                                      continuation_token=tok)
+            digs = []
+            for k in res.keys:
+                d = Path(k).name.removesuffix(".tar.gz")
+                if DIGEST_RE.match(d) and d not in exclude:
+                    digs.append(d)
+            return digs, res.continuation_token
 
     list_pool = ThreadPoolExecutor(max_workers=1)
     digests, token = _list_next(token)
+    exhausted = token is None
 
     with ProcessPoolExecutor(max_workers=args.procs,
                              initializer=_init_proc,
                              initargs=(args.threads,)) as pool:
         while digests:
-            next_future = list_pool.submit(_list_next, token)
+            # token that regenerates the page we are about to fetch below;
+            # this is what the checkpoint must record, not the one after it.
+            token_for_next = token
+            next_future = (None if exhausted
+                           else list_pool.submit(_list_next, token))
 
             # split batch into args.procs chunks, one per worker process
             chunks = [digests[i::args.procs] for i in range(args.procs)]
@@ -287,12 +307,13 @@ def run(args) -> None:
             fut_to_chunk = {pool.submit(process_chunk, c): i
                             for i, c in enumerate(chunks)}
             for fut in as_completed(fut_to_chunk):
+                idx = fut_to_chunk[fut]
                 try:
                     chunk_results = fut.result()
                 except Exception as e:  # whole chunk process died
-                    log_error(f"chunk {fut_to_chunk[fut]} crashed", e)
-                    _ledger("chunk_crash", f"CHUNK_{fut_to_chunk[fut]}",
-                            repr(e), batch_num)
+                    log_error(f"chunk {idx} crashed", e)
+                    for d in chunks[idx]:
+                        _ledger("chunk_crash", d, repr(e), batch_num)
                     continue
                 for r in chunk_results:
                     digests_done += 1
@@ -303,7 +324,7 @@ def run(args) -> None:
                     batch_rows.extend(r["rows"])
 
             if batch_rows:
-                fname = f"metrics_batch_{batch_num:06d}.parquet"
+                fname = f"{args.shard_prefix}_{batch_num:06d}.parquet"
                 fpath = str(metrics_dir / fname)
                 write_batch_parquet(batch_rows, fpath)
                 if not args.no_cloud_sync:
@@ -311,15 +332,22 @@ def run(args) -> None:
                         fpath, PARQUET_BUCKET, f"{PARQUET_REMOTE_PREFIX}/{fname}")
 
             batch_num += 1
-            digests, token = next_future.result()
-            ckpt.state = {"token": token, "batch_num": batch_num,
-                          "digests_done": digests_done, "finished": token is None}
+            if next_future is None:
+                digests, token = [], None
+            else:
+                digests, token = next_future.result()
+                exhausted = token is None
+            ckpt.state = {"token": token_for_next, "batch_num": batch_num,
+                          "digests_done": digests_done, "finished": False}
             ckpt.save()
             logging.info("batch %d done — %d processed", batch_num, digests_done)
 
             if args.sample and digests_done >= args.sample:
                 break
 
+    ckpt.state = {"token": None, "batch_num": batch_num,
+                  "digests_done": digests_done, "finished": True}
+    ckpt.save()
     list_pool.shutdown()
     logging.info("==== EXTRACTION DONE ==== %d digests, %d batches",
                  digests_done, batch_num)
@@ -335,6 +363,14 @@ def main() -> None:
     p.add_argument("--batch-size", type=int, default=1024,
                    help="digests listed+processed per batch (split across procs)")
     p.add_argument("--ignore-list", default="fallback_ignore.txt")
+    p.add_argument("--digest-list", default=None,
+                   help="file of digests, one per line; bypasses S3 listing "
+                        "and the ignore list")
+    p.add_argument("--ckpt", default="analysis.ckpt",
+                   help="checkpoint filename inside data/ocr_agreement/")
+    p.add_argument("--shard-prefix", default="metrics_batch",
+                   help="output parquet filename prefix; MUST differ from an "
+                        "existing run's prefix when using a fresh --ckpt")
     p.add_argument("--sample", type=int, default=0,
                    help="stop after N digests (0 = full corpus)")
     p.add_argument("--no-cloud-sync", action="store_true",
