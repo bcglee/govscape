@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -37,20 +37,6 @@ def _create_test_image(text: str, size=(300, 80)) -> np.ndarray:
     except Exception:
         # Fall back to a blank numpy image if PIL is not available
         return np.full((size[1], size[0], 3), 255, dtype=np.uint8)
-
-
-def _is_olmocr_compatible() -> bool:
-    # olmOCR runs a ~7B vision-language model (large download + slow, GPU-bound
-    # inference), so its real-inference test is opt-in via RUN_OLMOCR_MODEL=1
-    # rather than run on every suite invocation.
-    if not os.environ.get("RUN_OLMOCR_MODEL"):
-        return False
-    try:
-        import transformers
-    except ImportError:
-        return False
-
-    return hasattr(transformers, "Qwen2_5_VLForConditionalGeneration")
 
 
 @pytest.fixture
@@ -125,11 +111,10 @@ def test_ocr_implementations_on_sample_images(impl_class, init_args, skip_pkg):
     if skip_pkg:
         pytest.importorskip(skip_pkg)
 
-    # Skip olmocr if the installed package is not compatible with the expected API.
-    if impl_class is OLMOcrImpl and not _is_olmocr_compatible():
-        pytest.skip(
-            "Installed olmocr package does not expose a compatible `OLMOcr` API."
-        )
+    # olmOCR runs a ~7B vision-language model (large download, slow, GPU-bound),
+    # so its real-inference test is opt-in rather than run on every invocation.
+    if impl_class is OLMOcrImpl and not os.environ.get("RUN_OLMOCR_MODEL"):
+        pytest.skip("Set RUN_OLMOCR_MODEL=1 to run the olmOCR model test.")
 
     # OcrMyPDF requires both ocrmypdf and pytesseract
     if impl_class is OcrMyPDFImpl:
@@ -162,10 +147,12 @@ def test_ocr_implementations_on_sample_images(impl_class, init_args, skip_pkg):
 def test_ocr_processing_stage_writes_txt(
     impl_class, init_args, skip_pkg, temp_data_dir
 ):
-    """Test OCRProcessingStage pipeline writes text files using different OCR engines.
+    """OCRProcessingStage should dispatch batches through a ProcessPoolExecutor and
+    write one txt file per page, for every OCR engine type.
 
-    The OCR engine's actual `extract_text` is mocked to return deterministic text so the
-    stage's file-writing behavior can be asserted for each implementation.
+    The worker-side engine is replaced with a fake so no real OCR model is loaded,
+    and the pool runs inline so the test does not depend on the multiprocessing
+    start method.
     """
     pytest.importorskip("cv2")
 
@@ -179,80 +166,28 @@ def test_ocr_processing_stage_writes_txt(
         OcrMyPDFImpl: "ocrmypdf",
     }
 
-    ocr_type = impl_to_type[impl_class]
+    stage = OCRProcessingStage(
+        data_model=data_model,
+        ocr_type=impl_to_type[impl_class],
+        batch_size=1,
+        max_workers=2,
+        **init_args,
+    )
 
-    stage = OCRProcessingStage(data_model=data_model, ocr_type=ocr_type, **init_args)
-
-    # Create a sample image on disk that cv2 can read
+    # Create sample images on disk that cv2 can read. Two pages with batch_size=1
+    # means more than one batch, so page-to-text alignment is exercised too.
     import cv2
 
     digest = "abc123def456abc123def456abc123def45"
     img_dir = os.path.join(data_model.image_directory, digest)
     os.makedirs(img_dir, exist_ok=True)
-
-    img = _create_test_image("PIPELINE TEST")
-    img_path = os.path.join(img_dir, f"{digest}_0.jpeg")
-    cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-    mocked_text = "pipeline extracted text"
-
-    # Patch engine methods to avoid external OCR dependencies during pipeline test.
-    # extract_text is batched, so it returns a list with one entry per image.
-    # run() dispatches batches to worker processes that rebuild the engine via
-    # _build_ocr_engine, so patch that (and run the pool inline) to keep the test
-    # hermetic and independent of the multiprocessing start method.
-    worker_engine = MagicMock()
-    worker_engine.extract_text.return_value = [mocked_text]
-    with (
-        patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(stage.ocr_engine, "extract_text", return_value=[mocked_text]),
-        patch(
-            "govscape.processing.ocr_processing_stage._build_ocr_engine",
-            return_value=worker_engine,
-        ),
-        patch(
-            "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
-            _InlineProcessPoolExecutor,
-        ),
-    ):
-        # Validate and run stage
-        stage.validate()
-        stage.run()
-
-    # Verify txt directory and file created with expected content
-    txt_file = data_model.txt_page_path(digest, 0)
-    assert os.path.exists(txt_file)
-    with open(txt_file, encoding="utf-8") as f:
-        content = f.read()
-        assert content == mocked_text
-
-
-def test_run_dispatches_batches_through_process_pool(temp_data_dir):
-    """run() should dispatch batches through a ProcessPoolExecutor, building the
-    engine via the per-worker initializer."""
-    pytest.importorskip("cv2")
-
-    _, data_model = temp_data_dir
-    import cv2
-
-    digest = "processpool123456"
-    img_dir = os.path.join(data_model.image_directory, digest)
-    os.makedirs(img_dir, exist_ok=True)
-
-    img_path = os.path.join(img_dir, f"{digest}_0.jpeg")
-    img = _create_test_image("PROCESS POOL")
-    cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-    stage = OCRProcessingStage(
-        data_model=data_model,
-        ocr_type="easyocr",
-        batch_size=1,
-        max_workers=2,
-    )
+    for page_num in range(2):
+        img = _create_test_image(f"PIPELINE TEST {page_num}")
+        img_path = os.path.join(img_dir, f"{digest}_{page_num}.jpeg")
+        cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
     _InlineProcessPoolExecutor.map_calls = 0
     with (
-        patch.object(stage.ocr_engine, "validate", return_value=None),
         patch(
             "govscape.processing.ocr_processing_stage._build_ocr_engine",
             return_value=_StaticTextOCR(),
@@ -265,7 +200,6 @@ def test_run_dispatches_batches_through_process_pool(temp_data_dir):
         stage.run()
 
     assert _InlineProcessPoolExecutor.map_calls == 1
-    txt_file = data_model.txt_page_path(digest, 0)
-    assert os.path.exists(txt_file)
-    with open(txt_file, encoding="utf-8") as f:
-        assert f.read() == _StaticTextOCR.TEXT
+    for page_num in range(2):
+        with open(data_model.txt_page_path(digest, page_num), encoding="utf-8") as f:
+            assert f.read() == _StaticTextOCR.TEXT

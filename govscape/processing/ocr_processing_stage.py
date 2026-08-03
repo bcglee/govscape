@@ -1,37 +1,37 @@
 """OCR Processing Stage - Extracts text from PDF pages using OCR engines."""
 
 import contextlib
+import functools
 import importlib
 import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
+from typing import Any
 
 from ..config import DataModel
 from .ocr.base_ocr import BaseOCR
 from .processing_stage import ProcessingStage
 
-cv2 = None
-CV2_AVAILABLE = None
 
+@functools.cache
+def _load_cv2() -> Any:
+    """Return the cv2 module, or None if it is unavailable.
 
-def _load_cv2() -> None:
-    global cv2, CV2_AVAILABLE
-    if CV2_AVAILABLE is not None:
-        return
-
+    Imported lazily so that importing this module does not pull in OpenCV.
+    """
     try:
-        cv2 = importlib.import_module("cv2")
-        CV2_AVAILABLE = True
+        return importlib.import_module("cv2")
     except Exception:
-        cv2 = None
-        CV2_AVAILABLE = False
+        return None
 
 
-def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
+def _ocr_engine_class(ocr_type: str) -> type[BaseOCR]:
+    # Imported here rather than at module scope so that resolving one engine
+    # doesn't pull in every backend's dependencies (torch, paddle, ...).
     from .ocr import EasyOCRImpl, OcrMyPDFImpl, OLMOcrImpl, PaddleOCRImpl
 
-    ocr_engines = {
+    ocr_engines: dict[str, type[BaseOCR]] = {
         "easyocr": EasyOCRImpl,
         "paddleocr": PaddleOCRImpl,
         "olmocr": OLMOcrImpl,
@@ -44,7 +44,11 @@ def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
             f"Must be one of: {list(ocr_engines.keys())}",
         )
 
-    return ocr_engines[ocr_type](**kwargs)
+    return ocr_engines[ocr_type]
+
+
+def _build_ocr_engine(ocr_type: str, **kwargs) -> BaseOCR:
+    return _ocr_engine_class(ocr_type)(**kwargs)
 
 
 class OCRProcessingStage(ProcessingStage):
@@ -60,12 +64,14 @@ class OCRProcessingStage(ProcessingStage):
         self.ocr_kwargs = dict(ocr_kwargs)
         self.batch_size = self.ocr_kwargs.pop("batch_size", 1000)
         self.max_workers = self.ocr_kwargs.pop("max_workers", None)
-        self.ocr_engine = _build_ocr_engine(ocr_type, **self.ocr_kwargs)
         self.logger = logging.getLogger(__name__)
+        # Resolve the name now so a typo fails here. The engine itself is only ever
+        # instantiated inside the worker processes (see _init_ocr_worker), so the
+        # parent never loads an OCR model it wouldn't use.
+        _ocr_engine_class(ocr_type)
 
     def validate(self) -> None:
-        _load_cv2()
-        if not CV2_AVAILABLE:
+        if _load_cv2() is None:
             raise ImportError(
                 "cv2 (OpenCV) is required for OCR processing. "
                 "Install it with: pip install opencv-python",
@@ -76,11 +82,6 @@ class OCRProcessingStage(ProcessingStage):
                 f"Image input directory does not exist: "
                 f"{self.data_model.image_directory}",
             )
-
-        try:
-            self.ocr_engine.validate()
-        except Exception as e:
-            raise ValueError(f"OCR engine validation failed: {e}") from e
 
     def run(self):
         self.validate()
@@ -119,6 +120,7 @@ class OCRProcessingStage(ProcessingStage):
         )
 
     def _collect_images_and_metadata(self) -> tuple[list, list[tuple[str, int]], int]:
+        cv2 = _load_cv2()
         error_count = 0
         all_images: list = []
         all_metadata: list[tuple[str, int]] = []
@@ -137,8 +139,6 @@ class OCRProcessingStage(ProcessingStage):
             for page_file in page_files:
                 image_path = os.path.join(digest_dir.path, page_file)
                 try:
-                    if cv2 is None:
-                        raise RuntimeError("cv2 is not available")
                     image = cv2.imread(image_path)
                     if image is None:
                         self.logger.warning(f"Failed to read image: {image_path}")

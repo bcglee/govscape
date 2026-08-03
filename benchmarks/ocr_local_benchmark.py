@@ -21,7 +21,7 @@ import os
 import statistics
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -51,7 +51,6 @@ class RunResult:
     best_seconds: float
     pages_per_sec: float
     total_chars: int
-    per_run_seconds: list[float] = field(default_factory=list)
 
 
 def prepare_images(
@@ -145,21 +144,17 @@ def time_engine(
         best_seconds=best,
         pages_per_sec=pages_per_sec,
         total_chars=total_chars,
-        per_run_seconds=per_run,
     )
 
 
-def build_easyocr_configs(gpu: bool, batch_sizes: list[int]) -> list[tuple[str, dict]]:
-    return [(f"easyocr bs={bs}", {"gpu": gpu, "batch_size": bs}) for bs in batch_sizes]
-
-
-def format_results(results: list[RunResult], baseline_label: str | None) -> str:
+def format_results(results: list[RunResult]) -> str:
+    """Render the results table, with speedups relative to the first config."""
     header = (
         f"{'Config':<24} {'Pages':>6} {'Median s':>10} {'Best s':>9} "
         f"{'Pages/s':>9} {'Chars':>9} {'Speedup':>8}"
     )
     lines = [header, "-" * len(header)]
-    baseline = next((r for r in results if r.label == baseline_label), None)
+    baseline = results[0] if results else None
     for r in results:
         speedup = ""
         if baseline is not None and baseline.median_seconds > 0:
@@ -213,19 +208,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     if args.engine == "easyocr":
-        batch_sizes = [int(b) for b in args.easyocr_batch_sizes.split(",")]
-        configs = build_easyocr_configs(args.gpu, batch_sizes)
-        baseline_label = configs[0][0]
+        configs = [
+            (f"easyocr bs={bs}", {"gpu": args.gpu, "batch_size": int(bs)})
+            for bs in args.easyocr_batch_sizes.split(",")
+        ]
     elif args.engine == "ocrmypdf":
-        workers = [int(w) for w in args.ocrmypdf_workers.split(",")]
-        configs = [(f"ocrmypdf workers={w}", {"max_workers": w}) for w in workers]
-        baseline_label = configs[0][0]
+        configs = [
+            (f"ocrmypdf workers={w}", {"max_workers": int(w)})
+            for w in args.ocrmypdf_workers.split(",")
+        ]
     elif args.engine == "paddleocr":
         configs = [("paddleocr", {"use_gpu": args.gpu})]
-        baseline_label = "paddleocr"
     else:
         configs = [(args.engine, {})]
-        baseline_label = args.engine
 
     print(f"Benchmarking engine={args.engine} gpu={args.gpu} over {len(images)} pages")
     results: list[RunResult] = []
@@ -235,7 +230,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         results.append(time_engine(label, engine, images, args.repeats))
 
     print()
-    print(format_results(results, baseline_label))
+    print(format_results(results))
     return 0
 
 

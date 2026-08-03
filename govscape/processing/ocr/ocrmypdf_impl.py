@@ -40,8 +40,12 @@ class OcrMyPDFImpl(BaseOCR):
             max_workers: Number of pages to OCR concurrently. Each Tesseract call is
                 single-threaded, so running a batch of pages in parallel gives a
                 near-linear speedup (~6x) on a multi-core host. Defaults to
-                ``min(8, os.cpu_count())``; set to 1 to disable concurrency (e.g.
-                when the surrounding pipeline already parallelizes across processes).
+                ``min(8, os.cpu_count())``; set to 1 to disable concurrency.
+
+                Note: ``OCRProcessingStage`` consumes ``max_workers`` for its own
+                process pool, so this cannot be set through the stage — the two
+                layers multiply (stage workers x these threads). Set it only when
+                driving the engine directly.
         """
         self.language = language
         self.output_type = output_type
