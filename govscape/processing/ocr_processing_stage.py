@@ -83,59 +83,12 @@ class OCRProcessingStage(ProcessingStage):
             raise ValueError(f"OCR engine validation failed: {e}") from e
 
     def run(self):
-        self.run_parallel()
-
-    def run_single_threaded(self):
         self.validate()
         os.makedirs(self.data_model.txt_directory, exist_ok=True)
 
         all_images, all_metadata, error_count = self._collect_images_and_metadata()
-        if not all_images:
-            self.logger.info(
-                "OCR processing complete. Processed: 0, Errors: %d", error_count
-            )
-            return
-
-        all_texts: list[str] = []
-        for batch_start in range(0, len(all_images), self.batch_size):
-            batch = all_images[batch_start : batch_start + self.batch_size]
-            try:
-                all_texts.extend(self.ocr_engine.extract_text(batch))
-            except Exception as e:
-                self.logger.error(
-                    f"OCR failed for batch starting at index {batch_start}: {e}"
-                )
-                all_texts.extend("" for _ in batch)
-                error_count += len(batch)
-
-        processed_count = 0
-        for (digest, page_num), text in zip(all_metadata, all_texts, strict=True):
-            if self._write_page_text(digest, page_num, text):
-                processed_count += 1
-            else:
-                error_count += 1
-
-        self.logger.info(
-            f"OCR processing complete. Processed: {processed_count}, "
-            f"Errors: {error_count}",
-        )
-
-    def run_parallel(self):
-        self.validate()
-        os.makedirs(self.data_model.txt_directory, exist_ok=True)
-
-        all_images, all_metadata, error_count = self._collect_images_and_metadata()
-        if not all_images:
-            self.logger.info(
-                "OCR processing complete. Processed: 0, Errors: %d", error_count
-            )
-            return
-
-        batch_specs = [
-            (
-                all_images[start : start + self.batch_size],
-                all_metadata[start : start + self.batch_size],
-            )
+        batches = [
+            all_images[start : start + self.batch_size]
             for start in range(0, len(all_images), self.batch_size)
         ]
 
@@ -148,8 +101,7 @@ class OCRProcessingStage(ProcessingStage):
             initargs=(self.ocr_type, self.ocr_kwargs),
         ) as executor:
             for batch_texts, batch_errors in executor.map(
-                _process_batch_in_process,
-                [batch_images for batch_images, _batch_metadata in batch_specs],
+                _process_batch_in_process, batches
             ):
                 all_texts.extend(batch_texts)
                 error_count += batch_errors
@@ -170,9 +122,6 @@ class OCRProcessingStage(ProcessingStage):
         error_count = 0
         all_images: list = []
         all_metadata: list[tuple[str, int]] = []
-        engine_name = self.ocr_engine.__class__.__name__.lower()
-
-        _load_cv2()
 
         for digest_dir in os.scandir(self.data_model.image_directory):
             if not digest_dir.is_dir():
@@ -195,7 +144,7 @@ class OCRProcessingStage(ProcessingStage):
                         self.logger.warning(f"Failed to read image: {image_path}")
                         error_count += 1
                         continue
-                    if "paddle" not in engine_name:
+                    if self.ocr_type != "paddleocr":
                         with contextlib.suppress(Exception):
                             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                     page_num = int(page_file.split("_")[-1].replace(".jpeg", ""))

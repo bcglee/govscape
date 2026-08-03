@@ -82,7 +82,7 @@ class _InlineProcessPoolExecutor:
     """Drop-in ProcessPoolExecutor substitute that runs everything in-process.
 
     It honors ``initializer``/``initargs`` exactly like the real executor, so the
-    per-worker engine setup in ``run_parallel`` is exercised, while avoiding the
+    per-worker engine setup in ``run`` is exercised, while avoiding the
     spawning of real processes (and loading of real OCR models) during tests.
     """
 
@@ -269,62 +269,3 @@ def test_run_dispatches_batches_through_process_pool(temp_data_dir):
     assert os.path.exists(txt_file)
     with open(txt_file, encoding="utf-8") as f:
         assert f.read() == _StaticTextOCR.TEXT
-
-
-def test_single_threaded_and_parallel_paths_produce_same_output(temp_data_dir):
-    """The parallel path should produce the same OCR output as the
-    single-threaded path."""
-    pytest.importorskip("cv2")
-
-    _, data_model = temp_data_dir
-    import cv2
-
-    digest = "compareparallel123456"
-    img_dir = os.path.join(data_model.image_directory, digest)
-    os.makedirs(img_dir, exist_ok=True)
-
-    for page_num in range(2):
-        img_path = os.path.join(img_dir, f"{digest}_{page_num}.jpeg")
-        img = _create_test_image(f"PAGE {page_num}")
-        cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-    stage = OCRProcessingStage(
-        data_model=data_model,
-        ocr_type="easyocr",
-        batch_size=1,
-        max_workers=2,
-    )
-
-    def read_pages() -> dict[int, str]:
-        pages = {}
-        for page_num in range(2):
-            with open(
-                data_model.txt_page_path(digest, page_num), encoding="utf-8"
-            ) as f:
-                pages[page_num] = f.read()
-        return pages
-
-    with (
-        patch.object(stage.ocr_engine, "validate", return_value=None),
-        patch.object(
-            stage.ocr_engine,
-            "extract_text",
-            side_effect=lambda images: [_StaticTextOCR.TEXT for _ in images],
-        ),
-        patch(
-            "govscape.processing.ocr_processing_stage._build_ocr_engine",
-            return_value=_StaticTextOCR(),
-        ),
-        patch(
-            "govscape.processing.ocr_processing_stage.ProcessPoolExecutor",
-            _InlineProcessPoolExecutor,
-        ),
-    ):
-        stage.run_single_threaded()
-        single_output = read_pages()
-
-        stage.run_parallel()
-        parallel_output = read_pages()
-
-    assert single_output == parallel_output
-    assert parallel_output == {0: _StaticTextOCR.TEXT, 1: _StaticTextOCR.TEXT}

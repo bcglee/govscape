@@ -77,9 +77,6 @@ class OcrMyPDFImpl(BaseOCR):
         if pytesseract is None:
             self.validate()
 
-        if self.max_workers <= 1 or len(images) <= 1:
-            return [self._extract_single(image) for image in images]
-
         # Tesseract is single-threaded per call and runs in a subprocess (so the
         # GIL is not a bottleneck); OCR the batch's pages concurrently. map()
         # preserves input order, keeping results aligned with pages.
