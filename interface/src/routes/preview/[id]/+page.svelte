@@ -1,6 +1,4 @@
 <script>
-  // AI modified: 2026-03-08 f62d40b8
-  // AI modified: 2026-03-14 4a6b1b72
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';

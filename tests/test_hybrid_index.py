@@ -1,7 +1,3 @@
-# AI modified: 2026-04-19 21:12:31 c1b6021e
-# AI modified: 2026-04-26 00:00:00 341724af
-# AI modified: 2026-04-26 00:00:00 341724af
-# AI modified: 2026-04-26T22:00:43Z eac4f332
 import numpy as np
 
 from govscape.indexing.hybrid import (

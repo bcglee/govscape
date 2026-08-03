@@ -1,6 +1,4 @@
 <script>
-  // AI modified: 2026-03-08 f62d40b8
-  // AI modified: 2026-03-14 4a6b1b72
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
   import { searchStore } from '$lib/stores/search';

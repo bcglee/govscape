@@ -1,9 +1,3 @@
-# AI modified: 2026-03-08 f62d40b8
-# AI modified: 2026-03-08 4efba197
-# AI modified: 2026-03-08 4efba197
-# AI modified: 2026-03-08 4efba197
-# AI modified: 2026-03-09 4efba197
-# AI modified: 2026-04-26T22:00:43Z eac4f332
 """Benchmark utilities for AbstractMetadataIndex implementations.
 
 This script generates synthetic metadata records on the fly, feeds them

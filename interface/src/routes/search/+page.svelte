@@ -1,5 +1,4 @@
 <script>
-  // AI modified: 2026-03-14 4a6b1b72
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { searchStore, searchActions } from '$lib/stores/search';

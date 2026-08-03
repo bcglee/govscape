@@ -21,7 +21,7 @@ gunicorn = "^23.0.0"
 lancedb = "^0.25.2"
 mypy = "^1.19.1"
 npm = "^0.1.1"
-numpy = "^1.25.0"
+numpy = ">=2.0,<3.0"
 pandas = "^2.3.1"
 pdf2image = "^1.17.0"
 pdfplumber = "^0.11.5"
@@ -36,9 +36,20 @@ reportlab = "^4.4.1"
 s5cmd = "^0.3.3"
 scipy = "^1.13"
 sentence-transformers = "^4.0.1"
-torch = "^2.6.0"
-torchvision = "^0.25.0"
-transformers = "4.50.3"
+# On Linux, install the CUDA (cu130) torch/torchvision builds from the PyTorch
+# index so GPU hosts (e.g. the aarch64 DGX Spark) get GPU support out of the box;
+# the CUDA wheels still import and run CPU-only where no GPU is present. macOS /
+# Windows have no CUDA wheels, so they fall back to the default (CPU) build.
+# GPU presence is not expressible in dependency markers, so this keys on platform.
+torch = [
+    { version = "2.10.0", source = "pytorch-cu130", markers = "sys_platform == 'linux'" },
+    { version = "2.10.0", markers = "sys_platform != 'linux'" },
+]
+torchvision = [
+    { version = "0.25.0", source = "pytorch-cu130", markers = "sys_platform == 'linux'" },
+    { version = "0.25.0", markers = "sys_platform != 'linux'" },
+]
+transformers = "4.55.2"
 warcio = "^1.7.5"
 whoosh = "^2.7.4"
 
@@ -49,7 +60,7 @@ whoosh = "^2.7.4"
 # not a Python package (see the module README).
 easyocr = { version = "^1.7.0", optional = true }
 ocrmypdf = { version = "^16.0.0", optional = true }
-olmocr = { version = "^0.1.0", optional = true }
+olmocr = { version = "^0.4.27", optional = true }
 opencv-python = { version = "^4.9.0", optional = true }
 paddleocr = { version = "^2.7.0", optional = true }
 paddlepaddle = { version = "^2.6.0", optional = true }
@@ -70,6 +81,13 @@ ocr = [
     "ocrmypdf",
     "pytesseract",
 ]
+
+[[tool.poetry.source]]
+# Explicit priority: used only by packages that reference it (torch/torchvision),
+# never for general dependency resolution.
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

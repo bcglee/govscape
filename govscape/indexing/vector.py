@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 import pyarrow as pa
-from lancedb import connect
 
 
 # Avoid annoying output from faiss during import
@@ -188,6 +187,10 @@ class LanceDBVectorIndex(AbstractVectorIndex):
 
     def _connect(self):
         if self.db is None:
+            # Imported lazily: importing lancedb starts a background asyncio event
+            # loop, which makes forking (used by the data/processing pools) unsafe.
+            from lancedb import connect
+
             os.makedirs(self.index_directory, exist_ok=True)
             self.db = connect(self.index_directory)
 
