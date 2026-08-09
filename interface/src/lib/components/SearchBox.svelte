@@ -208,6 +208,7 @@
     border-bottom-right-radius: 0;
   }
 
+
   .search-input {
     width: 100%;
     flex-grow: 1;

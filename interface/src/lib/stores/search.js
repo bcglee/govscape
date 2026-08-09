@@ -8,6 +8,7 @@ export const searchStore = writable({
   filters: {},
   currentSearchMode: 'textual',
   showFilters: false,
+  exportEnabled: false,
   loading: false,
   error: null,
   page: 1,
@@ -46,6 +47,13 @@ export const searchActions = {
     }));
   },
 
+  toggleExportEnabled: () => {
+    searchStore.update(store => ({
+      ...store,
+      exportEnabled: !store.exportEnabled,
+    }));
+  },
+
   updateFilters: (newFilters) => {
     searchStore.update(store => ({
       ...store,
@@ -68,6 +76,7 @@ export const searchActions = {
       page: 1,
       pageSize: 20,
       hasMore: false,
+      exportEnabled: false,
       totalCount: null,
       totalPages: null,
     });
@@ -92,11 +101,11 @@ export const searchActions = {
     }));
 
     try {
-      const { query, filters, currentSearchMode } = get(searchStore)
+      const { query, filters, currentSearchMode, pageSize } = get(searchStore)
       const responseData = await apiFetch('/search/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, filters, searchType: currentSearchMode, page: pageNumber })
+        body: JSON.stringify({ query, filters, searchType: currentSearchMode, page: pageNumber, pageSize })
       });
 
       const imageBase = getImageBaseUrl();
