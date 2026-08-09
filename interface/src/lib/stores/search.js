@@ -54,6 +54,13 @@ export const searchActions = {
     }));
   },
 
+  setPageSize: (pageSize) => {
+    searchStore.update(store => ({
+      ...store,
+      pageSize
+    }));
+  },
+
   updateFilters: (newFilters) => {
     searchStore.update(store => ({
       ...store,

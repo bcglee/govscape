@@ -29,6 +29,14 @@
     exportError = null;
   }
 
+  function handlePageSizeChange(event) {
+    const pageSize = Number(event.target.value);
+    if (!Number.isFinite(pageSize) || pageSize <= 0) return;
+    searchActions.setPageSize(pageSize);
+    searchActions.goToPage(1, { isNewSearch: true });
+    exportError = null;
+  }
+
   async function downloadCsv() {
     const currentState = $searchStore;
     if (!currentState.query?.trim()) {
@@ -159,6 +167,19 @@
       <h2>Search results for "{$searchStore.query}"</h2>
     </div>
     <div class="results-header-right">
+      <label class="page-size-label" for="page-size-select">Export top:</label>
+      <select
+        id="page-size-select"
+        class="page-size-select"
+        value={$searchStore.pageSize}
+        on:change={handlePageSizeChange}
+      >
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
       <button
         class="export-toggle-button"
         type="button"
@@ -223,6 +244,23 @@
     gap: 0.75rem;
     flex-wrap: wrap;
     align-items: center;
+  }
+
+  .page-size-label {
+    font-size: 0.9rem;
+    color: var(--text-color-secondary);
+    margin-right: 0.25rem;
+  }
+
+  .page-size-select {
+    border-radius: 999px;
+    border: 1px solid var(--color-primary);
+    background: var(--background-color-primary);
+    color: var(--text-color-primary);
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    min-width: 5.5rem;
+    cursor: pointer;
   }
 
   .export-toggle-button,
