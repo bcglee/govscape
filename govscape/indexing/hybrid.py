@@ -1,8 +1,8 @@
-# AI modified
 from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -307,3 +307,190 @@ class HybridKeywordMetadataIndex(AbstractHybridMetadataIndex):
             current_k = min(self._index_total_entries(), current_k * 2)
 
         return filtered_rows[:target_results], metadata, current_k
+
+
+class HybridKeywordVectorMetadataIndex:
+    def __init__(
+        self,
+        vector_hybrid_index: HybridVectorMetadataIndex,
+        keyword_hybrid_index: HybridKeywordMetadataIndex,
+        vector_weight: float = 1.0,
+        keyword_weight: float = 1.0,
+    ):
+        self.vector_hybrid_index = vector_hybrid_index
+        self.keyword_hybrid_index = keyword_hybrid_index
+        self.vector_weight = vector_weight
+        self.keyword_weight = keyword_weight
+
+    @staticmethod
+    def _rank_score(rank: int) -> float:
+        return 1.0 / (rank + 1)
+
+    @staticmethod
+    def _merge_metadata(
+        vector_metadata: dict[str, list[dict]],
+        keyword_metadata: dict[str, list[dict]],
+    ) -> dict[str, list[dict]]:
+        merged = {**vector_metadata}
+        for digest, entries in keyword_metadata.items():
+            if digest in merged:
+                merged[digest] = merged[digest] + entries
+            else:
+                merged[digest] = list(entries)
+        return merged
+
+    def _combine_rows(
+        self,
+        vector_rows: list[tuple[float, str, str]],
+        keyword_rows: list[tuple[float, str, str]],
+        target_results: int,
+    ) -> list[tuple[float, str, str]]:
+        combined: dict[str, dict] = {}
+
+        for rank, row in enumerate(vector_rows):
+            distance, digest, page = row
+            combined[digest] = {
+                "row": row,
+                "vector_rank": rank,
+                "keyword_rank": None,
+            }
+
+        for rank, row in enumerate(keyword_rows):
+            distance, digest, page = row
+            entry = combined.get(digest)
+            if entry is None:
+                combined[digest] = {
+                    "row": row,
+                    "vector_rank": None,
+                    "keyword_rank": rank,
+                }
+            else:
+                entry["keyword_rank"] = rank
+                vector_rank = entry["vector_rank"]
+                if vector_rank is None or self._rank_score(rank) > self._rank_score(
+                    vector_rank
+                ):
+                    entry["row"] = row
+
+        scored_rows: list[tuple[float, tuple[float, str, str]]] = []
+        for entry in combined.values():
+            score = 0.0
+            if entry["vector_rank"] is not None:
+                score += self.vector_weight * self._rank_score(entry["vector_rank"])
+            if entry["keyword_rank"] is not None:
+                score += self.keyword_weight * self._rank_score(entry["keyword_rank"])
+            scored_rows.append((score, entry["row"]))
+
+        scored_rows.sort(key=lambda item: (-item[0], item[1][0], item[1][1]))
+        return [row for _, row in scored_rows[:target_results]]
+
+    def _search_components(
+        self,
+        query_embedding,
+        query_text,
+        predicates,
+        target_results,
+        blacklist,
+        parallel: bool = True,
+    ):
+        search_k_vector = min(
+            self.vector_hybrid_index._index_total_entries(),
+            max(target_results * 3, 20),
+        )
+        search_k_keyword = min(
+            self.keyword_hybrid_index._index_total_entries(),
+            max(target_results * 3, 20),
+        )
+
+        if parallel:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                vector_future = executor.submit(
+                    self.vector_hybrid_index.search,
+                    query_embedding,
+                    predicates,
+                    search_k_vector,
+                    blacklist,
+                )
+                keyword_future = executor.submit(
+                    self.keyword_hybrid_index.search,
+                    query_text,
+                    predicates,
+                    search_k_keyword,
+                    blacklist,
+                )
+                vector_rows, vector_metadata, vector_state = vector_future.result()
+                keyword_rows, keyword_metadata, keyword_state = keyword_future.result()
+        else:
+            vector_rows, vector_metadata, vector_state = (
+                self.vector_hybrid_index.search(
+                    query_embedding,
+                    predicates,
+                    search_k_vector,
+                    blacklist,
+                )
+            )
+            keyword_rows, keyword_metadata, keyword_state = (
+                self.keyword_hybrid_index.search(
+                    query_text,
+                    predicates,
+                    search_k_keyword,
+                    blacklist,
+                )
+            )
+
+        return (
+            vector_rows,
+            vector_metadata,
+            vector_state,
+            keyword_rows,
+            keyword_metadata,
+            keyword_state,
+        )
+
+    def search(
+        self,
+        query_embedding,
+        query_text,
+        predicates,
+        target_results,
+        blacklist=None,
+        parallel: bool = True,
+    ):
+        if blacklist is None:
+            blacklist = set()
+
+        (
+            vector_rows,
+            vector_metadata,
+            vector_state,
+            keyword_rows,
+            keyword_metadata,
+            keyword_state,
+        ) = self._search_components(
+            query_embedding,
+            query_text,
+            predicates,
+            target_results,
+            blacklist,
+            parallel=parallel,
+        )
+
+        combined_rows = self._combine_rows(
+            vector_rows,
+            keyword_rows,
+            target_results,
+        )
+        combined_metadata = self._merge_metadata(vector_metadata, keyword_metadata)
+        combined_state = HybridSearchState(
+            strategy="combined",
+            current_k=max(vector_state.current_k, keyword_state.current_k),
+            estimated_selectivity=max(
+                vector_state.estimated_selectivity,
+                keyword_state.estimated_selectivity,
+            ),
+            prefilter_cost=(vector_state.prefilter_cost + keyword_state.prefilter_cost),
+            postfilter_cost=(
+                vector_state.postfilter_cost + keyword_state.postfilter_cost
+            ),
+        )
+        return combined_rows, combined_metadata, combined_state

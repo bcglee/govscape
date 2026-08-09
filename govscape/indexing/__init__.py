@@ -3,6 +3,7 @@ from .hybrid import (
     STRATEGY_PREFILTER,
     AbstractHybridMetadataIndex,
     HybridKeywordMetadataIndex,
+    HybridKeywordVectorMetadataIndex,
     HybridVectorMetadataIndex,
 )
 from .keyword import (
@@ -33,6 +34,7 @@ __all__ = [
     "DuckDBMetadataIndex",
     "FAISSIndex",
     "HybridKeywordMetadataIndex",
+    "HybridKeywordVectorMetadataIndex",
     "HybridVectorMetadataIndex",
     "LanceDBKeywordIndex",
     "LanceDBVectorIndex",

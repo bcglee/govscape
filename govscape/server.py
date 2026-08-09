@@ -14,6 +14,7 @@ from .config import ServerConfig
 from .indexing import (
     FAISSIndex,
     HybridKeywordMetadataIndex,
+    HybridKeywordVectorMetadataIndex,
     HybridVectorMetadataIndex,
     LanceDBKeywordIndex,
     LuceneKeywordIndex,
@@ -96,6 +97,10 @@ class Server:
         self.keyword_hybrid_index = HybridKeywordMetadataIndex(
             self.keyword_index,
             self.metadata_index,
+        )
+        self.keyword_vector_hybrid_index = HybridKeywordVectorMetadataIndex(
+            self.text_hybrid_index,
+            self.keyword_hybrid_index,
         )
 
         self.blacklist: set[str] = self._load_blacklist()
@@ -199,6 +204,25 @@ class Server:
                 predicates,
                 results_needed_for_page,
                 blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            print(
+                "Search type: "
+                f"{search_type}, strategy: {state.strategy}, "
+                f"results found after filtering: {len(rows)}"
+            )
+            search_results = self._build_search_results(rows, pdf_metadata)
+        elif search_type == "hybrid":
+            query_embedding = self.text_model.encode_text(query.q_text, is_query=True)
+            query_text = query.q_text
+            start = time.time()
+            rows, pdf_metadata, state = self.keyword_vector_hybrid_index.search(
+                query_embedding,
+                query_text,
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+                parallel=True,
             )
             print(f"Index Search took {time.time() - start} seconds")
             print(
