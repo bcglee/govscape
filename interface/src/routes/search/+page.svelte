@@ -266,8 +266,8 @@
     border: 1px solid var(--color-primary);
     background: var(--background-color-primary);
     color: var(--color-primary);
-    padding: 0.7rem 0.95rem;
-    font-size: 0.9rem;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
