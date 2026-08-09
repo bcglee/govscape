@@ -1,7 +1,7 @@
 const IS_DEV = import.meta.env.DEV;
 
 // Default API request timeout (60 seconds)
-const DEFAULT_API_TIMEOUT_MS = Number(60000);
+const DEFAULT_API_TIMEOUT_MS = Number(180000);
 
 const ENDPOINTS = {
   DEV: {
@@ -17,7 +17,7 @@ const ENDPOINTS = {
 export const getApiBaseUrl = () => {
   if (IS_DEV) return ENDPOINTS.DEV.API;
 
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  if (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
     return 'http://localhost:8080/api';
   }
 

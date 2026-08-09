@@ -93,7 +93,6 @@
 
   onDestroy(() => {
     window.removeEventListener('resize', checkScreenSize);
-    searchActions.reset();
   });
 </script>
 
@@ -115,19 +114,16 @@
 
   <section class="export-cta">
     <div class="export-cta-left">
-      <label for="home-page-size-select">Export top</label>
-      <select
-        id="home-page-size-select"
-        class="page-size-select"
+      <label for="home-page-size-input">Export top</label>
+      <input
+        id="home-page-size-input"
+        class="page-size-input"
+        type="number"
+        min="1"
+        step="1"
         value={$searchStore.pageSize}
         on:change={handlePageSizeChange}
-      >
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-        <option value="200">200</option>
-      </select>
+      />
     </div>
     <div class="export-cta-right">
       <button

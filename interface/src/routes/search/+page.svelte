@@ -167,19 +167,16 @@
       <h2>Search results for "{$searchStore.query}"</h2>
     </div>
     <div class="results-header-right">
-      <label class="page-size-label" for="page-size-select">Export top:</label>
-      <select
-        id="page-size-select"
-        class="page-size-select"
+      <label class="page-size-label" for="page-size-input">Export top:</label>
+      <input
+        id="page-size-input"
+        class="page-size-input"
+        type="number"
+        min="1"
+        step="1"
         value={$searchStore.pageSize}
         on:change={handlePageSizeChange}
-      >
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-        <option value="200">200</option>
-      </select>
+      />
       <button
         class="export-toggle-button"
         type="button"

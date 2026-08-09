@@ -33,7 +33,6 @@ export const searchActions = {
       results: [],
       error: null,
       page: 1,
-      pageSize: 20,
       hasMore: false,
       totalCount: null,
       totalPages: null,
