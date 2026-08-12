@@ -15,6 +15,7 @@ from .indexing import (
     FAISSIndex,
     HybridKeywordMetadataIndex,
     HybridKeywordVectorMetadataIndex,
+    HybridTextVisualKeywordIndex,
     HybridVectorMetadataIndex,
     LanceDBKeywordIndex,
     LuceneKeywordIndex,
@@ -100,6 +101,11 @@ class Server:
         )
         self.keyword_vector_hybrid_index = HybridKeywordVectorMetadataIndex(
             self.text_hybrid_index,
+            self.keyword_hybrid_index,
+        )
+        self.text_visual_keyword_hybrid_index = HybridTextVisualKeywordIndex(
+            self.text_hybrid_index,
+            self.visual_hybrid_index,
             self.keyword_hybrid_index,
         )
 
@@ -223,6 +229,43 @@ class Server:
                 results_needed_for_page,
                 blacklist=self.blacklist,
                 parallel=True,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            print(
+                "Search type: "
+                f"{search_type}, strategy: {state.strategy}, "
+                f"results found after filtering: {len(rows)}"
+            )
+            search_results = self._build_search_results(rows, pdf_metadata)
+        elif search_type == "hybrid_weights":
+            query_embedding = self.text_model.encode_text(query.q_text, is_query=True)
+            query_text = query.q_text
+            weights = getattr(query, "weights", None) or {}
+            # Normalize weights if provided
+            try:
+                total = sum(
+                    float(weights.get(k, 0.0)) for k in ["textual", "visual", "keyword"]
+                )
+            except Exception:
+                total = 0.0
+
+            if total and total > 0:
+                normalized = {
+                    k: float(weights.get(k, 0.0)) / total
+                    for k in ["textual", "visual", "keyword"]
+                }
+            else:
+                normalized = None
+
+            start = time.time()
+            rows, pdf_metadata, state = self.text_visual_keyword_hybrid_index.search(
+                query_embedding,
+                query_text,
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+                parallel=True,
+                weights=normalized,
             )
             print(f"Index Search took {time.time() - start} seconds")
             print(
