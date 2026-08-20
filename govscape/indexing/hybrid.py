@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .base import AbstractIndex
 from .keyword import AbstractKeywordIndex
 from .metadata import AbstractMetadataIndex
 from .vector import AbstractVectorIndex
@@ -24,7 +25,7 @@ class HybridSearchState:
     postfilter_cost: float
 
 
-class AbstractHybridMetadataIndex(ABC):
+class AbstractHybridMetadataIndex(AbstractIndex, ABC):
     def __init__(self, metadata_index: AbstractMetadataIndex):
         self.metadata_index = metadata_index
 
@@ -81,6 +82,9 @@ class AbstractHybridMetadataIndex(ABC):
     @abstractmethod
     def _index_total_entries(self) -> int:
         pass
+
+    def total_entries(self) -> int:
+        return self._index_total_entries()
 
     @abstractmethod
     def _run_prefilter(
@@ -309,433 +313,186 @@ class HybridKeywordMetadataIndex(AbstractHybridMetadataIndex):
         return filtered_rows[:target_results], metadata, current_k
 
 
-class HybridKeywordVectorMetadataIndex:
+class HybridIndex(AbstractIndex):
+    """Combine any number of metadata-aware indexes using weighted ranks."""
+
     def __init__(
         self,
-        vector_hybrid_index: HybridVectorMetadataIndex,
-        keyword_hybrid_index: HybridKeywordMetadataIndex,
+        indices: list[AbstractIndex],
+        weights: list[float] | None = None,
+    ):
+        if not indices:
+            raise ValueError("HybridIndex requires at least one index")
+        if weights is not None and len(weights) != len(indices):
+            raise ValueError("HybridIndex weights must match the number of indices")
+        self.indices = indices
+        self.weights = weights or [1.0] * len(indices)
+
+    def total_entries(self) -> int:
+        return sum(index.total_entries() for index in self.indices)
+
+    def _index_total_entries(self) -> int:
+        return max(index.total_entries() for index in self.indices)
+
+    @staticmethod
+    def _rank_score(rank: int) -> float:
+        return 1.0 / (rank + 1)
+
+    @staticmethod
+    def _merge_metadata(*metadatas: dict[str, list[dict]]) -> dict[str, list[dict]]:
+        merged: dict[str, list[dict]] = {}
+        for metadata in metadatas:
+            for digest, entries in metadata.items():
+                merged.setdefault(digest, []).extend(entries)
+        return merged
+
+    def _combine_rows(
+        self,
+        component_rows: list[list[tuple[float, str, str]]],
+        target_results: int,
+        weights: list[float],
+    ) -> list[tuple[float, str, str]]:
+        combined: dict[str, dict] = {}
+
+        for component_rank, rows in enumerate(component_rows):
+            for rank, row in enumerate(rows):
+                digest = row[1]
+                entry = combined.setdefault(
+                    digest,
+                    {"row": row, "ranks": [None] * len(component_rows)},
+                )
+                entry["ranks"][component_rank] = rank
+
+        scored_rows: list[tuple[float, tuple[float, str, str]]] = []
+        for entry in combined.values():
+            score = sum(
+                weight * self._rank_score(rank)
+                for weight, rank in zip(weights, entry["ranks"], strict=False)
+                if rank is not None
+            )
+            scored_rows.append((score, entry["row"]))
+
+        scored_rows.sort(key=lambda item: (-item[0], item[1][0], item[1][1]))
+        return [row for _, row in scored_rows[:target_results]]
+
+    def search(
+        self,
+        queries,
+        predicates,
+        target_results,
+        blacklist=None,
+        parallel: bool = True,
+        weights: list[float] | None = None,
+    ):
+        if blacklist is None:
+            blacklist = set()
+        if len(queries) != len(self.indices):
+            raise ValueError("HybridIndex queries must match the number of indices")
+        weights = weights or self.weights
+        search_futures = []
+        search_k = max(target_results * 3, 20)
+        if parallel:
+            with ThreadPoolExecutor(max_workers=len(self.indices)) as executor:
+                for index, query in zip(self.indices, queries, strict=True):
+                    k = min(index.total_entries(), search_k)
+                    search_futures.append(
+                        executor.submit(
+                            index.search,
+                            query,
+                            predicates,
+                            k,
+                            blacklist,
+                        )
+                    )
+                component_results = [future.result() for future in search_futures]
+        else:
+            component_results = [
+                index.search(
+                    query,
+                    predicates,
+                    min(index.total_entries(), search_k),
+                    blacklist,
+                )
+                for index, query in zip(self.indices, queries, strict=True)
+            ]
+
+        component_rows = [result[0] for result in component_results]
+        combined_rows = self._combine_rows(component_rows, target_results, weights)
+        combined_metadata = self._merge_metadata(
+            *(result[1] for result in component_results)
+        )
+        combined_state = HybridSearchState(
+            strategy="combined",
+            current_k=max(result[2].current_k for result in component_results),
+            estimated_selectivity=max(
+                result[2].estimated_selectivity for result in component_results
+            ),
+            prefilter_cost=sum(
+                result[2].prefilter_cost for result in component_results
+            ),
+            postfilter_cost=sum(
+                result[2].postfilter_cost for result in component_results
+            ),
+        )
+        return combined_rows, combined_metadata, combined_state
+
+
+class HybridKeywordVectorMetadataIndex(HybridIndex):
+    """Compatibility wrapper for the former keyword-text hybrid."""
+
+    def __init__(
+        self,
+        vector_hybrid_index: AbstractIndex,
+        keyword_hybrid_index: AbstractIndex,
         vector_weight: float = 1.0,
         keyword_weight: float = 1.0,
     ):
-        self.vector_hybrid_index = vector_hybrid_index
-        self.keyword_hybrid_index = keyword_hybrid_index
-        self.vector_weight = vector_weight
-        self.keyword_weight = keyword_weight
-
-    @staticmethod
-    def _rank_score(rank: int) -> float:
-        return 1.0 / (rank + 1)
-
-    @staticmethod
-    def _merge_metadata(
-        vector_metadata: dict[str, list[dict]],
-        keyword_metadata: dict[str, list[dict]],
-    ) -> dict[str, list[dict]]:
-        merged = {**vector_metadata}
-        for digest, entries in keyword_metadata.items():
-            if digest in merged:
-                merged[digest] = merged[digest] + entries
-            else:
-                merged[digest] = list(entries)
-        return merged
-
-    def _combine_rows(
-        self,
-        vector_rows: list[tuple[float, str, str]],
-        keyword_rows: list[tuple[float, str, str]],
-        target_results: int,
-    ) -> list[tuple[float, str, str]]:
-        combined: dict[str, dict] = {}
-
-        for rank, row in enumerate(vector_rows):
-            distance, digest, page = row
-            combined[digest] = {
-                "row": row,
-                "vector_rank": rank,
-                "keyword_rank": None,
-            }
-
-        for rank, row in enumerate(keyword_rows):
-            distance, digest, page = row
-            entry = combined.get(digest)
-            if entry is None:
-                combined[digest] = {
-                    "row": row,
-                    "vector_rank": None,
-                    "keyword_rank": rank,
-                }
-            else:
-                entry["keyword_rank"] = rank
-                vector_rank = entry["vector_rank"]
-                if vector_rank is None or self._rank_score(rank) > self._rank_score(
-                    vector_rank
-                ):
-                    entry["row"] = row
-
-        scored_rows: list[tuple[float, tuple[float, str, str]]] = []
-        for entry in combined.values():
-            score = 0.0
-            if entry["vector_rank"] is not None:
-                score += self.vector_weight * self._rank_score(entry["vector_rank"])
-            if entry["keyword_rank"] is not None:
-                score += self.keyword_weight * self._rank_score(entry["keyword_rank"])
-            scored_rows.append((score, entry["row"]))
-
-        scored_rows.sort(key=lambda item: (-item[0], item[1][0], item[1][1]))
-        return [row for _, row in scored_rows[:target_results]]
-
-    def _search_components(
-        self,
-        query_embedding,
-        query_text,
-        predicates,
-        target_results,
-        blacklist,
-        parallel: bool = True,
-    ):
-        search_k_vector = min(
-            self.vector_hybrid_index._index_total_entries(),
-            max(target_results * 3, 20),
-        )
-        search_k_keyword = min(
-            self.keyword_hybrid_index._index_total_entries(),
-            max(target_results * 3, 20),
-        )
-
-        if parallel:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                vector_future = executor.submit(
-                    self.vector_hybrid_index.search,
-                    query_embedding,
-                    predicates,
-                    search_k_vector,
-                    blacklist,
-                )
-                keyword_future = executor.submit(
-                    self.keyword_hybrid_index.search,
-                    query_text,
-                    predicates,
-                    search_k_keyword,
-                    blacklist,
-                )
-                vector_rows, vector_metadata, vector_state = vector_future.result()
-                keyword_rows, keyword_metadata, keyword_state = keyword_future.result()
-        else:
-            vector_rows, vector_metadata, vector_state = (
-                self.vector_hybrid_index.search(
-                    query_embedding,
-                    predicates,
-                    search_k_vector,
-                    blacklist,
-                )
-            )
-            keyword_rows, keyword_metadata, keyword_state = (
-                self.keyword_hybrid_index.search(
-                    query_text,
-                    predicates,
-                    search_k_keyword,
-                    blacklist,
-                )
-            )
-
-        return (
-            vector_rows,
-            vector_metadata,
-            vector_state,
-            keyword_rows,
-            keyword_metadata,
-            keyword_state,
+        super().__init__(
+            [vector_hybrid_index, keyword_hybrid_index],
+            [vector_weight, keyword_weight],
         )
 
     def search(
         self,
         query_embedding,
-        query_text,
-        predicates,
-        target_results,
+        query_text=None,
+        predicates=None,
+        target_results=None,
         blacklist=None,
-        parallel: bool = True,
+        parallel=True,
+        weights=None,
     ):
-        if blacklist is None:
-            blacklist = set()
-
-        (
-            vector_rows,
-            vector_metadata,
-            vector_state,
-            keyword_rows,
-            keyword_metadata,
-            keyword_state,
-        ) = self._search_components(
-            query_embedding,
-            query_text,
+        return super().search(
+            [query_embedding, query_text],
             predicates,
             target_results,
-            blacklist,
+            blacklist=blacklist,
             parallel=parallel,
-        )
-
-        combined_rows = self._combine_rows(
-            vector_rows,
-            keyword_rows,
-            target_results,
-        )
-        combined_metadata = self._merge_metadata(vector_metadata, keyword_metadata)
-        combined_state = HybridSearchState(
-            strategy="combined",
-            current_k=max(vector_state.current_k, keyword_state.current_k),
-            estimated_selectivity=max(
-                vector_state.estimated_selectivity,
-                keyword_state.estimated_selectivity,
-            ),
-            prefilter_cost=(vector_state.prefilter_cost + keyword_state.prefilter_cost),
-            postfilter_cost=(
-                vector_state.postfilter_cost + keyword_state.postfilter_cost
-            ),
-        )
-        return combined_rows, combined_metadata, combined_state
-
-
-class HybridTextVisualKeywordIndex:
-    def __init__(
-        self,
-        text_vector_hybrid_index: HybridVectorMetadataIndex,
-        visual_vector_hybrid_index: HybridVectorMetadataIndex,
-        keyword_hybrid_index: HybridKeywordMetadataIndex,
-    ):
-        self.text_vector_hybrid_index = text_vector_hybrid_index
-        self.visual_vector_hybrid_index = visual_vector_hybrid_index
-        self.keyword_hybrid_index = keyword_hybrid_index
-
-    @staticmethod
-    def _rank_score(rank: int) -> float:
-        return 1.0 / (rank + 1)
-
-    @staticmethod
-    def _merge_metadata(
-        *metadatas: dict[str, list[dict]],
-    ) -> dict[str, list[dict]]:
-        merged: dict[str, list[dict]] = {}
-        for md in metadatas:
-            for digest, entries in md.items():
-                if digest in merged:
-                    merged[digest] = merged[digest] + entries
-                else:
-                    merged[digest] = list(entries)
-        return merged
-
-    def _combine_rows(
-        self,
-        text_rows: list[tuple[float, str, str]],
-        visual_rows: list[tuple[float, str, str]],
-        keyword_rows: list[tuple[float, str, str]],
-        target_results: int,
-        weights: dict | None = None,
-    ) -> list[tuple[float, str, str]]:
-        if weights is None:
-            weights = {"textual": 1.0, "visual": 1.0, "keyword": 1.0}
-
-        t_weight = float(weights.get("textual", weights.get("text", 0.0) or 0.0))
-        v_weight = float(weights.get("visual", 0.0))
-        k_weight = float(weights.get("keyword", 0.0))
-
-        combined: dict[str, dict] = {}
-
-        for rank, row in enumerate(text_rows):
-            distance, digest, page = row
-            combined[digest] = {
-                "row": row,
-                "text_rank": rank,
-                "visual_rank": None,
-                "keyword_rank": None,
-            }
-
-        for rank, row in enumerate(visual_rows):
-            distance, digest, page = row
-            entry = combined.get(digest)
-            if entry is None:
-                combined[digest] = {
-                    "row": row,
-                    "text_rank": None,
-                    "visual_rank": rank,
-                    "keyword_rank": None,
-                }
-            else:
-                entry["visual_rank"] = rank
-
-        for rank, row in enumerate(keyword_rows):
-            distance, digest, page = row
-            entry = combined.get(digest)
-            if entry is None:
-                combined[digest] = {
-                    "row": row,
-                    "text_rank": None,
-                    "visual_rank": None,
-                    "keyword_rank": rank,
-                }
-            else:
-                entry["keyword_rank"] = rank
-                # Prefer a row from higher-scoring component for tie-breaking
-                text_rank = entry.get("text_rank")
-                visual_rank = entry.get("visual_rank")
-                if entry.get("row") is None or (
-                    text_rank is None and visual_rank is None
-                ):
-                    entry["row"] = row
-
-        scored_rows: list[tuple[float, tuple[float, str, str]]] = []
-        for entry in combined.values():
-            score = 0.0
-            if entry.get("text_rank") is not None:
-                score += t_weight * self._rank_score(entry["text_rank"])
-            if entry.get("visual_rank") is not None:
-                score += v_weight * self._rank_score(entry["visual_rank"])
-            if entry.get("keyword_rank") is not None:
-                score += k_weight * self._rank_score(entry["keyword_rank"])
-            scored_rows.append((score, entry["row"]))
-
-        scored_rows.sort(key=lambda item: (-item[0], item[1][0], item[1][1]))
-        return [row for _, row in scored_rows[:target_results]]
-
-    def _search_components(
-        self,
-        query_embedding,
-        query_text,
-        predicates,
-        target_results,
-        blacklist,
-        parallel: bool = True,
-    ):
-        search_k_vector = min(
-            self.text_vector_hybrid_index._index_total_entries(),
-            max(target_results * 3, 20),
-        )
-        search_k_visual = min(
-            self.visual_vector_hybrid_index._index_total_entries(),
-            max(target_results * 3, 20),
-        )
-        search_k_keyword = min(
-            self.keyword_hybrid_index._index_total_entries(),
-            max(target_results * 3, 20),
-        )
-
-        if parallel:
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                text_future = executor.submit(
-                    self.text_vector_hybrid_index.search,
-                    query_embedding,
-                    predicates,
-                    search_k_vector,
-                    blacklist,
-                )
-                visual_future = executor.submit(
-                    self.visual_vector_hybrid_index.search,
-                    query_embedding,
-                    predicates,
-                    search_k_visual,
-                    blacklist,
-                )
-                keyword_future = executor.submit(
-                    self.keyword_hybrid_index.search,
-                    query_text,
-                    predicates,
-                    search_k_keyword,
-                )
-                text_rows, text_metadata, text_state = text_future.result()
-                visual_rows, visual_metadata, visual_state = visual_future.result()
-                keyword_rows, keyword_metadata, keyword_state = keyword_future.result()
-        else:
-            text_rows, text_metadata, text_state = self.text_vector_hybrid_index.search(
-                query_embedding, predicates, search_k_vector, blacklist
-            )
-            visual_rows, visual_metadata, visual_state = (
-                self.visual_vector_hybrid_index.search(
-                    query_embedding, predicates, search_k_visual, blacklist
-                )
-            )
-            keyword_rows, keyword_metadata, keyword_state = (
-                self.keyword_hybrid_index.search(
-                    query_text, predicates, search_k_keyword
-                )
-            )
-
-        return (
-            text_rows,
-            text_metadata,
-            text_state,
-            visual_rows,
-            visual_metadata,
-            visual_state,
-            keyword_rows,
-            keyword_metadata,
-            keyword_state,
-        )
-
-    def search(
-        self,
-        query_embedding,
-        query_text,
-        predicates,
-        target_results,
-        blacklist=None,
-        parallel: bool = True,
-        weights: dict | None = None,
-    ):
-        if blacklist is None:
-            blacklist = set()
-
-        (
-            text_rows,
-            text_metadata,
-            text_state,
-            visual_rows,
-            visual_metadata,
-            visual_state,
-            keyword_rows,
-            keyword_metadata,
-            keyword_state,
-        ) = self._search_components(
-            query_embedding,
-            query_text,
-            predicates,
-            target_results,
-            blacklist,
-            parallel=parallel,
-        )
-
-        combined_rows = self._combine_rows(
-            text_rows,
-            visual_rows,
-            keyword_rows,
-            target_results,
             weights=weights,
         )
-        combined_metadata = self._merge_metadata(
-            text_metadata,
-            visual_metadata,
-            keyword_metadata,
+
+
+class HybridTextVisualKeywordIndex(HybridIndex):
+    """Compatibility wrapper for the former three-component hybrid."""
+
+    def __init__(self, text_index, visual_index, keyword_index):
+        super().__init__([text_index, visual_index, keyword_index])
+
+    def search(
+        self,
+        text_query,
+        query_text=None,
+        predicates=None,
+        target_results=None,
+        blacklist=None,
+        parallel=True,
+        weights=None,
+    ):
+        return super().search(
+            [text_query, text_query, query_text],
+            predicates,
+            target_results,
+            blacklist=blacklist,
+            parallel=parallel,
+            weights=weights,
         )
-        combined_state = HybridSearchState(
-            strategy="combined",
-            current_k=max(
-                text_state.current_k,
-                visual_state.current_k,
-                keyword_state.current_k,
-            ),
-            estimated_selectivity=max(
-                text_state.estimated_selectivity,
-                visual_state.estimated_selectivity,
-                keyword_state.estimated_selectivity,
-            ),
-            prefilter_cost=(
-                text_state.prefilter_cost
-                + visual_state.prefilter_cost
-                + keyword_state.prefilter_cost
-            ),
-            postfilter_cost=(
-                text_state.postfilter_cost
-                + visual_state.postfilter_cost
-                + keyword_state.postfilter_cost
-            ),
-        )
-        return combined_rows, combined_metadata, combined_state

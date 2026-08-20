@@ -11,6 +11,8 @@ from whoosh.index import create_in
 from whoosh.qparser import QueryParser
 from whoosh.query import And, Or, Term
 
+from .base import AbstractIndex
+
 lucene = None
 LuceneTerm = None
 _LUCENE_LOADED = False
@@ -96,7 +98,7 @@ def _load_lucene():
             raise ImportError("Lucene is not available in this environment") from e
 
 
-class AbstractKeywordIndex(ABC):
+class AbstractKeywordIndex(AbstractIndex, ABC):
     @abstractmethod
     def __init__(self, index_keyword_directory):
         self.index_keyword_directory = index_keyword_directory

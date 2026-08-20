@@ -1,7 +1,9 @@
+from .base import AbstractIndex
 from .hybrid import (
     STRATEGY_POSTFILTER,
     STRATEGY_PREFILTER,
     AbstractHybridMetadataIndex,
+    HybridIndex,
     HybridKeywordMetadataIndex,
     HybridKeywordVectorMetadataIndex,
     HybridTextVisualKeywordIndex,
@@ -29,11 +31,13 @@ __all__ = [
     "STRATEGY_POSTFILTER",
     "STRATEGY_PREFILTER",
     "AbstractHybridMetadataIndex",
+    "AbstractIndex",
     "AbstractKeywordIndex",
     "AbstractMetadataIndex",
     "AbstractVectorIndex",
     "DuckDBMetadataIndex",
     "FAISSIndex",
+    "HybridIndex",
     "HybridKeywordMetadataIndex",
     "HybridKeywordVectorMetadataIndex",
     "HybridTextVisualKeywordIndex",

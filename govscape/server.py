@@ -13,9 +13,8 @@ from .api import init_api
 from .config import ServerConfig
 from .indexing import (
     FAISSIndex,
+    HybridIndex,
     HybridKeywordMetadataIndex,
-    HybridKeywordVectorMetadataIndex,
-    HybridTextVisualKeywordIndex,
     HybridVectorMetadataIndex,
     LanceDBKeywordIndex,
     LuceneKeywordIndex,
@@ -99,14 +98,21 @@ class Server:
             self.keyword_index,
             self.metadata_index,
         )
-        self.keyword_vector_hybrid_index = HybridKeywordVectorMetadataIndex(
-            self.text_hybrid_index,
-            self.keyword_hybrid_index,
+        self.text_keyword_hybrid_index = HybridIndex(
+            [self.text_hybrid_index, self.keyword_hybrid_index]
         )
-        self.text_visual_keyword_hybrid_index = HybridTextVisualKeywordIndex(
-            self.text_hybrid_index,
-            self.visual_hybrid_index,
-            self.keyword_hybrid_index,
+        self.visual_keyword_hybrid_index = HybridIndex(
+            [self.visual_hybrid_index, self.keyword_hybrid_index]
+        )
+        self.text_visual_hybrid_index = HybridIndex(
+            [self.text_hybrid_index, self.visual_hybrid_index]
+        )
+        self.text_visual_keyword_hybrid_index = HybridIndex(
+            [
+                self.text_hybrid_index,
+                self.visual_hybrid_index,
+                self.keyword_hybrid_index,
+            ]
         )
 
         self.blacklist: set[str] = self._load_blacklist()
@@ -220,11 +226,9 @@ class Server:
             search_results = self._build_search_results(rows, pdf_metadata)
         elif search_type == "hybrid":
             query_embedding = self.text_model.encode_text(query.q_text, is_query=True)
-            query_text = query.q_text
             start = time.time()
-            rows, pdf_metadata, state = self.keyword_vector_hybrid_index.search(
-                query_embedding,
-                query_text,
+            rows, pdf_metadata, state = self.text_keyword_hybrid_index.search(
+                [query_embedding, query.q_text],
                 predicates,
                 results_needed_for_page,
                 blacklist=self.blacklist,
@@ -237,9 +241,32 @@ class Server:
                 f"results found after filtering: {len(rows)}"
             )
             search_results = self._build_search_results(rows, pdf_metadata)
+        elif search_type == "hybrid_visual_keyword":
+            query_embedding = self.visual_model.encode_text(query.q_text)
+            start = time.time()
+            rows, pdf_metadata, state = self.visual_keyword_hybrid_index.search(
+                [query_embedding, query.q_text],
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            search_results = self._build_search_results(rows, pdf_metadata)
+        elif search_type == "hybrid_text_visual":
+            text_embedding = self.text_model.encode_text(query.q_text, is_query=True)
+            visual_embedding = self.visual_model.encode_text(query.q_text)
+            start = time.time()
+            rows, pdf_metadata, state = self.text_visual_hybrid_index.search(
+                [text_embedding, visual_embedding],
+                predicates,
+                results_needed_for_page,
+                blacklist=self.blacklist,
+            )
+            print(f"Index Search took {time.time() - start} seconds")
+            search_results = self._build_search_results(rows, pdf_metadata)
         elif search_type == "hybrid_weights":
-            query_embedding = self.text_model.encode_text(query.q_text, is_query=True)
-            query_text = query.q_text
+            text_embedding = self.text_model.encode_text(query.q_text, is_query=True)
+            visual_embedding = self.visual_model.encode_text(query.q_text)
             weights = getattr(query, "weights", None) or {}
             # Normalize weights if provided
             try:
@@ -259,8 +286,7 @@ class Server:
 
             start = time.time()
             rows, pdf_metadata, state = self.text_visual_keyword_hybrid_index.search(
-                query_embedding,
-                query_text,
+                [text_embedding, visual_embedding, query.q_text],
                 predicates,
                 results_needed_for_page,
                 blacklist=self.blacklist,
