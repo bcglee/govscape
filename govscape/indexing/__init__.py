@@ -5,8 +5,6 @@ from .hybrid import (
     AbstractHybridMetadataIndex,
     HybridIndex,
     HybridKeywordMetadataIndex,
-    HybridKeywordVectorMetadataIndex,
-    HybridTextVisualKeywordIndex,
     HybridVectorMetadataIndex,
 )
 from .keyword import (
@@ -39,8 +37,6 @@ __all__ = [
     "FAISSIndex",
     "HybridIndex",
     "HybridKeywordMetadataIndex",
-    "HybridKeywordVectorMetadataIndex",
-    "HybridTextVisualKeywordIndex",
     "HybridVectorMetadataIndex",
     "LanceDBKeywordIndex",
     "LanceDBVectorIndex",

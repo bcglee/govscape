@@ -30,8 +30,8 @@ from govscape.indexing import (
     SQLiteMetadataIndex,
 )
 from govscape.indexing.hybrid import (
+    HybridIndex,
     HybridKeywordMetadataIndex,
-    HybridKeywordVectorMetadataIndex,
     HybridVectorMetadataIndex,
 )
 from govscape.query import EqualityPredicate, Predicate
@@ -195,10 +195,7 @@ def run_benchmark(
         keyword_index=keyword_index,
         metadata_index=metadata_index,
     )
-    combined_hybrid = HybridKeywordVectorMetadataIndex(
-        vector_hybrid_index=text_hybrid,
-        keyword_hybrid_index=keyword_hybrid,
-    )
+    combined_hybrid = HybridIndex([text_hybrid, keyword_hybrid])
 
     rng = random.Random(seed + 1)
     query_indices = [rng.randrange(len(vectors)) for _ in range(queries)]
@@ -236,7 +233,7 @@ def run_benchmark(
             name="combined_hybrid_sequential",
             average_ms=_measure_search_time(
                 lambda q_vec, q_txt: combined_hybrid.search(
-                    q_vec, q_txt, predicates, k, parallel=False
+                    [q_vec, q_txt], predicates, k, parallel=False
                 ),
                 search_pairs,
             ).average_ms,
@@ -247,7 +244,7 @@ def run_benchmark(
             name="combined_hybrid_parallel",
             average_ms=_measure_search_time(
                 lambda q_vec, q_txt: combined_hybrid.search(
-                    q_vec, q_txt, predicates, k, parallel=True
+                    [q_vec, q_txt], predicates, k, parallel=True
                 ),
                 search_pairs,
             ).average_ms,
