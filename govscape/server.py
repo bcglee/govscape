@@ -197,7 +197,11 @@ class Server:
                 f"{search_type}, strategy: {state.strategy}, "
                 f"results found after filtering: {len(rows)}"
             )
-            search_results = self._build_search_results(rows, pdf_metadata)
+            search_results = self._build_search_results(
+                rows,
+                pdf_metadata,
+                include_metadata=query.include_metadata,
+            )
 
         elif search_type == "keyword":
             query_text = query.q_text

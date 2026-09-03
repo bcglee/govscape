@@ -238,6 +238,22 @@ def test_build_search_csv_generates_expected_columns(server_fixture):
     assert json.loads(rows[0]["metadata_json"])[0]["crawl_date"] == "2024-01-01"
 
 
+def test_build_search_csv_includes_metadata_for_visual_search(server_fixture):
+    server = server_fixture
+    response = server.search(
+        Query(
+            "visual query",
+            search_type="visual",
+            page_size=2,
+            include_metadata=True,
+        )
+    )
+    csv_text = server.build_search_csv(response)
+
+    rows = list(csv.DictReader(io.StringIO(csv_text)))
+    assert json.loads(rows[0]["metadata_json"])[0]["crawl_date"] == "2024-01-01"
+
+
 def test_pdf_pages_blacklisted_returns_empty_200(server_fixture_with_blacklist):
     server = server_fixture_with_blacklist
     result = server.pdf_pages("doc_0.pdf")
