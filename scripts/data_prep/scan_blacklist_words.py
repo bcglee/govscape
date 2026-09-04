@@ -7,6 +7,7 @@ appended to the PDF-digest blacklist.txt (see DATA_MODEL.md) so they are
 hidden from search results.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -14,7 +15,7 @@ import time
 from multiprocessing import Pool, cpu_count
 
 from govscape.config import DataModel
-from govscape.data_loader import RemoteDirectoryIterator, build_data_loader
+from govscape.data_loader import DataLoader, RemoteDirectoryIterator, build_data_loader
 from govscape.utils import (
     base_argument_parser,
     contains_blacklisted_word,
@@ -37,8 +38,10 @@ def _init_worker(word_blacklist: set[str]) -> None:
     _word_blacklist = word_blacklist
 
 
-def _scan_digest(digest_and_paths: tuple[str, list[str]]) -> str | None:
-    """Worker task: return `digest` if any of its pages contain a blacklisted word."""
+def _scan_digest(digest_and_paths: tuple[str, list[str]]) -> tuple[str, bool]:
+    """Worker task: return `digest` and whether any of its pages contain a blacklisted
+    word.
+    """
     digest, txt_paths = digest_and_paths
     assert _word_blacklist is not None
     for txt_path in txt_paths:
@@ -47,8 +50,35 @@ def _scan_digest(digest_and_paths: tuple[str, list[str]]) -> str | None:
         with open(txt_path, encoding="utf-8") as f:
             text = f.read()
         if contains_blacklisted_word(text, _word_blacklist):
-            return digest
-    return None
+            return digest, True
+    return digest, False
+
+
+def _tag_metadata_contains_blacklisted_word(
+    data_loader: DataLoader,
+    local_dm: DataModel,
+    remote_dm: DataModel,
+    digest: str,
+    contains_word: bool,
+) -> None:
+    """Download a digest's metadata.json, stamp contains_blacklisted_word, upload it
+    back.
+    """
+    remote_path = remote_dm.metadata_file_path(digest)
+    local_path = local_dm.metadata_file_path(digest)
+    try:
+        data_loader.download_file(remote_path, local_path)
+    except Exception as e:
+        print(f"No metadata.json found for {digest} ({e}); skipping")
+        return
+
+    with open(local_path, encoding="utf-8") as f:
+        metadata = json.load(f)
+    metadata["contains_blacklisted_word"] = contains_word
+    with open(local_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=4)
+
+    data_loader.upload_file(local_path, remote_path)
 
 
 def _load_pdf_blacklist(path: str) -> set[str]:
@@ -138,10 +168,17 @@ if __name__ == "__main__":
         with Pool(
             processes=num_workers, initializer=_init_worker, initargs=(word_blacklist,)
         ) as pool:
-            matches = pool.map(_scan_digest, tasks)
+            results = pool.map(_scan_digest, tasks)
+
+        for digest, contains_word in results:
+            _tag_metadata_contains_blacklisted_word(
+                data_loader, local_dm, remote_dm, digest, contains_word
+            )
 
         new_matches = {
-            digest for digest in matches if digest and digest not in pdf_blacklist
+            digest
+            for digest, contains_word in results
+            if contains_word and digest not in pdf_blacklist
         }
         if new_matches:
             pdf_blacklist.update(new_matches)
