@@ -33,6 +33,16 @@ and how long it took. Pytest suppresses `logging` output by default, so pass
 `--log-cli-level=INFO` (already set for the CI `benchmarks` job) to see these
 live as a benchmark runs, rather than only after it finishes -- this is what
 to check if a run appears stuck.
+
+The four multi-minute-per-round benchmarks below are pinned to exactly one
+round via `@pytest.mark.benchmark(max_rounds=1)`. CodSpeed's walltime
+instrument otherwise adaptively repeats a benchmark to gather a statistically
+stable measurement (by default, until it accumulates `max_time=1.0s` total or
+hits `max_rounds=100`), but for something this slow, a few repeats add noise
+signal of questionable value for an enormous time cost (each additional round
+re-pays full PDF extraction and/or model inference).
+`test_single_pdf_conversion_benchmark` is cheap per round, so it's left
+unpinned to benefit from CodSpeed's default repeat-for-confidence behavior.
 """
 
 from __future__ import annotations
@@ -45,6 +55,8 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
+
+import pytest
 
 from govscape.config import DataModel
 from govscape.pdf_processing_pipeline import PDFProcessingPipeline
@@ -97,6 +109,7 @@ def test_single_pdf_conversion_benchmark(benchmark, sample_pdf_files, tmp_path: 
     assert benchmark(lambda: _timed_stage("single PDF conversion", run)) is True
 
 
+@pytest.mark.benchmark(max_rounds=1)
 def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
     """Benchmark converting the full PDF sample to per-page text, images, and
     metadata."""
@@ -115,6 +128,7 @@ def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
     assert parsed_count == len(sample_pdf_files)
 
 
+@pytest.mark.benchmark(max_rounds=1)
 def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
     """Benchmark the full PDF -> text/image -> embeddings pipeline (no OCR),
     using the real ST/CLIP models (see module docstring)."""
@@ -140,6 +154,7 @@ def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Pa
     assert len(timings) == 4
 
 
+@pytest.mark.benchmark(max_rounds=1)
 def test_text_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory):
     """Benchmark embedding the extracted page text with the real ST model.
 
@@ -163,6 +178,7 @@ def test_text_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory)
     benchmark(lambda: _timed_stage("text embedding", stage.run))
 
 
+@pytest.mark.benchmark(max_rounds=1)
 def test_image_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory):
     """Benchmark embedding the extracted page images with the real CLIP model.
 
