@@ -26,6 +26,39 @@ jobs:
           poetry run pytest tests
       - uses: codecov/codecov-action@v5
 
+  benchmarks:
+    name: CodSpeed Benchmarks
+    runs-on: ubuntu-latest
+    # These benchmarks run the real ST/CLIP embedding models over the full
+    # ~1,660-page sample corpus (see tests/benchmarks/conftest.py) and took
+    # ~10 minutes on a 16-core machine; CI runners typically have fewer
+    # cores, so allow generous headroom before treating the job as hung.
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/bcglee/govscape-base:py3.11.14-lucene10.0.0-poetry2.3.2
+    # `id-token: write` lets the action authenticate with CodSpeed via OIDC.
+    # Public repos don't need a CODSPEED_TOKEN secret; add one here if the
+    # repo ever becomes private (see CodSpeed's GitHub Actions docs).
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      - name: Make poetry available to later steps (incl. the CodSpeed action)
+        run: echo "/opt/poetry/bin" >> "$GITHUB_PATH"
+      - name: Install packages
+        run: poetry install
+      - name: Run CodSpeed benchmarks
+        uses: CodSpeedHQ/action@v5
+        with:
+          # The benchmarked PDF-processing stages do real file I/O and spawn
+          # worker processes, which CPU simulation can't instrument well;
+          # `walltime` measures real elapsed time instead (see
+          # `tests/benchmarks/test_pdf_processing_benchmarks.py`).
+          mode: walltime
+          run: poetry run pytest tests/benchmarks --codspeed
+
 on:
   # Trigger the workflow on push or pull request,
   # but only for the main branch

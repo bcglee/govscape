@@ -85,6 +85,48 @@ poetry run pytest
 - Tests are located in the `govscape/tests/` directory at the project root.
 - Write thorough tests for your new features and bug fixes.
 
+#### Performance Benchmarks
+
+Benchmarks live in `tests/benchmarks/` and cover the PDF processing pipeline
+(extraction, text embedding, and image embedding), using the real `ST` and
+`CLIP` models (the same defaults `scripts/serving/start_api_server.py` uses in
+production) over the full real-world sample corpus in `tests/test_data/pdfs`
+(100 PDFs, ~1,660 pages; the file list comes from
+`tests/test_data/cdx/digests_manifest.csv`). This is deliberately heavy and
+slow: CLIP alone downloads a 1.2GB model, and running it (plus `ST` text
+embedding and extraction) over the full corpus took about 10 minutes locally
+on a 16-core machine -- expect it to take longer on CI runners with fewer
+cores. They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed)
+and run once each as ordinary correctness-checking tests as part of
+`poetry run pytest`. To measure their performance locally, run:
+
+```bash
+poetry run pytest tests/benchmarks --codspeed
+```
+
+The `benchmarks` CI job runs them on every push to `main` and every pull
+request using [CodSpeed](https://codspeed.io/) in `walltime` mode (these
+stages do real file I/O and spawn worker processes, which CPU simulation
+can't instrument well), posting a performance comparison against the `main`
+baseline on PRs. Add new benchmarks as `test_*.py` files in
+`tests/benchmarks/`, using the `benchmark` fixture (or the
+`@pytest.mark.benchmark` marker) from `pytest-codspeed`.
+
+Output/correctness regressions (e.g. extracted text, metadata, or embedding
+shapes unexpectedly changing) are tracked separately from performance, in
+`tests/test_pdf_processing_regressions.py`, using
+[`pytest-regressions`](https://pytest-regressions.readthedocs.io/en/latest/overview.html).
+This also uses the full `tests/test_data/pdfs` corpus, but with the cheap
+`Dummy` embedding models, since correctness here only depends on output
+shape, not on realistic embedding costs. If a change intentionally alters
+those outputs, regenerate the baselines with:
+
+```bash
+poetry run pytest tests/test_pdf_processing_regressions.py --force-regen
+```
+
+and commit the updated files under `tests/test_pdf_processing_regressions/`.
+
 #### Optional Static Type Checking
 
 The pytest will run mypy to check for type errors, so you shouldn't need to run it manually.
