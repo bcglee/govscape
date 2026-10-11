@@ -45,10 +45,10 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
-      - name: Make poetry available to later steps (incl. the CodSpeed action)
-        run: echo "/opt/poetry/bin" >> "$GITHUB_PATH"
       - name: Install packages
-        run: poetry install
+        run: |
+          export PATH=$PATH:/opt/poetry/bin
+          poetry install
       - name: Run CodSpeed benchmarks
         uses: CodSpeedHQ/action@v5
         with:
@@ -57,7 +57,13 @@ jobs:
           # `walltime` measures real elapsed time instead (see
           # `tests/benchmarks/test_pdf_processing_benchmarks.py`).
           mode: walltime
-          run: poetry run pytest tests/benchmarks --codspeed
+          # `/opt/poetry/bin` must be added to PATH inline (rather than via
+          # $GITHUB_PATH or a prior step) because this command is executed by
+          # the action as its own shell invocation, which does not inherit
+          # PATH changes exported in earlier steps.
+          run: |
+            export PATH=$PATH:/opt/poetry/bin
+            poetry run pytest tests/benchmarks --codspeed
 
 on:
   # Trigger the workflow on push or pull request,
