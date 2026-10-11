@@ -96,19 +96,24 @@ production) over the full real-world sample corpus in `tests/test_data/pdfs`
 slow: CLIP alone downloads a 1.2GB model, and running it (plus `ST` text
 embedding and extraction) over the full corpus took about 10 minutes locally
 on a 16-core machine -- expect it to take longer on CI runners with fewer
-cores. They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed)
-and run once each as ordinary correctness-checking tests as part of
-`poetry run pytest`. To measure their performance locally, run:
+cores. They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed).
+
+Because of that cost, `tests/benchmarks/` is excluded from the default
+`poetry run pytest tests` invocation (and from the CI `test` job, via
+`--ignore=tests/benchmarks`) so routine test runs stay fast. Run it directly,
+as a one-off correctness check (each benchmark executes once) or with
+`--codspeed` to measure performance locally:
 
 ```bash
+poetry run pytest tests/benchmarks
 poetry run pytest tests/benchmarks --codspeed
 ```
 
-The `benchmarks` CI job runs them on every push to `main` and every pull
-request using [CodSpeed](https://codspeed.io/) in `walltime` mode (these
-stages do real file I/O and spawn worker processes, which CPU simulation
-can't instrument well), posting a performance comparison against the `main`
-baseline on PRs. Add new benchmarks as `test_*.py` files in
+The dedicated `benchmarks` CI job runs them with `--codspeed` on every push to
+`main` and every pull request using [CodSpeed](https://codspeed.io/) in
+`walltime` mode (these stages do real file I/O and spawn worker processes,
+which CPU simulation can't instrument well), posting a performance comparison
+against the `main` baseline on PRs. Add new benchmarks as `test_*.py` files in
 `tests/benchmarks/`, using the `benchmark` fixture (or the
 `@pytest.mark.benchmark` marker) from `pytest-codspeed`.
 
