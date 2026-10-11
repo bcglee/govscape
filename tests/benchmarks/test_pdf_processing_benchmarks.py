@@ -27,14 +27,24 @@ than the cheap `Dummy` models, over the full ~1,660-page sample corpus (see
 `conftest.py`). This is deliberately expensive: CLIP alone downloads a 1.2GB
 model and takes roughly half a second per page on CPU, so the image embedding
 and end-to-end benchmarks can each take on the order of 10+ minutes in CI.
+
+Each stage below is wrapped with `_timed_stage`, which logs when it starts
+and how long it took. Pytest suppresses `logging` output by default, so pass
+`--log-cli-level=INFO` (already set for the CI `benchmarks` job) to see these
+live as a benchmark runs, rather than only after it finishes -- this is what
+to check if a run appears stuck.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 from govscape.config import DataModel
 from govscape.pdf_processing_pipeline import PDFProcessingPipeline
@@ -46,6 +56,23 @@ from govscape.processing import (
 from govscape.processing.pdf_extraction_stage import _convert_single_pdf
 
 CPU_COUNT = os.cpu_count() or 1
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _timed_stage(name: str, fn: Callable[[], T]) -> T:
+    """Run `fn`, logging a start/finish line with elapsed time around it.
+
+    Pair with `--log-cli-level=INFO` to see progress live instead of only at
+    the end of a (potentially many-minute) benchmark round.
+    """
+    logger.info("Starting %s...", name)
+    start = time.perf_counter()
+    result = fn()
+    logger.info("Finished %s in %.1fs", name, time.perf_counter() - start)
+    return result
 
 
 def _fresh_data_model(base_dir: Path) -> DataModel:
@@ -67,7 +94,7 @@ def test_single_pdf_conversion_benchmark(benchmark, sample_pdf_files, tmp_path: 
         shutil.rmtree(data_model.data_dir, ignore_errors=True)
         return ok
 
-    assert benchmark(run) is True
+    assert benchmark(lambda: _timed_stage("single PDF conversion", run)) is True
 
 
 def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
@@ -83,7 +110,8 @@ def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
         shutil.rmtree(data_model.data_dir, ignore_errors=True)
         return parsed_count
 
-    parsed_count = benchmark(run)
+    name = f"PDF extraction ({len(sample_pdf_files)} files)"
+    parsed_count = benchmark(lambda: _timed_stage(name, run))
     assert parsed_count == len(sample_pdf_files)
 
 
@@ -96,6 +124,8 @@ def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Pa
         pipeline = PDFProcessingPipeline(
             data_model.data_dir, text_model_type="ST", visual_model_type="CLIP"
         )
+        # pipeline.process_pdfs() already logs a line per internal stage
+        # (extraction, text embedding, image embedding) as it completes each.
         timings = pipeline.process_pdfs(
             sample_pdf_files,
             do_text_embedding=True,
@@ -106,7 +136,7 @@ def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Pa
         shutil.rmtree(data_model.data_dir, ignore_errors=True)
         return timings
 
-    timings = benchmark(run)
+    timings = benchmark(lambda: _timed_stage("end-to-end pipeline", run))
     assert len(timings) == 4
 
 
@@ -119,12 +149,18 @@ def test_text_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory)
     """
     data_dir = tmp_path_factory.mktemp("text_embedding_benchmark")
     data_model = DataModel(data_dir.as_posix())
-    PDFExtractionStage(
-        data_model=data_model, pdf_files=sample_pdf_files, cpu_count=CPU_COUNT
-    ).run()
-    stage = TextEmbeddingStage(data_model=data_model, model_type="ST")
+    _timed_stage(
+        "extraction setup (not benchmarked)",
+        PDFExtractionStage(
+            data_model=data_model, pdf_files=sample_pdf_files, cpu_count=CPU_COUNT
+        ).run,
+    )
+    stage = _timed_stage(
+        "loading ST text embedding model (not benchmarked; may download weights)",
+        lambda: TextEmbeddingStage(data_model=data_model, model_type="ST"),
+    )
 
-    benchmark(stage.run)
+    benchmark(lambda: _timed_stage("text embedding", stage.run))
 
 
 def test_image_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory):
@@ -136,11 +172,17 @@ def test_image_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory
     """
     data_dir = tmp_path_factory.mktemp("image_embedding_benchmark")
     data_model = DataModel(data_dir.as_posix())
-    PDFExtractionStage(
-        data_model=data_model, pdf_files=sample_pdf_files, cpu_count=CPU_COUNT
-    ).run()
-    stage = PageImageEmbeddingStage(
-        data_model=data_model, model_type="CLIP", cpu_count=CPU_COUNT
+    _timed_stage(
+        "extraction setup (not benchmarked)",
+        PDFExtractionStage(
+            data_model=data_model, pdf_files=sample_pdf_files, cpu_count=CPU_COUNT
+        ).run,
+    )
+    stage = _timed_stage(
+        "loading CLIP visual embedding model (not benchmarked; may download weights)",
+        lambda: PageImageEmbeddingStage(
+            data_model=data_model, model_type="CLIP", cpu_count=CPU_COUNT
+        ),
     )
 
-    benchmark(stage.run)
+    benchmark(lambda: _timed_stage("image embedding", stage.run))

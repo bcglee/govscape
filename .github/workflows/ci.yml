@@ -64,7 +64,12 @@ jobs:
           # `walltime` measures real elapsed time instead (see
           # `tests/benchmarks/test_pdf_processing_benchmarks.py`).
           mode: walltime
-          run: poetry run pytest tests/benchmarks --codspeed
+          # -v: print each test's name/result as it finishes (not just dots).
+          # --log-cli-level=INFO: stream the stage-by-stage `logging.info(...)`
+          # progress markers in test_pdf_processing_benchmarks.py live, so a
+          # long-running benchmark's progress (or lack of it) is visible
+          # instead of only seeing output once it completes.
+          run: poetry run pytest tests/benchmarks --codspeed -v --log-cli-level=INFO
 
 on:
   # Trigger the workflow on push or pull request,
