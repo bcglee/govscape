@@ -34,21 +34,28 @@ jobs:
     # ~10 minutes on a 16-core machine; CI runners typically have fewer
     # cores, so allow generous headroom before treating the job as hung.
     timeout-minutes: 60
-    container:
-      image: ghcr.io/bcglee/govscape-base:py3.11.14-lucene10.0.0-poetry2.3.2
-    # `id-token: write` lets the action authenticate with CodSpeed via OIDC.
-    # Public repos don't need a CODSPEED_TOKEN secret; add one here if the
-    # repo ever becomes private (see CodSpeed's GitHub Actions docs).
+    # Deliberately NOT run inside the govscape-base container (unlike the
+    # `test` job): CodSpeed's `walltime` instrument needs to adjust a
+    # host-level kernel sysctl (kernel.kptr_restrict), which a Docker
+    # container job can't do even running as root, causing
+    # "sysctl: permission denied" / "Failed to execute command with sudo"
+    # failures. This is safe because tests/benchmarks never touches
+    # govscape.indexing/pylucene (the only reason the other job needs the
+    # custom image), so a plain Python + Poetry setup is sufficient.
     permissions:
       contents: read
       id-token: write
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.14'
+      - name: Install Poetry
+        run: pipx install poetry==2.3.2
       - name: Install packages
-        run: |
-          export PATH=$PATH:/opt/poetry/bin
-          poetry install
+        run: poetry install
       - name: Run CodSpeed benchmarks
         uses: CodSpeedHQ/action@v5
         with:
@@ -57,13 +64,7 @@ jobs:
           # `walltime` measures real elapsed time instead (see
           # `tests/benchmarks/test_pdf_processing_benchmarks.py`).
           mode: walltime
-          # `/opt/poetry/bin` must be added to PATH inline (rather than via
-          # $GITHUB_PATH or a prior step) because this command is executed by
-          # the action as its own shell invocation, which does not inherit
-          # PATH changes exported in earlier steps.
-          run: |
-            export PATH=$PATH:/opt/poetry/bin
-            poetry run pytest tests/benchmarks --codspeed
+          run: poetry run pytest tests/benchmarks --codspeed
 
 on:
   # Trigger the workflow on push or pull request,
