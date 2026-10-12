@@ -34,15 +34,29 @@ and how long it took. Pytest suppresses `logging` output by default, so pass
 live as a benchmark runs, rather than only after it finishes -- this is what
 to check if a run appears stuck.
 
-The four multi-minute-per-round benchmarks below are pinned to exactly one
-round via `@pytest.mark.benchmark(max_rounds=1)`. CodSpeed's walltime
-instrument otherwise adaptively repeats a benchmark to gather a statistically
-stable measurement (by default, until it accumulates `max_time=1.0s` total or
-hits `max_rounds=100`), but for something this slow, a few repeats add noise
-signal of questionable value for an enormous time cost (each additional round
-re-pays full PDF extraction and/or model inference).
-`test_single_pdf_conversion_benchmark` is cheap per round, so it's left
-unpinned to benefit from CodSpeed's default repeat-for-confidence behavior.
+Why these benchmarks execute their function 2 times, not 1 (and used to run
+3 times): `pytest-codspeed`'s walltime instrument, when used via the plain
+`benchmark(fn)` call, unconditionally does: (1) an untimed call to capture a
+return value to assert on, (2) at least one warmup call (even with the
+default `warmup_time=0`, since the warmup loop always executes its body at
+least once before checking whether to stop), and (3) the measured round(s).
+For a function this slow, that's 1 (result) + 1 (warmup) + 1 (measured) = 3
+real executions -- regardless of `max_rounds`, since these operations already
+take far longer than the default 1s time budget, which makes the walltime
+instrument stop after a single measured round on its own. (An earlier attempt
+to "fix" this by pinning `max_rounds=1` therefore had no real effect: these
+benchmarks were already down to a single *measured* round; the other two
+executions are unavoidable in the plain `benchmark(fn)` API.)
+
+The four multi-minute-per-round benchmarks below instead use
+`benchmark.pedantic(fn, rounds=1, warmup_rounds=0, iterations=1)`, which skips
+the warmup call entirely, cutting total executions from 3 to 2: one measured
+round, plus one final, unconditional call pytest-codspeed itself makes to
+return a value to assert on. 2 is the practical floor with this instrument's
+public API -- that final call isn't configurable away.
+`test_single_pdf_conversion_benchmark` is cheap per round, so it's left on the
+plain `benchmark(fn)` call to benefit from CodSpeed's default
+repeat-for-confidence behavior.
 """
 
 from __future__ import annotations
@@ -55,8 +69,6 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
-
-import pytest
 
 from govscape.config import DataModel
 from govscape.pdf_processing_pipeline import PDFProcessingPipeline
@@ -109,7 +121,6 @@ def test_single_pdf_conversion_benchmark(benchmark, sample_pdf_files, tmp_path: 
     assert benchmark(lambda: _timed_stage("single PDF conversion", run)) is True
 
 
-@pytest.mark.benchmark(max_rounds=1)
 def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
     """Benchmark converting the full PDF sample to per-page text, images, and
     metadata."""
@@ -124,11 +135,12 @@ def test_pdf_extraction_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
         return parsed_count
 
     name = f"PDF extraction ({len(sample_pdf_files)} files)"
-    parsed_count = benchmark(lambda: _timed_stage(name, run))
+    parsed_count = benchmark.pedantic(
+        lambda: _timed_stage(name, run), rounds=1, warmup_rounds=0, iterations=1
+    )
     assert parsed_count == len(sample_pdf_files)
 
 
-@pytest.mark.benchmark(max_rounds=1)
 def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Path):
     """Benchmark the full PDF -> text/image -> embeddings pipeline (no OCR),
     using the real ST/CLIP models (see module docstring)."""
@@ -150,17 +162,21 @@ def test_end_to_end_pipeline_benchmark(benchmark, sample_pdf_files, tmp_path: Pa
         shutil.rmtree(data_model.data_dir, ignore_errors=True)
         return timings
 
-    timings = benchmark(lambda: _timed_stage("end-to-end pipeline", run))
+    timings = benchmark.pedantic(
+        lambda: _timed_stage("end-to-end pipeline", run),
+        rounds=1,
+        warmup_rounds=0,
+        iterations=1,
+    )
     assert len(timings) == 4
 
 
-@pytest.mark.benchmark(max_rounds=1)
 def test_text_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory):
     """Benchmark embedding the extracted page text with the real ST model.
 
     The `TextEmbeddingStage` (and its model) is built once, outside the
-    benchmarked callable, so repeated rounds measure encoding throughput
-    rather than re-paying the one-time model download/load cost.
+    benchmarked callable, so the measured call isolates encoding throughput
+    from the one-time model download/load cost.
     """
     data_dir = tmp_path_factory.mktemp("text_embedding_benchmark")
     data_model = DataModel(data_dir.as_posix())
@@ -175,16 +191,20 @@ def test_text_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory)
         lambda: TextEmbeddingStage(data_model=data_model, model_type="ST"),
     )
 
-    benchmark(lambda: _timed_stage("text embedding", stage.run))
+    benchmark.pedantic(
+        lambda: _timed_stage("text embedding", stage.run),
+        rounds=1,
+        warmup_rounds=0,
+        iterations=1,
+    )
 
 
-@pytest.mark.benchmark(max_rounds=1)
 def test_image_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory):
     """Benchmark embedding the extracted page images with the real CLIP model.
 
     The `PageImageEmbeddingStage` (and its model) is built once, outside the
-    benchmarked callable, so repeated rounds measure encoding throughput
-    rather than re-paying the one-time model download/load cost.
+    benchmarked callable, so the measured call isolates encoding throughput
+    from the one-time model download/load cost.
     """
     data_dir = tmp_path_factory.mktemp("image_embedding_benchmark")
     data_model = DataModel(data_dir.as_posix())
@@ -201,4 +221,9 @@ def test_image_embedding_benchmark(benchmark, sample_pdf_files, tmp_path_factory
         ),
     )
 
-    benchmark(lambda: _timed_stage("image embedding", stage.run))
+    benchmark.pedantic(
+        lambda: _timed_stage("image embedding", stage.run),
+        rounds=1,
+        warmup_rounds=0,
+        iterations=1,
+    )
