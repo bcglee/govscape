@@ -1,6 +1,6 @@
 """CodSpeed benchmarks for the PDF processing pipeline.
 
-Run locally with `poetry run pytest tests/benchmarks --codspeed`. 
+Run locally with `poetry run pytest tests/benchmarks --codspeed`.
 """
 
 from __future__ import annotations
