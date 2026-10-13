@@ -85,6 +85,32 @@ poetry run pytest
 - Tests are located in the `govscape/tests/` directory at the project root.
 - Write thorough tests for your new features and bug fixes.
 
+#### Performance Benchmarks
+
+Benchmarks live in `tests/benchmarks/` and cover the PDF processing pipeline (extraction, text embedding, and image embedding), using the real `ST` and
+`CLIP` models over the full real-world sample corpus in `tests/test_data/pdfs`
+(100 PDFs, ~1,660 pages).They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed). Run these directly with the following command:
+```bash
+poetry run pytest tests/benchmarks --codspeed
+```
+
+The dedicated `benchmarks` CI job runs them with `--codspeed` on every push to
+`main` and every pull request using [CodSpeed](https://codspeed.io/) in
+`walltime` mode (TODO: find a dedicated runner), posting a performance comparison
+against the `main` baseline on PRs. Add new benchmarks as `test_*.py` files in
+`tests/benchmarks/`, using the `benchmark` fixture (or the
+`@pytest.mark.benchmark` marker) from `pytest-codspeed`.
+
+#### Regression Tests
+End-to-end regression tests are in
+`tests/test_pdf_processing_regressions.py`, using
+[`pytest-regressions`](https://pytest-regressions.readthedocs.io/en/latest/overview.html).
+This also uses the full `tests/test_data/pdfs` corpus, but with the cheap `Dummy` embedding models. If a change intentionally alters those outputs, regenerate the baselines with:
+
+```bash
+poetry run pytest tests/test_pdf_processing_regressions.py --force-regen
+```
+
 #### Optional Static Type Checking
 
 The pytest will run mypy to check for type errors, so you shouldn't need to run it manually.
