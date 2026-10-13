@@ -5,11 +5,6 @@ These complement the CodSpeed benchmarks in `tests/benchmarks/` (which track
 deterministic pipeline *outputs* (extracted text, metadata, embedding shapes)
 so unexpected changes in behavior are caught independently of timing noise.
 
-This uses the same full real-world PDF sample as the CodSpeed benchmarks (see
-`tests/benchmarks/conftest.py`), but with the cheap `Dummy` embedding models:
-correctness here only depends on extraction/embedding *shape*, not on
-realistic embedding model costs, so there is no need to pay for `ST`/`CLIP`.
-
 If a change intentionally alters these outputs, regenerate the baselines with
 `poetry run pytest tests/test_pdf_processing_regressions.py --force-regen` and
 commit the updated files under

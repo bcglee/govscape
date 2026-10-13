@@ -1,62 +1,6 @@
 """CodSpeed benchmarks for the PDF processing pipeline.
 
-Run locally with `poetry run pytest tests/benchmarks --codspeed`. Without the
-`--codspeed` flag, these run once as ordinary correctness-checking tests.
-
-These stages do real file I/O and (for extraction/image embedding) spawn
-worker processes, so CI measures them with CodSpeed's `walltime` instrument
-rather than CPU simulation (see the `benchmarks` job in
-`.github/workflows/ci.yml`). Output/correctness regressions (as opposed to
-performance regressions) are covered separately by
-`tests/test_pdf_processing_regressions.py`, using `pytest-regressions`.
-
-Note: `PDFExtractionStage`/`PageImageEmbeddingStage` spawn their worker pool
-with `multiprocessing.get_context("spawn")`, so every call re-imports
-`govscape.processing` (and, transitively, `torch`/`transformers` via
-`visual_embedding_models`) in each worker. That import alone costs several
-seconds, dwarfing the actual per-PDF parsing work, so
-`test_single_pdf_conversion_benchmark` below measures just the core
-conversion logic in-process (no spawn) to isolate that signal; the other
-benchmarks intentionally measure the full, spawn-inclusive stage cost since
-that is what real pipeline runs pay.
-
-These benchmarks use the real `ST` (sentence-transformers/all-mpnet-base-v2)
-text model and `CLIP` (openai/clip-vit-base-patch32) visual model -- the same
-defaults `scripts/serving/start_api_server.py` uses in production -- rather
-than the cheap `Dummy` models, over the full ~1,660-page sample corpus (see
-`conftest.py`). This is deliberately expensive: CLIP alone downloads a 1.2GB
-model and takes roughly half a second per page on CPU, so the image embedding
-and end-to-end benchmarks can each take on the order of 10+ minutes in CI.
-
-Each stage below is wrapped with `_timed_stage`, which logs when it starts
-and how long it took. Pytest suppresses `logging` output by default, so pass
-`--log-cli-level=INFO` (already set for the CI `benchmarks` job) to see these
-live as a benchmark runs, rather than only after it finishes -- this is what
-to check if a run appears stuck.
-
-Why these benchmarks execute their function 2 times, not 1 (and used to run
-3 times): `pytest-codspeed`'s walltime instrument, when used via the plain
-`benchmark(fn)` call, unconditionally does: (1) an untimed call to capture a
-return value to assert on, (2) at least one warmup call (even with the
-default `warmup_time=0`, since the warmup loop always executes its body at
-least once before checking whether to stop), and (3) the measured round(s).
-For a function this slow, that's 1 (result) + 1 (warmup) + 1 (measured) = 3
-real executions -- regardless of `max_rounds`, since these operations already
-take far longer than the default 1s time budget, which makes the walltime
-instrument stop after a single measured round on its own. (An earlier attempt
-to "fix" this by pinning `max_rounds=1` therefore had no real effect: these
-benchmarks were already down to a single *measured* round; the other two
-executions are unavoidable in the plain `benchmark(fn)` API.)
-
-The four multi-minute-per-round benchmarks below instead use
-`benchmark.pedantic(fn, rounds=1, warmup_rounds=0, iterations=1)`, which skips
-the warmup call entirely, cutting total executions from 3 to 2: one measured
-round, plus one final, unconditional call pytest-codspeed itself makes to
-return a value to assert on. 2 is the practical floor with this instrument's
-public API -- that final call isn't configurable away.
-`test_single_pdf_conversion_benchmark` is cheap per round, so it's left on the
-plain `benchmark(fn)` call to benefit from CodSpeed's default
-repeat-for-confidence behavior.
+Run locally with `poetry run pytest tests/benchmarks --codspeed`. 
 """
 
 from __future__ import annotations
