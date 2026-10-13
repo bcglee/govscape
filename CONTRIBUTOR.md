@@ -87,50 +87,29 @@ poetry run pytest
 
 #### Performance Benchmarks
 
-Benchmarks live in `tests/benchmarks/` and cover the PDF processing pipeline
-(extraction, text embedding, and image embedding), using the real `ST` and
-`CLIP` models (the same defaults `scripts/serving/start_api_server.py` uses in
-production) over the full real-world sample corpus in `tests/test_data/pdfs`
-(100 PDFs, ~1,660 pages; the file list comes from
-`tests/test_data/cdx/digests_manifest.csv`). This is deliberately heavy and
-slow: CLIP alone downloads a 1.2GB model, and running it (plus `ST` text
-embedding and extraction) over the full corpus took about 10 minutes locally
-on a 16-core machine -- expect it to take longer on CI runners with fewer
-cores. They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed).
-
-Because of that cost, `tests/benchmarks/` is excluded from the default
-`poetry run pytest tests` invocation (and from the CI `test` job, via
-`--ignore=tests/benchmarks`) so routine test runs stay fast. Run it directly,
-as a one-off correctness check (each benchmark executes once) or with
-`--codspeed` to measure performance locally:
-
+Benchmarks live in `tests/benchmarks/` and cover the PDF processing pipeline (extraction, text embedding, and image embedding), using the real `ST` and
+`CLIP` models over the full real-world sample corpus in `tests/test_data/pdfs`
+(100 PDFs, ~1,660 pages).They use [`pytest-codspeed`](https://github.com/CodSpeedHQ/pytest-codspeed). Run these directly with the following command:
 ```bash
-poetry run pytest tests/benchmarks
 poetry run pytest tests/benchmarks --codspeed
 ```
 
 The dedicated `benchmarks` CI job runs them with `--codspeed` on every push to
 `main` and every pull request using [CodSpeed](https://codspeed.io/) in
-`walltime` mode (these stages do real file I/O and spawn worker processes,
-which CPU simulation can't instrument well), posting a performance comparison
+`walltime` mode (TODO: find a dedicated runner), posting a performance comparison
 against the `main` baseline on PRs. Add new benchmarks as `test_*.py` files in
 `tests/benchmarks/`, using the `benchmark` fixture (or the
 `@pytest.mark.benchmark` marker) from `pytest-codspeed`.
 
-Output/correctness regressions (e.g. extracted text, metadata, or embedding
-shapes unexpectedly changing) are tracked separately from performance, in
+#### Regression Tests
+End-to-end regression tests are in
 `tests/test_pdf_processing_regressions.py`, using
 [`pytest-regressions`](https://pytest-regressions.readthedocs.io/en/latest/overview.html).
-This also uses the full `tests/test_data/pdfs` corpus, but with the cheap
-`Dummy` embedding models, since correctness here only depends on output
-shape, not on realistic embedding costs. If a change intentionally alters
-those outputs, regenerate the baselines with:
+This also uses the full `tests/test_data/pdfs` corpus, but with the cheap `Dummy` embedding models. If a change intentionally alters those outputs, regenerate the baselines with:
 
 ```bash
 poetry run pytest tests/test_pdf_processing_regressions.py --force-regen
 ```
-
-and commit the updated files under `tests/test_pdf_processing_regressions/`.
 
 #### Optional Static Type Checking
 
