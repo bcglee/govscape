@@ -170,6 +170,10 @@ class CLIP_VisualEmbeddingModel(VisualEmbeddingModel):
                 self._load_and_process_image,
                 [(p, self.processor) for p in path_batches],
             )
+            # Let workers exit on their own: Pool.__exit__ terminates them, and some
+            # native libs' SIGTERM handlers (e.g. Paddle's) can deadlock.
+            pool.close()
+            pool.join()
 
         # Keep track of which input rows each preprocessed image belongs to, so
         # failed images do not shift the embeddings of the ones after them.

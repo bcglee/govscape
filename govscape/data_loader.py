@@ -164,6 +164,11 @@ class DataLoader(ABC):
                 workers = min(os.cpu_count() or 1, len(tasks))
                 with Pool(processes=workers) as pool:
                     pool.map(self._create_tar_chunk, tasks)
+                    # Let workers exit on their own: Pool.__exit__ terminates
+                    # them, and some native libs' SIGTERM handlers (e.g.
+                    # Paddle's) can deadlock.
+                    pool.close()
+                    pool.join()
             self.upload_directory(tmp_dir, remote_prefix, compress=False)
 
     @abstractmethod

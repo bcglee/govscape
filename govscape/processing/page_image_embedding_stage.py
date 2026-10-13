@@ -83,3 +83,7 @@ class PageImageEmbeddingStage(ProcessingStage):
                 _save_embeddings_batch,
                 zip(chunks, chunk_embed_file_paths, strict=False),
             )
+            # Let workers exit on their own: Pool.__exit__ terminates them, and some
+            # native libs' SIGTERM handlers (e.g. Paddle's) can deadlock.
+            pool.close()
+            pool.join()
